@@ -1,1 +1,5 @@
 rootProject.name = 'backend'
+
+include 'gateway'
+include 'auth-service'
+include 'festival-service'

@@ -1,0 +1,14 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: festival-service
+  datasource:
+    url: jdbc:mysql://${FESTIVAL_DB_HOST:localhost}:${FESTIVAL_DB_PORT:3307}/${FESTIVAL_DB_NAME:festival_db}
+    username: ${FESTIVAL_DB_USERNAME:festival_user}
+    password: ${FESTIVAL_DB_PASSWORD:festival_password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false

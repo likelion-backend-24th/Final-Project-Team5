@@ -1,7 +1,7 @@
 services:
-  auth-db:
+  core-db:
     image: mysql:8.0
-    container_name: auth-db
+    container_name: core-db
     restart: unless-stopped
     environment:
       MYSQL_DATABASE: ${AUTH_DB_NAME:-auth_db}
@@ -11,37 +11,8 @@ services:
     ports:
       - "${AUTH_DB_PORT:-3307}:3306"
     volumes:
-      - auth-db-data:/var/lib/mysql
-
-  festival-db:
-    image: mysql:8.0
-    container_name: festival-db
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${FESTIVAL_DB_NAME:-festival_db}
-      MYSQL_USER: ${FESTIVAL_DB_USERNAME:-festival_user}
-      MYSQL_PASSWORD: ${FESTIVAL_DB_PASSWORD:-festival_password}
-      MYSQL_ROOT_PASSWORD: ${FESTIVAL_DB_ROOT_PASSWORD:-root_password}
-    ports:
-      - "${FESTIVAL_DB_PORT:-3308}:3306"
-    volumes:
-      - festival-db-data:/var/lib/mysql
-
-  reservation-db:
-    image: mysql:8.0
-    container_name: reservation-db
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${RESERVATION_DB_NAME:-reservation_db}
-      MYSQL_USER: ${RESERVATION_DB_USERNAME:-reservation_user}
-      MYSQL_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation_password}
-      MYSQL_ROOT_PASSWORD: ${RESERVATION_DB_ROOT_PASSWORD:-root_password}
-    ports:
-      - "${RESERVATION_DB_PORT:-3309}:3306"
-    volumes:
-      - reservation-db-data:/var/lib/mysql
+      - core-db-data:/var/lib/mysql
+      - ./mysql-init/core-db:/docker-entrypoint-initdb.d:ro
 
 volumes:
-  auth-db-data:
-  festival-db-data:
-  reservation-db-data:
+  core-db-data:

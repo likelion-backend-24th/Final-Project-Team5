@@ -1,0 +1,17 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: reservation-service
+  datasource:
+    url: jdbc:mysql://${RESERVATION_DB_HOST:localhost}:${RESERVATION_DB_PORT:3309}/${RESERVATION_DB_NAME:reservation_db}
+    username: ${RESERVATION_DB_USERNAME:reservation_user}
+    password: ${RESERVATION_DB_PASSWORD:reservation_password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+festival-service:
+  base-url: ${FESTIVAL_SERVICE_URL:http://localhost:8082}

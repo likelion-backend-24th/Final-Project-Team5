@@ -10,7 +10,7 @@ spring:
     password: ${RESERVATION_DB_PASSWORD:reservation_password}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     open-in-view: false
 
 festival-service:

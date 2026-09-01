@@ -10,5 +10,5 @@ spring:
     password: ${FESTIVAL_DB_PASSWORD:festival_password}
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     open-in-view: false

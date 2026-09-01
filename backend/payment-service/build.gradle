@@ -1,15 +1,15 @@
 dependencies {
-    //jpa,web
+    // jpa, web
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-    //validation
+    // validation
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
-    //swagger
+    // swagger
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17'
 
-    //env
+    // env
     implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
     // mysql
@@ -19,8 +19,7 @@ dependencies {
     //security 관련 의존성
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
-    // AWS S3 (페스티벌 배너·대표이미지 업로드용, 필요 시 주석 해제)
-    // implementation platform('software.amazon.awssdk:bom:2.25.11')
-    // implementation 'software.amazon.awssdk:s3'
+    // 포트원 결제 SDK
+    implementation 'io.portone:server-sdk:0.12.0'
 
 }

@@ -14,20 +14,5 @@ services:
       - core-db-data:/var/lib/mysql
       - ./mysql-init/core-db:/docker-entrypoint-initdb.d:ro
 
-  reservation-db:
-    image: mysql:8.0
-    container_name: reservation-db
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${RESERVATION_DB_NAME:-reservation_db}
-      MYSQL_USER: ${RESERVATION_DB_USERNAME:-reservation_user}
-      MYSQL_PASSWORD: ${RESERVATION_DB_PASSWORD:-reservation_password}
-      MYSQL_ROOT_PASSWORD: ${RESERVATION_DB_ROOT_PASSWORD:-root_password}
-    ports:
-      - "${RESERVATION_DB_PORT:-3309}:3306"
-    volumes:
-      - reservation-db-data:/var/lib/mysql
-
 volumes:
   core-db-data:
-  reservation-db-data:

@@ -19,4 +19,10 @@ public class TicketTypeService {
             throw new ApiException(HttpStatus.CONFLICT, "STOCK_EXCEEDED", "재고가 부족합니다");
         }
     }
+
+    //결제 실패·취소 시 차감했던 재고를 복구하는 메서드
+    @Transactional
+    public void restoreStock(Long ticketTypeId, int quantity) {
+        ticketTypeRepository.restoreStock(ticketTypeId, quantity);
+    }
 }

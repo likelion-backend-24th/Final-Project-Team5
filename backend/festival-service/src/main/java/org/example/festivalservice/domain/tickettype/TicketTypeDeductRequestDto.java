@@ -1,4 +1,8 @@
 package org.example.festivalservice.domain.tickettype;
 
-public class TicketTypeDeductRequestDto {
+import jakarta.validation.constraints.Positive;
+
+public record TicketTypeDeductRequestDto(
+        @Positive int quantity
+) {
 }

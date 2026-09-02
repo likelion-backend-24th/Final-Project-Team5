@@ -58,4 +58,14 @@ public class HostApplication {
         this.contact = contact;
         this.status = HostApplicationStatus.PENDING;
     }
+
+    //운영자 심사: 승인
+    public void approve() {
+        this.status = HostApplicationStatus.APPROVED;
+    }
+
+    //운영자 심사: 반려
+    public void reject() {
+        this.status = HostApplicationStatus.REJECTED;
+    }
 }

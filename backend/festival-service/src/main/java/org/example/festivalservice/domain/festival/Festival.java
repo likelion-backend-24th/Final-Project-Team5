@@ -57,4 +57,14 @@ public class Festival {
 
     @Column(name = "is_deleted")
     private boolean isDeleted;
+
+    //운영자 심사: 공개 승인
+    public void publish() {
+        this.festivalStatus = FestivalStatus.PUBLISHED;
+    }
+
+    //운영자 심사: 반려
+    public void reject() {
+        this.festivalStatus = FestivalStatus.REJECTED;
+    }
 }

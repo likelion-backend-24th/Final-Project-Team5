@@ -13,6 +13,9 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
     //방문자용 공개 목록 — 승인(공개) 상태만 페이징 조회
     Page<Festival> findByFestivalStatus(FestivalStatus festivalStatus, Pageable pageable);
 
+    //운영자 심사 목록 — 상태별 전체 조회(페이징 없음)
+    List<Festival> findByFestivalStatus(FestivalStatus festivalStatus);
+
     //방문자용 상세 — 승인(공개) 상태인 것만, 아니면 404 처리하도록 빈 Optional 반환
     Optional<Festival> findByIdAndFestivalStatus(Long id, FestivalStatus festivalStatus);
 }

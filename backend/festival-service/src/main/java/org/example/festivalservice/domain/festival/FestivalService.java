@@ -17,9 +17,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class FestivalService {
 
     private static final String HOST_ROLE = "HOST";
+    private static final String ADMIN_ROLE = "ADMIN";
     private static final String FORBIDDEN_ROLE = "FORBIDDEN_ROLE";
     private static final String FESTIVAL_NOT_FOUND = "FESTIVAL_NOT_FOUND";
     private static final String FORBIDDEN_NOT_OWNER = "FORBIDDEN_NOT_OWNER";
+    private static final String INVALID_DECISION = "INVALID_DECISION";
+    private static final String ALREADY_REVIEWED = "ALREADY_REVIEWED";
 
     private final FestivalRepository festivalRepository;
     private final TicketTypeRepository ticketTypeRepository;
@@ -39,7 +42,7 @@ public class FestivalService {
                 .endAt(request.endAt())
                 .location(request.location())
                 .festivalCategory(request.festivalCategory())
-                .festivalStatus(FestivalStatus.PUBLISHED)
+                .festivalStatus(FestivalStatus.PENDING)
                 .build();
         Festival saved = festivalRepository.save(festival);
 
@@ -103,6 +106,40 @@ public class FestivalService {
     public FestivalResponseDto getFestivalDetail(Long id) {
         Festival festival = festivalRepository.findByIdAndFestivalStatus(id, FestivalStatus.PUBLISHED)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, FESTIVAL_NOT_FOUND, "존재하지 않는 페스티벌입니다"));
+        return FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(id));
+    }
+
+    //운영자가 심사 대기(PENDING) 중인 페스티벌 목록을 조회한다
+    public List<FestivalResponseDto> listPendingFestivals(String role) {
+        if (!ADMIN_ROLE.equals(role)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "운영자 권한이 없습니다");
+        }
+        return festivalRepository.findByFestivalStatus(FestivalStatus.PENDING).stream()
+                .map(festival -> FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(festival.getId())))
+                .toList();
+    }
+
+    //운영자가 대기 중인 페스티벌을 공개(PUBLISHED)·반려(REJECTED) 처리한다
+    @Transactional
+    public FestivalResponseDto reviewFestival(Long id, String role, FestivalReviewRequestDto request) {
+        if (!ADMIN_ROLE.equals(role)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "운영자 권한이 없습니다");
+        }
+        if (request.decision() != FestivalStatus.PUBLISHED && request.decision() != FestivalStatus.REJECTED) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_DECISION, "공개 또는 반려만 결정할 수 있습니다");
+        }
+
+        Festival festival = festivalRepository.findById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, FESTIVAL_NOT_FOUND, "존재하지 않는 페스티벌입니다"));
+        if (festival.getFestivalStatus() != FestivalStatus.PENDING) {
+            throw new ApiException(HttpStatus.CONFLICT, ALREADY_REVIEWED, "이미 심사 처리된 페스티벌입니다");
+        }
+
+        if (request.decision() == FestivalStatus.PUBLISHED) {
+            festival.publish();
+        } else {
+            festival.reject();
+        }
         return FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(id));
     }
 }

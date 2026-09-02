@@ -12,3 +12,12 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+
+# Festival-Service → Auth-Service 내부 호출(PUT /internal/v1/roles) 설정
+# TODO: 실제 Bearer Token 계약(값·헤더 형식)은 Auth-Service 담당자와 합의 필요
+auth-service:
+  base-url: ${AUTH_SERVICE_URL:http://localhost:8081}
+
+internal:
+  auth-service:
+    token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}

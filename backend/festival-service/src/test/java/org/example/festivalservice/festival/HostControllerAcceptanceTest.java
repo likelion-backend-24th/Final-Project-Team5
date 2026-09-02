@@ -65,7 +65,7 @@ class HostControllerAcceptanceTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.name", is("가을 뮤직 페스티벌")))
                 .andExpect(jsonPath("$.data.hostUserId", is(1)))
-                .andExpect(jsonPath("$.data.festivalStatus", is("PUBLISHED")))
+                .andExpect(jsonPath("$.data.festivalStatus", is("PENDING")))
                 .andExpect(jsonPath("$.data.ticketTypes", hasSize(2)))
                 .andExpect(jsonPath("$.data.ticketTypes[0].remainQuantity", is(100)));
     }

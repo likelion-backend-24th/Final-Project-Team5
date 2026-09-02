@@ -1,6 +1,7 @@
 package org.example.authservice.auth.repository;
 
 import org.example.authservice.auth.entity.RefreshToken;
+import org.example.authservice.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,4 +14,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     Optional<RefreshToken> findByTokenHash(String tokenHash);
     // 재사용 탐지 시 유저의 살아있는 토큰 전체 조회 (강제 폐기용)
     List<RefreshToken> findAllByUser_IdAndRevokedAtIsNull(Long userId);
+    //사용할 일이 생길수도 있어서 만들어놓음
+    Optional<RefreshToken> findByUser(User user);
 }

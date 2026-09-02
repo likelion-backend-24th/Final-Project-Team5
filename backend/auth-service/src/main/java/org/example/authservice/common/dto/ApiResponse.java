@@ -5,29 +5,22 @@ import lombok.Getter;
 @Getter
 public class ApiResponse<T> {
     private final boolean success;
-    private final String message;
     private final T data;
-    private final Meta meta;
-    private final String errorCode;
+    private final String message;
+    private final String code;
 
-    private ApiResponse(boolean success, String message, T data, Meta meta, String errorCode) {
+    private ApiResponse(boolean success, T data, String message, String code) {
         this.success = success;
-        this.message = message;
         this.data = data;
-        this.meta = meta;
-        this.errorCode = errorCode;
+        this.message = message;
+        this.code = code;
     }
 
-    public static <T> ApiResponse<T> success(String message, T data) {
-        return new ApiResponse<>(true, message, data, null, null);
+    public static <T> ApiResponse<T> success(T data) {
+        return new ApiResponse<>(true, data, null, null);
     }
 
-    public static <T> ApiResponse<T> success(String message, T data, Meta meta) {
-        return new ApiResponse<>(true, message, data, meta, null);
-    }
-
-    public static ApiResponse<Void> error(String errorCode, String message) {
-        return new ApiResponse<>(false, message, null, null, errorCode);
+    public static ApiResponse<Void> error(String code, String message) {
+        return new ApiResponse<>(false, null, message, code);
     }
 }
-

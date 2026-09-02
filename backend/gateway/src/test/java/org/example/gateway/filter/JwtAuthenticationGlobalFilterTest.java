@@ -65,7 +65,7 @@ class JwtAuthenticationGlobalFilterTest {
 
     @Test
     void rejectsProtectedPathWithoutToken() {
-        MockServerHttpRequest request = MockServerHttpRequest.post("/api/organizer-applications").build();
+        MockServerHttpRequest request = MockServerHttpRequest.post("/api/host-applications").build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
 
         filter.filter(exchange, chain).block();
@@ -76,7 +76,7 @@ class JwtAuthenticationGlobalFilterTest {
 
     @Test
     void rejectsProtectedPathWithInvalidToken() {
-        MockServerHttpRequest request = MockServerHttpRequest.post("/api/organizer-applications")
+        MockServerHttpRequest request = MockServerHttpRequest.post("/api/host-applications")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer not-a-real-token")
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
@@ -94,7 +94,7 @@ class JwtAuthenticationGlobalFilterTest {
                 .signWith(secretKey)
                 .compact();
 
-        MockServerHttpRequest request = MockServerHttpRequest.post("/api/organizer-applications")
+        MockServerHttpRequest request = MockServerHttpRequest.post("/api/host-applications")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);

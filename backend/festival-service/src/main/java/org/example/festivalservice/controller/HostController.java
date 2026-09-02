@@ -1,0 +1,42 @@
+package org.example.festivalservice.controller;
+
+import org.example.festivalservice.common.ApiResponse;
+import org.example.festivalservice.domain.festival.Festival;
+import org.example.festivalservice.domain.festival.FestivalResponseDto;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/host/festivals")
+public class HostController {
+
+    //승인된 주최자가 새 페스티벌(및 티켓 종류)을 등록한다
+    @PostMapping
+    public ResponseEntity<ApiResponse<?>> createFestival(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role
+    ){
+        return null;
+    }
+
+    //주최자가 본인이 등록한 페스티벌 목록을 조회한다
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<FestivalResponseDto>>> listMyFestivals(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role
+    ){
+        return null;
+    }
+
+    //주최자가 본인 페스티벌의 상세 정보를 조회한다
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<FestivalResponseDto>> getMyFestivalDetail(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role
+    ){
+        return null;
+    }
+}

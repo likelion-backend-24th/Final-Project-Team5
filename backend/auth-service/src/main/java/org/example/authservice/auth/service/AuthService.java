@@ -95,7 +95,7 @@ public class AuthService {
         }
         // 받은 토큰을 해시해서 DB조회
         String tokenHash = hashToken(refreshToken);
-        RefreshToken savedRefreshToken = refreshTokenRepository.findByTokenHash(refreshToken)
+        RefreshToken savedRefreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new ApiException(AuthErrorCode.INVALID_REFRESH_TOKEN));
 
         // 이미 페기된 토큰이 재사용되었는지 확인

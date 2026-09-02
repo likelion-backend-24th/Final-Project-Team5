@@ -14,9 +14,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(errorCode.getHttpStatus()).body(ApiResponse.error(errorCode.name(), e.getMessage()));
     }
 
+    //vaildation 오류 처리
+    // http 응답 body에 dto에 설정한 @Notblank 여기에 메세지가 가져와진다.
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .findFirst()
+                .map(fe -> fe.getDefaultMessage())
+                .orElse("입력값이 올바르지 않습니다.");
         return ResponseEntity.status(400)
-                .body(ApiResponse.error("VALIDATION_ERROR", "입력값이 올바르지 않습니다."));
+                .body(ApiResponse.error("VALIDATION_ERROR", message));
     }
 }

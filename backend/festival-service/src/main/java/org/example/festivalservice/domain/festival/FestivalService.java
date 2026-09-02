@@ -6,6 +6,8 @@ import org.example.festivalservice.common.ApiException;
 import org.example.festivalservice.domain.tickettype.TicketType;
 import org.example.festivalservice.domain.tickettype.TicketTypeRepository;
 import org.example.festivalservice.domain.tickettype.TicketTypeRequestDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,5 +91,18 @@ public class FestivalService {
                 .totalQuantity(request.quantity())
                 .remainQuantity(request.quantity())
                 .build();
+    }
+
+    //페스티벌 목록 조회(페이징), 인증 불필요 — 공개(PUBLISHED) 상태만 노출
+    public Page<FestivalResponseDto> listFestivals(Pageable pageable) {
+        return festivalRepository.findByFestivalStatus(FestivalStatus.PUBLISHED, pageable)
+                .map(festival -> FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(festival.getId())));
+    }
+
+    //페스티벌 상세 조회, 인증 불필요 — 공개(PUBLISHED) 상태가 아니면 404(미승인·반려 페스티벌은 존재 자체를 숨김)
+    public FestivalResponseDto getFestivalDetail(Long id) {
+        Festival festival = festivalRepository.findByIdAndFestivalStatus(id, FestivalStatus.PUBLISHED)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, FESTIVAL_NOT_FOUND, "존재하지 않는 페스티벌입니다"));
+        return FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(id));
     }
 }

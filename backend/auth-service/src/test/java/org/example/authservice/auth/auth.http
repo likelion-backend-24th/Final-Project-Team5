@@ -1,4 +1,4 @@
-### 1. 회원가입 - 성공(201)
+### 회원가입 - 성공(201)
 POST http://localhost:8081/api/auth/signup
 Content-Type: application/json
 
@@ -9,7 +9,7 @@ Content-Type: application/json
   "nickname": "안양개발자"
 }
 
-### 2. 회원가입 - 실패(이메일 중복, 닉네임 중복, 이메일 형식틀림,비밀번호8자미만,누락)
+### 회원가입 - 실패(이메일 중복, 닉네임 중복, 이메일 형식틀림,비밀번호8자미만,누락)
 POST http://localhost:8081/api/auth/signup
 Content-Type: application/json
 
@@ -20,7 +20,7 @@ Content-Type: application/json
   "nickname": "안양개발자"
 }
 
-### 3. 로그인 - 성공 (200)
+### 로그인 - 성공 (200)
 POST http://localhost:8081/api/auth/login
 Content-Type: application/json
 
@@ -30,7 +30,7 @@ Content-Type: application/json
 }
 
 
-### 12. 로그인실패 - 존재하지않는 이메일, 비번 틀림, 누락값
+### 로그인실패 - 존재하지않는 이메일, 비번 틀림, 누락값
 POST http://localhost:8081/api/auth/login
 Content-Type: application/json
 
@@ -38,4 +38,7 @@ Content-Type: application/json
   "username": "",
   "password": ""
 }
+
+### reissue 토큰 재발급 성공 / 재발급 실패: 쿠키 없음 (400)
+POST http://localhost:8081/api/auth/reissue
 

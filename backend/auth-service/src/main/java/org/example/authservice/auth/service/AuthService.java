@@ -23,6 +23,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -85,6 +86,51 @@ public class AuthService {
         return new TokenResponse(accessToken, refreshToken);
     }
 
+    // reissue(재발급)
+    @Transactional
+    public TokenResponse reissue(String refreshToken){
+        // jwt 자체 유효성 검증 (서명/만료)
+        if (!jwtTokenProvider.validateToken(refreshToken)){
+            throw new ApiException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        // 받은 토큰을 해시해서 DB조회
+        String tokenHash = hashToken(refreshToken);
+        RefreshToken savedRefreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
+                .orElseThrow(() -> new ApiException(AuthErrorCode.INVALID_REFRESH_TOKEN));
+
+        // 이미 페기된 토큰이 재사용되었는지 확인
+        if (savedRefreshToken.getRevokedAt() != null){
+            revokeAllUserTokens(savedRefreshToken.getUser());
+            throw new ApiException(AuthErrorCode.REFRESH_TOKEN_REUSED);
+        }
+        // DB에서도 만료 여부 확인-> 이중체크
+        if (savedRefreshToken.getExpiresAt().isBefore(LocalDateTime.now())){
+            throw new ApiException(AuthErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        User user = savedRefreshToken.getUser();
+        //회탈/정지 검증
+        checkAccountActive(user);
+
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getUsername(), user.getRole().name());
+        String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
+
+        RefreshToken newRefreshTokenEntity = new RefreshToken();
+        newRefreshTokenEntity.setUser(user);
+        newRefreshTokenEntity.setTokenHash(hashToken(newRefreshToken));
+        newRefreshTokenEntity.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpiration)));
+        refreshTokenRepository.save(newRefreshTokenEntity);
+
+        // 예전 토큰 폐기 처리, 새 토큰과 연결 (Rotation)
+        savedRefreshToken.setRevokedAt(LocalDateTime.now());
+        savedRefreshToken.setReplacedByTokenId(newRefreshTokenEntity.getId());
+        refreshTokenRepository.save(savedRefreshToken);
+
+        return new TokenResponse(newAccessToken, newRefreshToken);
+
+    }
+
+
     // 계정 상태(정지/탈퇴) 확인 편의메서드 -나증에 OAuth,재발급 때에도 쓰여서 만들어놓음
     private void checkAccountActive(User user) {
         if (user.getStatus() == AccountStatus.SUSPENDED) {
@@ -110,6 +156,16 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 알고리즘을 사용할 수 없습니다.", e);
         }
+    }
+
+    // 재사용 탐지 시 - 해당 유저의 모든 활성 RefreshToken을 강제 폐기 (전체 로그아웃)
+    private void revokeAllUserTokens(User user) {
+        List<RefreshToken> activeTokens = refreshTokenRepository.findAllByUser_IdAndRevokedAtIsNull(user.getId());
+        LocalDateTime now = LocalDateTime.now();
+        for (RefreshToken token : activeTokens) {
+            token.setRevokedAt(now);
+        }
+        refreshTokenRepository.saveAll(activeTokens);
     }
 
 }

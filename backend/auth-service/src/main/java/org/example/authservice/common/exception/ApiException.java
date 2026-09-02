@@ -4,11 +4,11 @@ package org.example.authservice.common.exception;
 import lombok.Getter;
 
 @Getter
-public class BusinessException extends RuntimeException {
+public class ApiException extends RuntimeException {
 
     private final ErrorCode errorCode;
 
-    public BusinessException(ErrorCode errorCode) {
+    public ApiException(ErrorCode errorCode) {
         super(errorCode.getMessage());
         this.errorCode = errorCode;
     }

@@ -5,10 +5,12 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface TicketTypeRepository extends JpaRepository<TicketType,Long> {
 
     //Festival 상세·목록 조회 시 소속 티켓종류를 조립할 때 사용
-    java.util.List<TicketType> findByFestivalId(Long festivalId);
+    List<TicketType> findByFestivalId(Long festivalId);
 
     @Modifying
     @Query("UPDATE TicketType t SET t.remainQuantity = t.remainQuantity - :qty " +

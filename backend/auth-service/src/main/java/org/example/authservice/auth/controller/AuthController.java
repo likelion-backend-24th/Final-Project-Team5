@@ -11,10 +11,7 @@ import org.example.authservice.auth.service.AuthService;
 import org.example.authservice.common.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -38,6 +35,15 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<TokenResponse>> login(@Valid @RequestBody LoginRequest loginRequest){
         TokenResponse response = authService.login(loginRequest);
+        return authCookieResponseBuilder.buildWithCookie(response);
+    }
+
+    // 토큰 재발급
+    @Operation(summary = "토큰 재발급", description = "쿠키의 Refresh Token으로 Access/Refresh Token을 재발급합니다. Rotation 및 재사용 탐지가 적용됩니다.")
+    @PostMapping("/reissue")
+    public ResponseEntity<ApiResponse<TokenResponse>> reissue(
+            @CookieValue("refreshToken") String refreshToken) {
+        TokenResponse response = authService.reissue(refreshToken);
         return authCookieResponseBuilder.buildWithCookie(response);
     }
 }

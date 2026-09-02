@@ -1,4 +1,4 @@
-package org.example.festivalservice.organizerapplication;
+package org.example.festivalservice.hostapplication;
 
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -6,6 +6,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.example.festivalservice.domain.hostapplication.HostApplication;
+import org.example.festivalservice.domain.hostapplication.HostApplicationRepository;
+import org.example.festivalservice.domain.hostapplication.HostApplicationStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,9 +20,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class OrganizerApplicationAcceptanceTest {
+class HostApplicationAcceptanceTest {
 
-    private static final String ENDPOINT = "/api/organizer-applications";
+    private static final String ENDPOINT = "/api/host-applications";
     private static final String REQUEST_BODY = """
             {"introduction":"소개","contact":"010-0000-0000"}""";
 
@@ -27,11 +30,11 @@ class OrganizerApplicationAcceptanceTest {
     private MockMvc mockMvc;
 
     @Autowired
-    private OrganizerApplicationRepository organizerApplicationRepository;
+    private HostApplicationRepository hostApplicationRepository;
 
     @BeforeEach
     void setUp() {
-        organizerApplicationRepository.deleteAll();
+        hostApplicationRepository.deleteAll();
     }
 
     @Test
@@ -51,7 +54,7 @@ class OrganizerApplicationAcceptanceTest {
 
     @Test
     void submitRejectsDuplicatePendingApplication() throws Exception {
-        organizerApplicationRepository.save(new OrganizerApplication(1L, "소개", "010-0000-0000"));
+        hostApplicationRepository.save(new HostApplication(1L, "소개", "010-0000-0000"));
 
         mockMvc.perform(post(ENDPOINT)
                         .header("X-User-Id", "1")
@@ -63,21 +66,21 @@ class OrganizerApplicationAcceptanceTest {
     }
 
     @Test
-    void submitRejectsAlreadyOrganizer() throws Exception {
+    void submitRejectsAlreadyHost() throws Exception {
         mockMvc.perform(post(ENDPOINT)
                         .header("X-User-Id", "1")
                         .header("X-User-Role", "HOST")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_BODY))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code", is("ALREADY_ORGANIZER")));
+                .andExpect(jsonPath("$.code", is("ALREADY_HOST")));
     }
 
     @Test
     void submitAllowsReapplicationAfterRejection() throws Exception {
-        OrganizerApplication rejected = new OrganizerApplication(1L, "소개", "010-0000-0000");
-        ReflectionTestUtils.setField(rejected, "status", OrganizerApplicationStatus.REJECTED);
-        organizerApplicationRepository.save(rejected);
+        HostApplication rejected = new HostApplication(1L, "소개", "010-0000-0000");
+        ReflectionTestUtils.setField(rejected, "status", HostApplicationStatus.REJECTED);
+        hostApplicationRepository.save(rejected);
 
         mockMvc.perform(post(ENDPOINT)
                         .header("X-User-Id", "1")

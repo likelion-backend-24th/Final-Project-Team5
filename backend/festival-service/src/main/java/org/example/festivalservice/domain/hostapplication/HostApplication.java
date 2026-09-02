@@ -1,4 +1,4 @@
-package org.example.festivalservice.organizerapplication;
+package org.example.festivalservice.domain.hostapplication;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,10 +16,10 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
-@Table(name = "organizer_applications")
+@Table(name = "host_applications")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OrganizerApplication {
+public class HostApplication {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,7 +30,7 @@ public class OrganizerApplication {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private OrganizerApplicationStatus status;
+    private HostApplicationStatus status;
 
     @Column(length = 1000)
     private String introduction;
@@ -52,10 +52,10 @@ public class OrganizerApplication {
     @Column(name = "is_deleted", nullable = false)
     private boolean deleted = false;
 
-    public OrganizerApplication(Long userId, String introduction, String contact) {
+    public HostApplication(Long userId, String introduction, String contact) {
         this.userId = userId;
         this.introduction = introduction;
         this.contact = contact;
-        this.status = OrganizerApplicationStatus.PENDING;
+        this.status = HostApplicationStatus.PENDING;
     }
 }

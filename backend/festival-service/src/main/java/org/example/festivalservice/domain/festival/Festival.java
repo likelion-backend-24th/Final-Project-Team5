@@ -5,10 +5,12 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.festivalservice.domain.tickettype.TicketType;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity@Builder
 @AllArgsConstructor
@@ -18,9 +20,11 @@ import java.time.LocalDateTime;
 public class Festival {
     @Id@GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     //주최자(Host) id
     @Column(name = "host_user_id")
     private Long hostUserId;
+
     //페스티벌 이름
     private String name;
     //페스티벌 설명

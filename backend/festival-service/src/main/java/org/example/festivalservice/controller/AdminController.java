@@ -2,6 +2,7 @@ package org.example.festivalservice.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.ApiResponse;
+import org.example.festivalservice.domain.hostapplication.HostApplicationService;
 import org.example.festivalservice.domain.hostapplication.HostApplicationSubmitRequestDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/api/admin/host-applications")
 public class AdminController {
+    private final HostApplicationService hostApplicationService;
 
     //운영자가 심사 대기 중인 주최 신청 목록을 조회한다
     @GetMapping

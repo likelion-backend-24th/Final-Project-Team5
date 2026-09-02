@@ -21,12 +21,18 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -244,5 +250,160 @@ class AuthServiceTest {
         user.setRole(Role.USER);
         user.setStatus(AccountStatus.ACTIVE);
         return user;
+    }
+
+    @Test
+    @DisplayName("정상적인 토큰이면 재발급에 성공하고, 기존 토큰은 폐기되며 새 토큰과 연결된다")
+    void reissue_success() {
+        // given
+        User user = createActiveUser();
+        RefreshToken savedToken = createSavedRefreshToken(user);
+        String rawRefreshToken = "old-refresh-token";
+
+        given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
+        given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
+                .willReturn(Optional.of(savedToken));
+        given(jwtTokenProvider.generateAccessToken(user.getUsername(), user.getRole().name()))
+                .willReturn("new-access-token");
+        given(jwtTokenProvider.generateRefreshToken(user.getUsername()))
+                .willReturn("new-refresh-token");
+
+        // when
+        TokenResponse response = authService.reissue(rawRefreshToken);
+
+        // then
+        assertThat(response.getAccessToken()).isEqualTo("new-access-token");
+        assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
+
+        // 기존 토큰이 폐기(revoked)됐는지 확인
+        assertThat(savedToken.getRevokedAt()).isNotNull();
+        // replacedByTokenId는 mock 환경에서 새 엔티티의 id가 null이라 같이 null이 됨 (정상)
+        // → id 자체보다는 "새 토큰 저장 로직이 실행됐는지"를 확인하는 게 더 적절함
+
+        verify(refreshTokenRepository, times(2)).save(any(RefreshToken.class));
+    }
+
+    @Test
+    @DisplayName("서명이 유효하지 않거나 만료된 JWT면 INVALID_REFRESH_TOKEN 예외가 발생한다")
+    void reissue_fail_invalidJwt() {
+        // given
+        String rawRefreshToken = "invalid-token";
+        given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(rawRefreshToken))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN));
+
+        verify(refreshTokenRepository, never()).findByTokenHash(any());
+    }
+
+    @Test
+    @DisplayName("DB에 없는 토큰이면 INVALID_REFRESH_TOKEN 예외가 발생한다")
+    void reissue_fail_tokenNotFound() {
+        // given
+        String rawRefreshToken = "not-in-db-token";
+        given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
+        given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(rawRefreshToken))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN));
+    }
+
+    @Test
+    @DisplayName("이미 폐기된 토큰이 재사용되면 REFRESH_TOKEN_REUSED 예외가 발생하고, 해당 유저의 모든 활성 토큰이 폐기된다")
+    void reissue_fail_tokenReused() {
+        // given
+        User user = createActiveUser();
+        RefreshToken revokedToken = createSavedRefreshToken(user);
+        revokedToken.setRevokedAt(LocalDateTime.now().minusMinutes(5)); // 이미 폐기된 상태
+
+        RefreshToken otherActiveToken = createSavedRefreshToken(user); // 유저의 다른 활성 토큰
+        String rawRefreshToken = "reused-token";
+
+        given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
+        given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
+                .willReturn(Optional.of(revokedToken));
+        given(refreshTokenRepository.findAllByUser_IdAndRevokedAtIsNull(user.getId()))
+                .willReturn(List.of(otherActiveToken));
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(rawRefreshToken))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.REFRESH_TOKEN_REUSED));
+
+        // 그 유저의 다른 활성 토큰도 강제 폐기됐는지 확인
+        assertThat(otherActiveToken.getRevokedAt()).isNotNull();
+        verify(refreshTokenRepository, times(1)).saveAll(anyList());
+    }
+
+    @Test
+    @DisplayName("DB 상 만료된 토큰이면 INVALID_REFRESH_TOKEN 예외가 발생한다")
+    void reissue_fail_expiredInDb() {
+        // given
+        User user = createActiveUser();
+        RefreshToken expiredToken = createSavedRefreshToken(user);
+        expiredToken.setExpiresAt(LocalDateTime.now().minusDays(1)); // DB 상 이미 만료
+
+        String rawRefreshToken = "expired-token";
+        given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
+        given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
+                .willReturn(Optional.of(expiredToken));
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(rawRefreshToken))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.INVALID_REFRESH_TOKEN));
+    }
+
+    @Test
+    @DisplayName("정지된 계정의 토큰이면 ACCOUNT_SUSPENDED 예외가 발생한다")
+    void reissue_fail_accountSuspended() {
+        // given
+        User user = createActiveUser();
+        user.setStatus(AccountStatus.SUSPENDED);
+        RefreshToken savedToken = createSavedRefreshToken(user);
+
+        String rawRefreshToken = "valid-token";
+        given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
+        given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
+                .willReturn(Optional.of(savedToken));
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(rawRefreshToken))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.ACCOUNT_SUSPENDED));
+    }
+
+    // 헬퍼: DB에 저장된 상태를 흉내낸 RefreshToken (활성 상태)
+    private RefreshToken createSavedRefreshToken(User user) {
+        RefreshToken token = new RefreshToken();
+        token.setUser(user);
+        token.setTokenHash("some-hash");
+        token.setExpiresAt(LocalDateTime.now().plusDays(14));
+        return token;
+    }
+
+    // 헬퍼: 테스트에서 쓸 해시 계산 (AuthService의 hashToken과 동일 로직)
+    private String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

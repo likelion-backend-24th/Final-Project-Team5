@@ -1,0 +1,21 @@
+### 1. 회원가입 - 성공(201)
+POST http://localhost:8081/api/auth/signup
+Content-Type: application/json
+
+{
+  "name": "홍길동",
+  "username": "test@naver.com",
+  "password": "test1234",
+  "nickname": "안양개발자"
+}
+
+### 2. 회원가입 - 실패(이메일 중복, 닉네임 중복, 이메일 형식틀림,비밀번호8자미만,누락)
+POST http://localhost:8081/api/auth/signup
+Content-Type: application/json
+
+{
+  "name": "",
+  "username": "test2@naver.com",
+  "password": "test1234",
+  "nickname": "안양개발자"
+}

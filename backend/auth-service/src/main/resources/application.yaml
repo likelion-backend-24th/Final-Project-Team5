@@ -4,6 +4,7 @@ server:
 spring:
   application:
     name: auth-service
+
   datasource:
     url: jdbc:mysql://${AUTH_DB_HOST:localhost}:${AUTH_DB_PORT:3307}/${AUTH_DB_NAME:auth_db}
     username: ${AUTH_DB_USERNAME:auth_user}
@@ -12,6 +13,37 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+# 나중에 이메일 인증 할때 쓸거임
+#  mail:
+#    host: smtp.gmail.com
+#    port: 587
+#    username: ${MAIL_USERNAME}
+#    password: ${MAIL_APP_PASSWORD}
+#    properties:
+#      mail:
+#        smtp:
+#          auth: true
+#          starttls:
+#            enable: true
+
+#로그 설정
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org:
+      springframework:
+        security: trace
+
 
 jwt:
   secret: ${JWT_SECRET:local-dev-jwt-secret-please-change-before-deploy}
+  access-token-expiration: 3600000 # 1시간
+  refresh-token-expiration: 1209600000 # 12일
+

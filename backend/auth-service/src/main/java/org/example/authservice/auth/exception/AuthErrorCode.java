@@ -14,7 +14,9 @@ public enum AuthErrorCode implements ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 계정입니다."),
     INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "비밀번호가 일치하지 않습니다."),
     ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "정지된 계정입니다."),
-    ACCOUNT_WITHDRAWN(HttpStatus.FORBIDDEN, "회원탈퇴한 사용자입니다.");
+    ACCOUNT_WITHDRAWN(HttpStatus.FORBIDDEN, "회원탈퇴한 사용자입니다."),
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 refresh token입니다."),
+    REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "재사용이 감지되어 모든 세션이 로그아웃되었습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

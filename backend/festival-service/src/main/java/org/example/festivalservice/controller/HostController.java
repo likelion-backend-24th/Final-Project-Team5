@@ -1,8 +1,12 @@
 package org.example.festivalservice.controller;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.ApiResponse;
-import org.example.festivalservice.domain.festival.Festival;
+import org.example.festivalservice.domain.festival.FestivalRequestDto;
 import org.example.festivalservice.domain.festival.FestivalResponseDto;
+import org.example.festivalservice.domain.festival.FestivalService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,15 +14,18 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/host/festivals")
+@RequiredArgsConstructor
 public class HostController {
+    private final FestivalService festivalService;
 
     //승인된 주최자가 새 페스티벌(및 티켓 종류)을 등록한다
     @PostMapping
-    public ResponseEntity<ApiResponse<?>> createFestival(
+    public ResponseEntity<ApiResponse<FestivalResponseDto>> createFestival(
             @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Role") String role
-    ){
-        return null;
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody FestivalRequestDto dto
+            ){
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(festivalService.createFestival(userId,role,dto)));
     }
 
     //주최자가 본인이 등록한 페스티벌 목록을 조회한다
@@ -27,7 +34,7 @@ public class HostController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role
     ){
-        return null;
+        return ResponseEntity.ok(ApiResponse.success(festivalService.listMyFestivals(userId,role)));
     }
 
     //주최자가 본인 페스티벌의 상세 정보를 조회한다
@@ -37,6 +44,6 @@ public class HostController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role
     ){
-        return null;
+        return ResponseEntity.ok(ApiResponse.success(festivalService.getMyFestivalDetail(id,userId,role)));
     }
 }

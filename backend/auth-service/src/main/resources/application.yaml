@@ -45,5 +45,4 @@ logging:
 jwt:
   secret: ${JWT_SECRET:local-dev-jwt-secret-please-change-before-deploy}
   access-token-expiration: 3600000 # 1시간
-  refresh-token-expiration: 1209600000 # 12일
-
+  refresh-token-expiration: 1209600000 # 14일

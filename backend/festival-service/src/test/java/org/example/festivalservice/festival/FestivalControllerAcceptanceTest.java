@@ -92,14 +92,14 @@ class FestivalControllerAcceptanceTest {
 
         mockMvc.perform(get(ENDPOINT + "/" + festival.getId()))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code", is("FESTIVAL_NOT_FOUND")));
+                .andExpect(jsonPath("$.errorCode", is("FESTIVAL_NOT_FOUND")));
     }
 
     @Test
     void getFestivalDetailOfMissingFestivalIsNotFound() throws Exception {
         mockMvc.perform(get(ENDPOINT + "/999999"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code", is("FESTIVAL_NOT_FOUND")));
+                .andExpect(jsonPath("$.errorCode", is("FESTIVAL_NOT_FOUND")));
     }
 
     private Festival saveFestival(String name, FestivalStatus status) {

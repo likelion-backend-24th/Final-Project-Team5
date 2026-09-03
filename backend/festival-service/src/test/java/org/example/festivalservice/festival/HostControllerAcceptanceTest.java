@@ -78,7 +78,7 @@ class HostControllerAcceptanceTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_REQUEST_BODY))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
     }
 
     @Test
@@ -109,7 +109,7 @@ class HostControllerAcceptanceTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_REQUEST_BODY))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+                .andExpect(jsonPath("$.errorCode", is("UNAUTHORIZED")));
     }
 
     @Test
@@ -131,7 +131,7 @@ class HostControllerAcceptanceTest {
                         .header("X-User-Id", "1")
                         .header("X-User-Role", "USER"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
     }
 
     @Test
@@ -160,7 +160,7 @@ class HostControllerAcceptanceTest {
                         .header("X-User-Id", "1")
                         .header("X-User-Role", "HOST"))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code", is("FESTIVAL_NOT_FOUND")));
+                .andExpect(jsonPath("$.errorCode", is("FESTIVAL_NOT_FOUND")));
     }
 
     @Test
@@ -171,7 +171,7 @@ class HostControllerAcceptanceTest {
                         .header("X-User-Id", "1")
                         .header("X-User-Role", "HOST"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code", is("FORBIDDEN_NOT_OWNER")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_NOT_OWNER")));
     }
 
     private Festival saveFestival(Long hostUserId, String name) {

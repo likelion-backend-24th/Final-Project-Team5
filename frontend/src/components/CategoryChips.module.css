@@ -1,0 +1,38 @@
+.chips {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex-shrink: 0;
+  height: 46px;
+  padding: 0 22px;
+  border-radius: var(--borderRadius-full);
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-default);
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.chip:hover {
+  background-color: var(--bgColor-muted);
+}
+
+.chipSelected,
+.chipSelected:hover {
+  border-color: var(--bgColor-accent-emphasis);
+  background-color: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
+}

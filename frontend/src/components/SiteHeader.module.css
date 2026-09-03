@@ -1,0 +1,156 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: var(--bgColor-default);
+  border-bottom: var(--borderWidth-thin) solid var(--borderColor-default);
+}
+
+.inner {
+  max-width: var(--layout-maxWidth);
+  margin: 0 auto;
+  padding: 17px var(--layout-gutter);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo {
+  flex-shrink: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fgColor-accent);
+  text-decoration: none;
+}
+
+/* 검색창 — 스크린샷 기준 컴팩트 사이즈(최대 380px) */
+.search {
+  flex: 1;
+  min-width: 0;
+  max-width: 380px;
+}
+
+.searchField {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 42px;
+  padding: 0 4px 0 12px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-default);
+  transition: border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.searchField:focus-within {
+  border-color: var(--borderColor-accent-emphasis);
+  box-shadow: 0 0 0 3px var(--bgColor-accent-muted);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fgColor-default);
+}
+
+.searchInput::placeholder {
+  color: var(--fgColor-muted);
+}
+
+.searchButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--borderRadius-medium);
+  background: none;
+  color: var(--fgColor-muted);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease;
+}
+
+.searchButton:hover {
+  background-color: var(--bgColor-neutral-muted);
+}
+
+.actions {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--borderRadius-medium);
+  border: var(--borderWidth-thin) solid transparent;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease,
+    filter var(--duration-fast) ease;
+}
+
+/* 로그인·회원가입 — Primer invisible 버튼 */
+.actionInvisible {
+  color: var(--fgColor-default);
+  background-color: transparent;
+}
+
+.actionInvisible:hover {
+  background-color: var(--bgColor-neutral-muted);
+}
+
+/* 내 예약 — Primer default 버튼(테두리+연회색 배경, 파란 채움 아님) */
+.actionPrimary {
+  color: var(--fgColor-default);
+  background-color: var(--bgColor-muted);
+  border-color: var(--borderColor-default);
+}
+
+.actionPrimary:hover {
+  background-color: var(--bgColor-neutral-muted);
+}
+
+/* 로그인 아이콘 — 스크린샷의 "[←" 방향에 맞춰 좌우 반전 */
+.actionIcon {
+  transform: scaleX(-1);
+}
+
+@media (max-width: 720px) {
+  .inner {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .search {
+    order: 3;
+    max-width: none;
+    flex-basis: 100%;
+  }
+
+  .actionLabel {
+    display: none;
+  }
+
+  .action {
+    padding: 0 10px;
+  }
+}

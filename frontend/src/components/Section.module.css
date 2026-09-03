@@ -1,0 +1,92 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--fgColor-default);
+}
+
+.headingIcon {
+  color: var(--fgColor-danger);
+}
+
+.description {
+  font-size: 14px;
+  color: var(--fgColor-muted);
+}
+
+.more {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fgColor-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.more:hover {
+  text-decoration: underline;
+}
+
+/* 인기 페스티벌 카드 그리드 — 1440px 컨테이너 기준 4열 */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+/* 마감임박 — 가로 스크롤 레일 */
+.rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(280px, 1fr);
+  gap: 24px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+
+.rail > * {
+  scroll-snap-align: start;
+}
+
+.empty {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--fgColor-muted);
+  font-size: 14px;
+  border: var(--borderWidth-thin) dashed var(--borderColor-default);
+  border-radius: var(--borderRadius-large);
+}
+
+@media (max-width: 720px) {
+  .heading {
+    font-size: 20px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .rail {
+    grid-auto-columns: minmax(200px, 1fr);
+    gap: 12px;
+  }
+}

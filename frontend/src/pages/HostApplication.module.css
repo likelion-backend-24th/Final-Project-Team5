@@ -1,0 +1,238 @@
+.main {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 40px var(--layout-gutter) 80px;
+  background-color: var(--bgColor-muted);
+}
+
+.card {
+  width: 100%;
+  max-width: 540px;
+  height: fit-content;
+  padding: 32px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: 22px;
+  background-color: var(--bgColor-default);
+  box-shadow: var(--shadow-resting-small);
+}
+
+.loading {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--fgColor-muted);
+  font-size: 14px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fgColor-default);
+}
+
+.subtitle {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--fgColor-muted);
+}
+
+.rejectNotice {
+  margin-top: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-danger-muted);
+  color: var(--fgColor-danger);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.rejectNotice svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.submitError {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-danger-muted);
+  color: var(--fgColor-danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fgColor-default);
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 0 16px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: 18px;
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-default);
+  font: inherit;
+  font-size: 15px;
+  transition: border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.input {
+  height: 48px;
+}
+
+.textarea {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  resize: vertical;
+  min-height: 160px;
+  line-height: 1.6;
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--fgColor-muted);
+}
+
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--borderColor-accent-emphasis);
+  box-shadow: 0 0 0 3px var(--bgColor-accent-muted);
+}
+
+.input[aria-invalid='true'],
+.textarea[aria-invalid='true'] {
+  border-color: var(--fgColor-danger);
+}
+
+.textareaFooter {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.counter {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--fgColor-muted);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--fgColor-muted);
+}
+
+.errorText {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fgColor-danger);
+}
+
+.submit {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 18px;
+  background-color: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease,
+    opacity var(--duration-fast) ease;
+}
+
+.submit:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.submit:disabled {
+  background-color: var(--bgColor-muted);
+  color: var(--fgColor-muted);
+  cursor: not-allowed;
+}
+
+.infoState {
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.infoIconSuccess {
+  color: var(--fgColor-accent);
+  margin-bottom: 8px;
+}
+
+.infoIconMuted {
+  color: var(--fgColor-muted);
+  margin-bottom: 8px;
+}
+
+.infoTitle {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fgColor-default);
+}
+
+.infoDescription {
+  font-size: 14px;
+  color: var(--fgColor-muted);
+  line-height: 1.6;
+}
+
+.infoLink {
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fgColor-accent);
+}
+
+.infoLink:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding: 24px var(--layout-gutter) 56px;
+  }
+
+  .card {
+    padding: 24px 20px;
+  }
+}

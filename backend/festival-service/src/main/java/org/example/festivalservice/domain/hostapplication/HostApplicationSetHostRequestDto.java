@@ -7,4 +7,6 @@ import lombok.Getter;
 public class HostApplicationSetHostRequestDto {
     @NotNull
     private HostApplicationStatus status;
+
+    private String rejectReason;
 }

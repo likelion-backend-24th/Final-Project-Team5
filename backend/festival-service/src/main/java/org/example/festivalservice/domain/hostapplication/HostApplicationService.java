@@ -22,6 +22,7 @@ public class HostApplicationService {
     private static final String FORBIDDEN_ROLE = "FORBIDDEN_ROLE";
     private static final String ALREADY_REVIEWED = "ALREADY_REVIEWED";
     private static final String INVALID_DECISION = "INVALID_DECISION";
+    private static final String REJECT_REASON_REQUIRED = "REJECT_REASON_REQUIRED";
 
     private final HostApplicationRepository hostApplicationRepository;
     private final RestClient authServiceRestClient;
@@ -77,7 +78,10 @@ public class HostApplicationService {
             application.approve();
             setHostRole(application.getUserId(), application.getId());
         } else if (request.getStatus() == HostApplicationStatus.REJECTED) {
-            application.reject();
+            if (request.getRejectReason() == null || request.getRejectReason().isBlank()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, REJECT_REASON_REQUIRED, "반려 사유는 필수입니다");
+            }
+            application.reject(request.getRejectReason());
         } else {
             throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_DECISION, "승인 또는 반려만 결정할 수 있습니다");
         }

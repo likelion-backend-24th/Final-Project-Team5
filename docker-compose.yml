@@ -14,5 +14,76 @@ services:
       - core-db-data:/var/lib/mysql
       - ./mysql-init/core-db:/docker-entrypoint-initdb.d:ro
 
+  auth-service:
+    build:
+      context: ./backend/auth-service
+    container_name: auth-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AUTH_DB_HOST: core-db
+      AUTH_DB_PORT: 3306
+    depends_on:
+      - core-db
+
+  festival-service:
+    build:
+      context: ./backend/festival-service
+    container_name: festival-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      FESTIVAL_DB_HOST: core-db
+      FESTIVAL_DB_PORT: 3306
+      AUTH_SERVICE_URL: http://auth-service:8081
+    depends_on:
+      - core-db
+      - auth-service
+
+  reservation-service:
+    build:
+      context: ./backend/reservation-service
+    container_name: reservation-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RESERVATION_DB_HOST: core-db
+      RESERVATION_DB_PORT: 3306
+      FESTIVAL_SERVICE_URL: http://festival-service:8082
+    depends_on:
+      - core-db
+      - festival-service
+
+  gateway:
+    build:
+      context: ./backend/gateway
+    container_name: gateway
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      FESTIVAL_SERVICE_URL: http://festival-service:8082
+      RESERVATION_SERVICE_URL: http://reservation-service:8083
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - festival-service
+      - reservation-service
+
+  # payment-service는 아직 application.yaml/DB 연동이 없는 스켈레톤 상태라 기동 시 바로 죽습니다.
+  # 구현이 끝나면 위 3개 서비스와 같은 패턴으로 추가하고, gateway의 PAYMENT_SERVICE_URL도 지정해 주세요.
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - gateway
+
 volumes:
   core-db-data:

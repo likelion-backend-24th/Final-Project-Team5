@@ -138,10 +138,26 @@ class HostApplicationServiceTest {
         when(hostApplicationRepository.findById(10L)).thenReturn(Optional.of(application));
         HostApplicationSetHostRequestDto request = new HostApplicationSetHostRequestDto();
         ReflectionTestUtils.setField(request, "status", HostApplicationStatus.REJECTED);
+        ReflectionTestUtils.setField(request, "rejectReason", "자격 요건 미달");
 
         HostApplicationResponseDto response = hostApplicationService.review(10L, "ADMIN", request);
 
         assertThat(response.status()).isEqualTo(HostApplicationStatus.REJECTED);
+        assertThat(response.rejectReason()).isEqualTo("자격 요건 미달");
+        verifyNoInteractions(authServiceRestClient);
+    }
+
+    @Test
+    void reviewRejectingWithoutReasonIsBadRequest() {
+        HostApplication application = new HostApplication(1L, "소개", "010-0000-0000");
+        ReflectionTestUtils.setField(application, "id", 10L);
+        when(hostApplicationRepository.findById(10L)).thenReturn(Optional.of(application));
+        HostApplicationSetHostRequestDto request = new HostApplicationSetHostRequestDto();
+        ReflectionTestUtils.setField(request, "status", HostApplicationStatus.REJECTED);
+
+        assertThatThrownBy(() -> hostApplicationService.review(10L, "ADMIN", request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
         verifyNoInteractions(authServiceRestClient);
     }
 

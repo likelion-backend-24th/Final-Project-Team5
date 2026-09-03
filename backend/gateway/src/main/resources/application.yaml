@@ -7,7 +7,20 @@ spring:
   cloud:
     gateway:
       server:
-        webflux:
+        webflux: 
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                allowed-origins: "http://localhost:5173"
+                allowed-methods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowed-headers: "*"
+                allow-credentials: true
           routes:
             - id: auth-service
               uri: ${AUTH_SERVICE_URL:http://localhost:8081}

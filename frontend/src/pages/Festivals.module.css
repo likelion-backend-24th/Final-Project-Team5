@@ -1,0 +1,49 @@
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--layout-maxWidth);
+  margin: 0 auto;
+  padding: 28px var(--layout-gutter) 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.headerRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fgColor-default);
+}
+
+.resultCount {
+  font-size: 14px;
+  color: var(--fgColor-muted);
+}
+
+.clearSearch {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fgColor-accent);
+}
+
+.clearSearch:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 720px) {
+  .main {
+    padding-top: 20px;
+    gap: 16px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+}

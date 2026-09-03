@@ -14,6 +14,18 @@ function SiteFooter() {
           </p>
         </div>
 
+        <nav className={styles.organizerNav} aria-label="주최자 센터">
+          <span className={styles.navTitle}>주최자 센터</span>
+          <div className={styles.stackedLinks}>
+            <Link to="/organizers/apply" className={styles.link}>
+              주최자 신청
+            </Link>
+            <Link to="/festivals/new" className={styles.link}>
+              페스티벌 등록
+            </Link>
+          </div>
+        </nav>
+
         <nav className={styles.nav} aria-label="약관 및 고객지원">
           <div className={styles.links}>
             <Link to="/terms" className={styles.link}>

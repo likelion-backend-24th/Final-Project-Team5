@@ -22,6 +22,24 @@ function App() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<Placeholder title="비밀번호 재설정" />} />
         <Route path="/reservations" element={<Placeholder title="내 예약" />} />
+        <Route
+          path="/organizers/apply"
+          element={
+            <Placeholder
+              title="주최자 신청"
+              description="주최자 신청 절차는 아직 준비 중입니다."
+            />
+          }
+        />
+        <Route
+          path="/festivals/new"
+          element={
+            <Placeholder
+              title="페스티벌 등록"
+              description="페스티벌 등록 기능은 아직 준비 중입니다."
+            />
+          }
+        />
         <Route path="/terms" element={<Placeholder title="이용약관" />} />
         <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
         <Route

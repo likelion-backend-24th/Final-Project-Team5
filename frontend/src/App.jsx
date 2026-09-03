@@ -5,6 +5,7 @@ import SiteHeader from './components/SiteHeader'
 import Festivals from './pages/Festivals'
 import Home from './pages/Home'
 import HostApplication from './pages/HostApplication'
+import HostFestivalNew from './pages/HostFestivalNew'
 import Login from './pages/Login'
 import Placeholder from './pages/Placeholder'
 import SignUp from './pages/SignUp'
@@ -26,15 +27,9 @@ function App() {
         <Route path="/host-application" element={<HostApplication />} />
         {/* SiteFooter/OrganizerCta는 여전히 /organizers/apply로 링크하므로 같은 화면을 연결해둔다. */}
         <Route path="/organizers/apply" element={<HostApplication />} />
-        <Route
-          path="/festivals/new"
-          element={
-            <Placeholder
-              title="페스티벌 등록"
-              description="페스티벌 등록 기능은 아직 준비 중입니다."
-            />
-          }
-        />
+        <Route path="/host/festivals/new" element={<HostFestivalNew />} />
+        {/* SiteFooter/OrganizerCta는 여전히 /festivals/new로 링크하므로 같은 화면을 연결해둔다. */}
+        <Route path="/festivals/new" element={<HostFestivalNew />} />
         <Route path="/terms" element={<Placeholder title="이용약관" />} />
         <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
         <Route

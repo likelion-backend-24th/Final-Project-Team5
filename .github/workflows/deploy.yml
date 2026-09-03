@@ -80,7 +80,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
+            set -euo pipefail
             cd ~/Final-Project-Team5
-            git pull
-            docker-compose -f docker-compose.yml -f docker-compose.small.yml pull gateway auth-service festival-service reservation-service
-            docker-compose -f docker-compose.yml -f docker-compose.small.yml up -d
+            git pull --ff-only
+            docker compose -f docker-compose.yml -f docker-compose.small.yml pull gateway auth-service festival-service reservation-service
+            docker compose -f docker-compose.yml -f docker-compose.small.yml up -d

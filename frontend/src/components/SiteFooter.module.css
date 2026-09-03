@@ -39,6 +39,25 @@
   gap: 10px;
 }
 
+.organizerNav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.navTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fgColor-default);
+}
+
+.stackedLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+
 .links {
   display: flex;
   gap: 20px;

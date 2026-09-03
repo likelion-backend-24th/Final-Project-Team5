@@ -6,33 +6,33 @@
 
   /* 배경 */
   --bgColor-default: #ffffff;
-  --bgColor-muted: #f6f8fa;
-  --bgColor-inset: #f6f8fa;
-  --bgColor-neutral-muted: rgba(129, 139, 152, 0.12);
-  --bgColor-accent-muted: #ddf4ff;
-  --bgColor-accent-emphasis: #0969da;
-  --bgColor-danger-muted: #fff0ee;
-  --bgColor-danger-emphasis: #cf222e;
+  --bgColor-muted: #f9fafb;
+  --bgColor-inset: #f3f4f6;
+  --bgColor-neutral-muted: rgba(156, 163, 175, 0.12);
+  --bgColor-accent-muted: #eff6ff;
+  --bgColor-accent-emphasis: #2563eb;
+  --bgColor-danger-muted: #fef2f2;
+  --bgColor-danger-emphasis: #ef4444;
 
   /* 전경 */
-  --fgColor-default: #1f2328;
-  --fgColor-muted: #59636e;
-  --fgColor-accent: #0969da;
-  --fgColor-danger: #cf222e;
+  --fgColor-default: #111827;
+  --fgColor-muted: #6b7280;
+  --fgColor-accent: #2563eb;
+  --fgColor-danger: #ef4444;
   --fgColor-onEmphasis: #ffffff;
 
   /* 테두리 */
-  --borderColor-default: #d1d9e0;
-  --borderColor-muted: rgba(209, 217, 224, 0.7);
-  --borderColor-emphasis: #818b98;
-  --borderColor-accent-emphasis: #0969da;
+  --borderColor-default: #e5e7eb;
+  --borderColor-muted: rgba(229, 231, 235, 0.7);
+  --borderColor-emphasis: #9ca3af;
+  --borderColor-accent-emphasis: #2563eb;
   --borderWidth-thin: 1px;
 
   /* 반경 */
-  --borderRadius-small: 4px;
-  --borderRadius-medium: 6px;
-  --borderRadius-large: 12px;
-  --borderRadius-full: 999px;
+  --borderRadius-small: 12px;
+  --borderRadius-medium: 16px;
+  --borderRadius-large: 24px;
+  --borderRadius-full: 9999px;
 
   /* 그림자 */
   --shadow-resting-small: 0 1px 0 rgba(31, 35, 40, 0.04);

@@ -141,7 +141,7 @@ class HostApplicationReviewAcceptanceTest {
                         .content("""
                                 {"status":"REJECTED"}"""))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code", is("REJECT_REASON_REQUIRED")));
+                .andExpect(jsonPath("$.errorCode", is("REJECT_REASON_REQUIRED")));
     }
 
     @Test
@@ -178,7 +178,7 @@ class HostApplicationReviewAcceptanceTest {
                         .content("""
                                 {"status":"REJECTED","rejectReason":"취소"}"""))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code", is("ALREADY_REVIEWED")));
+                .andExpect(jsonPath("$.errorCode", is("ALREADY_REVIEWED")));
     }
 
     @Test
@@ -200,7 +200,7 @@ class HostApplicationReviewAcceptanceTest {
                         .content("""
                                 {"status":"REJECTED","rejectReason":"취소"}"""))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code", is("ALREADY_REVIEWED")));
+                .andExpect(jsonPath("$.errorCode", is("ALREADY_REVIEWED")));
     }
 
     @Test
@@ -214,6 +214,6 @@ class HostApplicationReviewAcceptanceTest {
                         .content("""
                                 {"status":"APPROVED"}"""))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
     }
 }

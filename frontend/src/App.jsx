@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
+import Festivals from './pages/Festivals'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Placeholder from './pages/Placeholder'
@@ -13,8 +14,7 @@ function App() {
       <SiteHeader />
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/search" element={<Placeholder title="검색 결과" />} />
-        <Route path="/festivals" element={<Placeholder title="페스티벌 전체" />} />
+        <Route path="/festivals" element={<Festivals />} />
         <Route path="/festivals/:id" element={<Placeholder title="페스티벌 상세" />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />

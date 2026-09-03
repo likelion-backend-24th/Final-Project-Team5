@@ -12,7 +12,7 @@ function SiteHeader() {
     event.preventDefault()
     const keyword = query.trim()
     if (!keyword) return
-    navigate(`/search?q=${encodeURIComponent(keyword)}`)
+    navigate(`/festivals?q=${encodeURIComponent(keyword)}`)
   }
 
   return (

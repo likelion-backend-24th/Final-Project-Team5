@@ -1,0 +1,23 @@
+# 1GB RAM급 인스턴스(예: Oracle VM.Standard.E2.1.Micro)에서 돌릴 때만 선택적으로 겹쳐 쓰는 override.
+# 기본 docker-compose.yml만으로 실행하면 JVM이 기본 힙 크기를 쓰다가 저사양 서버에서 OOM이 날 수 있음.
+# 사용법: docker compose -f docker-compose.yml -f docker-compose.small.yml up -d --build
+# (서버에 swap을 반드시 먼저 설정해둘 것 — 힙을 줄여도 스왑 없이는 여전히 빠듯함)
+services:
+  core-db:
+    command: --innodb-buffer-pool-size=64M --performance-schema=OFF --table-open-cache=64 --max-connections=30
+
+  gateway:
+    environment:
+      JAVA_OPTS: "-Xms32m -Xmx160m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"
+
+  auth-service:
+    environment:
+      JAVA_OPTS: "-Xms32m -Xmx176m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"
+
+  festival-service:
+    environment:
+      JAVA_OPTS: "-Xms32m -Xmx176m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"
+
+  reservation-service:
+    environment:
+      JAVA_OPTS: "-Xms32m -Xmx176m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"

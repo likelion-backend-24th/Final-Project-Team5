@@ -32,6 +32,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
     public static final String USER_ID_HEADER = "X-User-Id";
     public static final String USER_ROLE_HEADER = "X-User-Role";
 
+    private static final String USER_ID_CLAIM = "userId";
     private static final String ROLE_CLAIM = "role";
     private static final String BEARER_PREFIX = "Bearer ";
 
@@ -73,7 +74,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
                     .getPayload();
 
             ServerHttpRequest authenticatedRequest = strippedRequest.mutate()
-                    .header(USER_ID_HEADER, claims.getSubject())
+                    .header(USER_ID_HEADER, String.valueOf(claims.get(USER_ID_CLAIM)))
                     .header(USER_ROLE_HEADER, claims.get(ROLE_CLAIM, String.class))
                     .build();
             return chain.filter(exchange.mutate().request(authenticatedRequest).build());

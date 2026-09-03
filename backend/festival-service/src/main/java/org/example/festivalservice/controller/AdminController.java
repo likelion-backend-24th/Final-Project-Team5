@@ -23,7 +23,7 @@ public class AdminController {
     public ResponseEntity<ApiResponse<List<HostApplicationSubmitRequestDto>>> listHostApplications(
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role){
-        return ResponseEntity.ok(ApiResponse.success(hostApplicationService.getListHostApplications(role)));
+        return ResponseEntity.ok(ApiResponse.success(hostApplicationService.getListHostApplications(role),"주최자 신청 목록 조회"));
     }
 
     //운영자가 주최자 신청을 승인·반려하고, 승인 시 주최자 권한을 부여한다
@@ -33,6 +33,6 @@ public class AdminController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody HostApplicationSetHostRequestDto dto){
-        return ResponseEntity.ok(ApiResponse.success(hostApplicationService.review(id, role, dto)));
+        return ResponseEntity.ok(ApiResponse.success(hostApplicationService.review(id, role, dto),"주최자 권한 부여 성공"));
     }
 }

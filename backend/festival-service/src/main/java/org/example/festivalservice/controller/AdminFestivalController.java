@@ -22,7 +22,7 @@ public class AdminFestivalController {
     public ResponseEntity<ApiResponse<List<FestivalResponseDto>>> listPendingFestivals(
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role) {
-        return ResponseEntity.ok(ApiResponse.success(festivalService.listPendingFestivals(role)));
+        return ResponseEntity.ok(ApiResponse.success(festivalService.listPendingFestivals(role),"심사 대기 중인 페스티벌 목록 조회"));
     }
 
     //운영자가 대기 중인 페스티벌을 공개·반려 처리한다
@@ -32,6 +32,6 @@ public class AdminFestivalController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody FestivalReviewRequestDto request) {
-        return ResponseEntity.ok(ApiResponse.success(festivalService.reviewFestival(id, role, request)));
+        return ResponseEntity.ok(ApiResponse.success(festivalService.reviewFestival(id, role, request),"심사 대기 중인 페스티벌 상태 변경 성공"));
     }
 }

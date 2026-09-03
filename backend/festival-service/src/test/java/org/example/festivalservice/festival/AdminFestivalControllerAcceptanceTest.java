@@ -55,7 +55,7 @@ class AdminFestivalControllerAcceptanceTest {
                         .header("X-User-Id", "1")
                         .header("X-User-Role", "HOST"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
     }
 
     @Test
@@ -97,7 +97,7 @@ class AdminFestivalControllerAcceptanceTest {
                         .content("""
                                 {"decision":"PENDING"}"""))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code", is("INVALID_DECISION")));
+                .andExpect(jsonPath("$.errorCode", is("INVALID_DECISION")));
     }
 
     @Test
@@ -111,7 +111,7 @@ class AdminFestivalControllerAcceptanceTest {
                         .content("""
                                 {"decision":"REJECTED"}"""))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code", is("ALREADY_REVIEWED")));
+                .andExpect(jsonPath("$.errorCode", is("ALREADY_REVIEWED")));
     }
 
     @Test
@@ -125,7 +125,7 @@ class AdminFestivalControllerAcceptanceTest {
                         .content("""
                                 {"decision":"PUBLISHED"}"""))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
     }
 
     private Festival saveFestival(String name, FestivalStatus status) {

@@ -30,7 +30,7 @@ public class AuthCookieResponseBuilder {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(ApiResponse.success(response));
+                .body(ApiResponse.success(response,"Access Token/Refresh Token 전송 성공"));
     }
 
     // 로그아웃 시 - 쿠키를 즉시 만료시켜서 삭제
@@ -45,6 +45,6 @@ public class AuthCookieResponseBuilder {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
-                .body(ApiResponse.success(null));
+                .body(ApiResponse.success(null,"로그아웃 성공"));
     }
 }

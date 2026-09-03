@@ -25,7 +25,7 @@ public class HostController {
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody FestivalRequestDto dto
             ){
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(festivalService.createFestival(userId,role,dto)));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(festivalService.createFestival(userId,role,dto),"새 페스티벌/티켓 종류 등록"));
     }
 
     //주최자가 본인이 등록한 페스티벌 목록을 조회한다
@@ -34,7 +34,7 @@ public class HostController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role
     ){
-        return ResponseEntity.ok(ApiResponse.success(festivalService.listMyFestivals(userId,role)));
+        return ResponseEntity.ok(ApiResponse.success(festivalService.listMyFestivals(userId,role),"본인이 등록한 페스티벌 목록 조회"));
     }
 
     //주최자가 본인 페스티벌의 상세 정보를 조회한다
@@ -44,6 +44,6 @@ public class HostController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role
     ){
-        return ResponseEntity.ok(ApiResponse.success(festivalService.getMyFestivalDetail(id,userId,role)));
+        return ResponseEntity.ok(ApiResponse.success(festivalService.getMyFestivalDetail(id,userId,role),"본인이 등록한 페스티벌 상세 정보 조회"));
     }
 }

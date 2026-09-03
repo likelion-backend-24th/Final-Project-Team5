@@ -33,12 +33,13 @@ public class JwtTokenProvider {
     }
 
     // AccessToken 생성
-    public String generateAccessToken(String username, String role) {
+    public String generateAccessToken(Long userId, String username, String role) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessTokenExpiration);
 
         return Jwts.builder()
                 .subject(username)
+                .claim("userId", userId) // Gateway가 X-User-Id로 전달할 회원 숫자 ID
                 .claim("role", role) // 페이로드에 role 필드 추가!!
                 .issuedAt(now)
                 .expiration(expiry)

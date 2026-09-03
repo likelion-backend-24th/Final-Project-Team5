@@ -89,7 +89,8 @@ class JwtAuthenticationGlobalFilterTest {
     @Test
     void forwardsUserIdAndRoleHeadersForValidToken() {
         String token = Jwts.builder()
-                .subject("42")
+                .subject("user42@test.com")
+                .claim("userId", 42L)
                 .claim("role", "HOST")
                 .signWith(secretKey)
                 .compact();

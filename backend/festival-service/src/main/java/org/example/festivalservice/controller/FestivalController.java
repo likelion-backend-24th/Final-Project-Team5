@@ -21,13 +21,13 @@ public class FestivalController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<FestivalResponseDto>>> listFestivals(Pageable pageable){
         Page<FestivalResponseDto> page = festivalService.listFestivals(pageable);
-        return ResponseEntity.ok(ApiResponse.success(page.getContent(), Meta.of(page)));
+        return ResponseEntity.ok(ApiResponse.success(page.getContent(), Meta.of(page),"페스티벌 목록 페이징 조회"));
     }
 
     //페스티벌 상세 조회, 인증 불필요
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<FestivalResponseDto>> getFestivalDetail(
             @PathVariable Long id){
-        return ResponseEntity.ok(ApiResponse.success(festivalService.getFestivalDetail(id)));
+        return ResponseEntity.ok(ApiResponse.success(festivalService.getFestivalDetail(id),"페스티벌 상세 조회"));
     }
 }

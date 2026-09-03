@@ -38,6 +38,6 @@ public class InternalRoleController {
             throw new ApiException(AuthErrorCode.INVALID_INTERNAL_TOKEN);
         }
         roleService.grantRole(request);
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.ok(ApiResponse.success(null, "Role 부여 성공"));
     }
 }

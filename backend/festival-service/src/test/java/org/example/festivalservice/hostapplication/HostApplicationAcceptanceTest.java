@@ -62,7 +62,7 @@ class HostApplicationAcceptanceTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_BODY))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code", is("DUPLICATE_APPLICATION")));
+                .andExpect(jsonPath("$.errorCode", is("DUPLICATE_APPLICATION")));
     }
 
     @Test
@@ -73,7 +73,7 @@ class HostApplicationAcceptanceTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_BODY))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code", is("ALREADY_HOST")));
+                .andExpect(jsonPath("$.errorCode", is("ALREADY_HOST")));
     }
 
     @Test
@@ -97,6 +97,6 @@ class HostApplicationAcceptanceTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(REQUEST_BODY))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code", is("UNAUTHORIZED")));
+                .andExpect(jsonPath("$.errorCode", is("UNAUTHORIZED")));
     }
 }

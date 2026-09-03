@@ -4,6 +4,7 @@ import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
 import Festivals from './pages/Festivals'
 import Home from './pages/Home'
+import HostApplication from './pages/HostApplication'
 import Login from './pages/Login'
 import Placeholder from './pages/Placeholder'
 import SignUp from './pages/SignUp'
@@ -22,15 +23,9 @@ function App() {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<Placeholder title="비밀번호 재설정" />} />
         <Route path="/reservations" element={<Placeholder title="내 예약" />} />
-        <Route
-          path="/organizers/apply"
-          element={
-            <Placeholder
-              title="주최자 신청"
-              description="주최자 신청 절차는 아직 준비 중입니다."
-            />
-          }
-        />
+        <Route path="/host-application" element={<HostApplication />} />
+        {/* SiteFooter/OrganizerCta는 여전히 /organizers/apply로 링크하므로 같은 화면을 연결해둔다. */}
+        <Route path="/organizers/apply" element={<HostApplication />} />
         <Route
           path="/festivals/new"
           element={

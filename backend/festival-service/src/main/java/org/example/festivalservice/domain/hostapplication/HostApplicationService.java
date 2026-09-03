@@ -8,7 +8,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -79,42 +78,32 @@ public class HostApplicationService {
             throw new ApiException(HttpStatus.CONFLICT, ALREADY_REVIEWED, "이미 처리된 신청입니다");
         }
 
-        if (request.getStatus() == HostApplicationStatus.REJECTED) {
-            return rejectApplication(application, request.getRejectReason());
-        } else if (request.getStatus() == HostApplicationStatus.APPROVED) {
-            return approveApplication(application);
+        if (request.getStatus() == HostApplicationStatus.APPROVED) {
+            //PENDING이면 먼저 APPROVAL_PENDING으로 확정 저장한 뒤 auth-service에 Role 부여를 요청한다.
+            //이미 APPROVAL_PENDING인 신청(= 이전 시도에서 Role 부여 응답을 못 받은 경우)은 같은 applicationId로 재시도만 한다.
+            if (application.getStatus() == HostApplicationStatus.PENDING) {
+                application.markApprovalPending();
+                hostApplicationRepository.save(application);
+            }
+            try {
+                setHostRole(application.getUserId(), application.getId());
+                application.markApproved();
+                hostApplicationRepository.save(application);
+            } catch (RestClientException e) {
+                // auth-service 응답 유실·Timeout — APPROVAL_PENDING 상태로 안전하게 남겨두고, 같은 신청을 다시 승인 요청하면 재시도된다
+            }
+        } else if (request.getStatus() == HostApplicationStatus.REJECTED) {
+            //Role 부여 절차 중(APPROVAL_PENDING)인 신청은 반려할 수 없다(중복 요청 재확인 경로와 충돌 방지)
+            if (application.getStatus() == HostApplicationStatus.APPROVAL_PENDING) {
+                throw new ApiException(HttpStatus.CONFLICT, ALREADY_REVIEWED, "Role 부여 처리 중인 신청은 반려할 수 없습니다");
+            }
+            if (request.getRejectReason() == null || request.getRejectReason().isBlank()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, REJECT_REASON_REQUIRED, "반려 사유는 필수입니다");
+            }
+            application.reject(request.getRejectReason());
+            hostApplicationRepository.save(application);
         } else {
             throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_DECISION, "승인 또는 반려만 결정할 수 있습니다");
-        }
-    }
-
-    //반려 처리 — Role 부여 절차 중(APPROVAL_PENDING)인 신청은 반려할 수 없다(중복 요청 재확인 경로와 충돌 방지)
-    private HostApplicationResponseDto rejectApplication(HostApplication application, String rejectReason) {
-        if (application.getStatus() == HostApplicationStatus.APPROVAL_PENDING) {
-            throw new ApiException(HttpStatus.CONFLICT, ALREADY_REVIEWED, "Role 부여 처리 중인 신청은 반려할 수 없습니다");
-        }
-        if (!StringUtils.hasText(rejectReason)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, REJECT_REASON_REQUIRED, "반려 사유는 필수입니다");
-        }
-        application.reject(rejectReason);
-        hostApplicationRepository.save(application);
-        return HostApplicationResponseDto.from(application);
-    }
-
-    //승인 처리 — PENDING이면 먼저 APPROVAL_PENDING으로 확정 저장한 뒤 auth-service에 Role 부여를 요청한다.
-    //이미 APPROVAL_PENDING인 신청(= 이전 시도에서 Role 부여 응답을 못 받은 경우)은 같은 applicationId로 재시도만 한다.
-    private HostApplicationResponseDto approveApplication(HostApplication application) {
-        if (application.getStatus() == HostApplicationStatus.PENDING) {
-            application.markApprovalPending();
-            hostApplicationRepository.save(application);
-        }
-
-        try {
-            setHostRole(application.getUserId(), application.getId());
-            application.markApproved();
-            hostApplicationRepository.save(application);
-        } catch (RestClientException e) {
-            // auth-service 응답 유실·Timeout — APPROVAL_PENDING 상태로 안전하게 남겨두고, 같은 신청을 다시 승인 요청하면 재시도된다
         }
         return HostApplicationResponseDto.from(application);
     }

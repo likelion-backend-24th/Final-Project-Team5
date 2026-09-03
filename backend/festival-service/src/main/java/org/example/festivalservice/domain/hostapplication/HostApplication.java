@@ -69,7 +69,7 @@ public class HostApplication {
         this.status = HostApplicationStatus.APPROVED;
     }
 
-    //운영자 심사: 반려 (사유 필수)
+    //운영자 심사: 반려
     public void reject(String rejectReason) {
         this.status = HostApplicationStatus.REJECTED;
         this.rejectReason = rejectReason;

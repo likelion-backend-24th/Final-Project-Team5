@@ -30,7 +30,7 @@ public class HostApplicationController {
             @Valid @RequestBody HostApplicationSubmitRequestDto request
     ) {
         HostApplicationResponseDto response = hostApplicationService.submit(userId, role, request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response,"주최자 신청 제출 성공"));
     }
 
     //본인의 주최 신청 상태·반려사유를 조회한다
@@ -39,6 +39,6 @@ public class HostApplicationController {
             @RequestHeader("X-User-Id") Long userId
     ) {
         HostApplicationResponseDto response = hostApplicationService.getMy(userId);
-        return ResponseEntity.ok(ApiResponse.success(response));
+        return ResponseEntity.ok(ApiResponse.success(response,"주최자 신청 상태·반려사유 조회"));
     }
 }

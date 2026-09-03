@@ -16,8 +16,8 @@ public class ApiResponse<T> {
         this.code = code;
     }
 
-    public static <T> ApiResponse<T> success(T data) {
-        return new ApiResponse<>(true, data, null, null);
+    public static <T> ApiResponse<T> success(T data, String message) {
+        return new ApiResponse<>(true, data, message, null);
     }
 
     public static ApiResponse<Void> error(String code, String message) {

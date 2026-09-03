@@ -20,7 +20,7 @@ public class TicketTypeController {
             @PathVariable Long id,
             @Valid @RequestBody TicketTypeDeductRequestDto request) {
         ticketTypeService.deductStock(id, request.quantity());
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.ok(ApiResponse.success(null,"티켓 차감 성공"));
     }
 
     //Reservation-Service → Festival-Service 내부 호출: 결제 실패·취소 시 차감했던 재고를 복구
@@ -29,6 +29,6 @@ public class TicketTypeController {
             @PathVariable Long id,
             @Valid @RequestBody TicketTypeDeductRequestDto request) {
         ticketTypeService.restoreStock(id, request.quantity());
-        return ResponseEntity.ok(ApiResponse.success(null));
+        return ResponseEntity.ok(ApiResponse.success(null,"티켓 복구 성공"));
     }
 }

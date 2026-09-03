@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router-dom'
+import ScrollToTop from './components/ScrollToTop'
 import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
 import Festivals from './pages/Festivals'
@@ -11,6 +12,7 @@ import SignUp from './pages/SignUp'
 function App() {
   return (
     <>
+      <ScrollToTop />
       <SiteHeader />
       <Routes>
         <Route path="/" element={<Home />} />

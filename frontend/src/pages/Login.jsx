@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import axios from 'axios'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
+import { useAuth } from '../context/AuthContext.jsx'
 import { GoogleIcon, KakaoIcon } from '../components/SocialIcons'
 import styles from './AuthForm.module.css'
 
@@ -26,6 +26,7 @@ function validate(form) {
 /** feval-go wireframe 기준 로그인 화면. */
 function Login() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [form, setForm] = useState({ username: '', password: '' })
   const [errors, setErrors] = useState({})
   const [showPassword, setShowPassword] = useState(false)
@@ -52,10 +53,7 @@ function Login() {
     setSubmitError('')
 
     try {
-      await axios.post('/api/auth/login', {
-        username: form.username.trim(),
-        password: form.password,
-      })
+      await login(form.username.trim(), form.password)
       navigate('/')
     } catch (error) {
       if (error.response?.status === 401) {

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import axios from 'axios'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
+import { signup } from '../api/authApi'
 import { GoogleIcon, KakaoIcon } from '../components/SocialIcons'
 import styles from './AuthForm.module.css'
 
@@ -82,7 +82,7 @@ function SignUp() {
     setSubmitError('')
 
     try {
-      await axios.post('/api/auth/signup', {
+      await signup({
         name: form.name.trim(),
         username: form.username.trim(),
         nickname: form.nickname.trim(),

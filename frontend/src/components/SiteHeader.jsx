@@ -1,18 +1,25 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookmarkIcon, LogInIcon, SearchIcon } from 'lucide-react'
+import { BookmarkIcon, LogInIcon, LogOutIcon, SearchIcon } from 'lucide-react'
+import { useAuth } from '../context/AuthContext.jsx'
 import styles from './SiteHeader.module.css'
 
 /** 스크롤해도 고정되는 상단바. 로고 / 검색 / 우측 액션 3단 구성. */
 function SiteHeader() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
+  const { user, isAuthenticated, logout } = useAuth()
 
   function handleSubmit(event) {
     event.preventDefault()
     const keyword = query.trim()
     if (!keyword) return
     navigate(`/festivals?q=${encodeURIComponent(keyword)}`)
+  }
+
+  function handleLogout() {
+    logout()
+    navigate('/')
   }
 
   return (
@@ -44,14 +51,29 @@ function SiteHeader() {
         </form>
 
         <div className={styles.actions}>
-          <Link
-            to="/login"
-            className={`${styles.action} ${styles.actionInvisible}`}
-            aria-label="로그인·회원가입"
-          >
-            <LogInIcon size={16} aria-hidden="true" className={styles.actionIcon} />
-            <span className={styles.actionLabel}>로그인·회원가입</span>
-          </Link>
+          {isAuthenticated ? (
+            <>
+              <span className={styles.userNickname}>{user.nickname}님</span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={`${styles.action} ${styles.actionInvisible}`}
+                aria-label="로그아웃"
+              >
+                <LogOutIcon size={16} aria-hidden="true" />
+                <span className={styles.actionLabel}>로그아웃</span>
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/login"
+              className={`${styles.action} ${styles.actionInvisible}`}
+              aria-label="로그인·회원가입"
+            >
+              <LogInIcon size={16} aria-hidden="true" className={styles.actionIcon} />
+              <span className={styles.actionLabel}>로그인·회원가입</span>
+            </Link>
+          )}
           <Link
             to="/reservations"
             className={`${styles.action} ${styles.actionPrimary}`}

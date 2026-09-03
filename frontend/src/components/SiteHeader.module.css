@@ -99,6 +99,7 @@
   padding: 0 12px;
   border-radius: var(--borderRadius-medium);
   border: var(--borderWidth-thin) solid transparent;
+  font: inherit;
   font-size: 14px;
   font-weight: 600;
   text-decoration: none;
@@ -106,6 +107,13 @@
   cursor: pointer;
   transition: background-color var(--duration-fast) ease,
     filter var(--duration-fast) ease;
+}
+
+.userNickname {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fgColor-default);
+  white-space: nowrap;
 }
 
 /* 로그인·회원가입 — Primer invisible 버튼 */

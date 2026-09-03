@@ -162,6 +162,53 @@ class HostApplicationServiceTest {
     }
 
     @Test
+    void reviewApprovalKeepsApprovalPendingWhenAuthServiceCallFails() {
+        when(authServiceRestClient.put()).thenReturn(requestBodyUriSpec);
+        when(requestBodyUriSpec.uri("/internal/v1/roles")).thenReturn(requestBodySpec);
+        when(requestBodySpec.retrieve()).thenThrow(new org.springframework.web.client.ResourceAccessException("timeout"));
+        HostApplication application = new HostApplication(1L, "소개", "010-0000-0000");
+        ReflectionTestUtils.setField(application, "id", 10L);
+        when(hostApplicationRepository.findById(10L)).thenReturn(Optional.of(application));
+        HostApplicationSetHostRequestDto request = new HostApplicationSetHostRequestDto();
+        ReflectionTestUtils.setField(request, "status", HostApplicationStatus.APPROVED);
+
+        HostApplicationResponseDto response = hostApplicationService.review(10L, "ADMIN", request);
+
+        assertThat(response.status()).isEqualTo(HostApplicationStatus.APPROVAL_PENDING);
+    }
+
+    @Test
+    void reviewRejectingApprovalPendingApplicationIsConflict() {
+        HostApplication application = new HostApplication(1L, "소개", "010-0000-0000");
+        ReflectionTestUtils.setField(application, "id", 10L);
+        ReflectionTestUtils.setField(application, "status", HostApplicationStatus.APPROVAL_PENDING);
+        when(hostApplicationRepository.findById(10L)).thenReturn(Optional.of(application));
+        HostApplicationSetHostRequestDto request = new HostApplicationSetHostRequestDto();
+        ReflectionTestUtils.setField(request, "status", HostApplicationStatus.REJECTED);
+        ReflectionTestUtils.setField(request, "rejectReason", "취소");
+
+        assertThatThrownBy(() -> hostApplicationService.review(10L, "ADMIN", request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+    }
+
+    @Test
+    void reviewApprovingRetriesFromApprovalPendingAndSucceeds() {
+        stubGrantHostRoleCall();
+        HostApplication application = new HostApplication(1L, "소개", "010-0000-0000");
+        ReflectionTestUtils.setField(application, "id", 10L);
+        ReflectionTestUtils.setField(application, "status", HostApplicationStatus.APPROVAL_PENDING);
+        when(hostApplicationRepository.findById(10L)).thenReturn(Optional.of(application));
+        HostApplicationSetHostRequestDto request = new HostApplicationSetHostRequestDto();
+        ReflectionTestUtils.setField(request, "status", HostApplicationStatus.APPROVED);
+
+        HostApplicationResponseDto response = hostApplicationService.review(10L, "ADMIN", request);
+
+        assertThat(response.status()).isEqualTo(HostApplicationStatus.APPROVED);
+        verify(authServiceRestClient).put();
+    }
+
+    @Test
     void reviewWithoutAdminRoleIsForbidden() {
         HostApplicationSetHostRequestDto request = new HostApplicationSetHostRequestDto();
         ReflectionTestUtils.setField(request, "status", HostApplicationStatus.APPROVED);

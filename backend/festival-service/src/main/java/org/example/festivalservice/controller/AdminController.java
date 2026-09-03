@@ -6,7 +6,9 @@ import org.example.festivalservice.common.ApiResponse;
 import org.example.festivalservice.domain.hostapplication.HostApplicationResponseDto;
 import org.example.festivalservice.domain.hostapplication.HostApplicationService;
 import org.example.festivalservice.domain.hostapplication.HostApplicationSetHostRequestDto;
+import org.example.festivalservice.domain.hostapplication.HostApplicationStatus;
 import org.example.festivalservice.domain.hostapplication.HostApplicationSubmitRequestDto;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +35,10 @@ public class AdminController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody HostApplicationSetHostRequestDto dto){
-        return ResponseEntity.ok(ApiResponse.success(hostApplicationService.review(id, role, dto),"주최자 권한 부여 성공"));
+        HostApplicationResponseDto response = hostApplicationService.review(id, role, dto);
+        HttpStatus httpStatus = response.status() == HostApplicationStatus.APPROVAL_PENDING
+                ? HttpStatus.ACCEPTED
+                : HttpStatus.OK;
+        return ResponseEntity.status(httpStatus).body(ApiResponse.success(response, "주최자 권한 부여 성공"));
     }
 }

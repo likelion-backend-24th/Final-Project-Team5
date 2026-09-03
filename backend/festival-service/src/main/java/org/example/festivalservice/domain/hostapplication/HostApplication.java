@@ -59,8 +59,13 @@ public class HostApplication {
         this.status = HostApplicationStatus.PENDING;
     }
 
-    //운영자 심사: 승인
-    public void approve() {
+    //운영자 심사: 승인 처리 시작 — Role 부여 확인 전까지는 비공개(APPROVAL_PENDING) 유지
+    public void markApprovalPending() {
+        this.status = HostApplicationStatus.APPROVAL_PENDING;
+    }
+
+    //운영자 심사: Role 부여가 확인된 뒤 최종 승인 확정
+    public void markApproved() {
         this.status = HostApplicationStatus.APPROVED;
     }
 

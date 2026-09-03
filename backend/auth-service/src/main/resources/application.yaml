@@ -46,3 +46,9 @@ jwt:
   secret: ${JWT_SECRET:local-dev-jwt-secret-please-change-before-deploy}
   access-token-expiration: 3600000 # 1시간
   refresh-token-expiration: 1209600000 # 14일
+
+# Festival-Service -> Auth-Service 내부 호출(PUT /internal/v1/roles) 인증 토큰.
+# festival-service의 INTERNAL_AUTH_TOKEN과 반드시 같은 값이어야 한다.
+internal:
+  role-grant:
+    token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}

@@ -4,10 +4,13 @@ import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
 import AdminFestivals from './pages/AdminFestivals'
 import AdminHostApplications from './pages/AdminHostApplications'
+import FestivalDetail from './pages/FestivalDetail'
 import Festivals from './pages/Festivals'
 import Home from './pages/Home'
 import HostApplication from './pages/HostApplication'
+import HostFestivalDetail from './pages/HostFestivalDetail'
 import HostFestivalNew from './pages/HostFestivalNew'
+import HostFestivals from './pages/HostFestivals'
 import Login from './pages/Login'
 import Placeholder from './pages/Placeholder'
 import SignUp from './pages/SignUp'
@@ -21,7 +24,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/festivals" element={<Festivals />} />
-        <Route path="/festivals/:id" element={<Placeholder title="페스티벌 상세" />} />
+        <Route path="/festivals/:id" element={<FestivalDetail />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<Placeholder title="비밀번호 재설정" />} />
@@ -32,6 +35,8 @@ function App() {
         <Route path="/host/festivals/new" element={<HostFestivalNew />} />
         {/* SiteFooter/OrganizerCta는 여전히 /festivals/new로 링크하므로 같은 화면을 연결해둔다. */}
         <Route path="/festivals/new" element={<HostFestivalNew />} />
+        <Route path="/host/festivals" element={<HostFestivals />} />
+        <Route path="/host/festivals/:id" element={<HostFestivalDetail />} />
         <Route path="/admin/host-applications" element={<AdminHostApplications />} />
         <Route path="/admin/festivals" element={<AdminFestivals />} />
         <Route path="/terms" element={<Placeholder title="이용약관" />} />

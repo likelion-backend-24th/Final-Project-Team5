@@ -34,6 +34,9 @@ public class HostApplicationService {
     //페스티벌 주최자가 되기 위한 신청을 제출할 때
     @Transactional
     public HostApplicationResponseDto submit(Long userId, String role, HostApplicationSubmitRequestDto request) {
+        if (ADMIN_ROLE.equals(role)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "운영자는 주최자 신청을 할 수 없습니다");
+        }
         if (HOST_ROLE.equals(role)) {
             throw new ApiException(HttpStatus.CONFLICT, ALREADY_HOST, "이미 주최자 권한을 가지고 있습니다");
         }

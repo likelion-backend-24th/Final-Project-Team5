@@ -9,14 +9,10 @@ import {
   PlusIcon,
   Trash2Icon,
 } from 'lucide-react'
+import { FESTIVAL_CATEGORIES as CATEGORY_OPTIONS } from '../api/festivalApi'
 import { createFestival } from '../api/hostFestivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './HostFestivalNew.module.css'
-
-const CATEGORY_OPTIONS = [
-  { value: 'MUSIC', label: '음악' },
-  { value: 'LOCAL', label: '지역 행사' },
-]
 
 function createEmptyTicketType(key) {
   return { key, name: '', price: '', quantity: '' }

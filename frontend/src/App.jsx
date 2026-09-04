@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router-dom'
 import ScrollToTop from './components/ScrollToTop'
 import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
+import AdminFestivals from './pages/AdminFestivals'
+import AdminHostApplications from './pages/AdminHostApplications'
 import Festivals from './pages/Festivals'
 import Home from './pages/Home'
 import HostApplication from './pages/HostApplication'
@@ -30,6 +32,8 @@ function App() {
         <Route path="/host/festivals/new" element={<HostFestivalNew />} />
         {/* SiteFooter/OrganizerCta는 여전히 /festivals/new로 링크하므로 같은 화면을 연결해둔다. */}
         <Route path="/festivals/new" element={<HostFestivalNew />} />
+        <Route path="/admin/host-applications" element={<AdminHostApplications />} />
+        <Route path="/admin/festivals" element={<AdminFestivals />} />
         <Route path="/terms" element={<Placeholder title="이용약관" />} />
         <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
         <Route

@@ -56,11 +56,13 @@ public class HostApplicationService {
     }
 
     //운영자가 심사 대기 중인 주최 신청 목록을 조회
-    public List<HostApplicationSubmitRequestDto> getListHostApplications(String role) {
+    public List<HostApplicationResponseDto> getListHostApplications(String role) {
         if (!ADMIN_ROLE.equals(role)) {
             throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "운영자 권한이 없습니다");
         }
-        return hostApplicationRepository.findByStatus(HostApplicationStatus.PENDING);
+        return hostApplicationRepository.findByStatus(HostApplicationStatus.PENDING).stream()
+                .map(HostApplicationResponseDto::from)
+                .toList();
     }
 
     //운영자가 주최 신청을 승인·반려하고, 승인 시 주최자 권한을 부여

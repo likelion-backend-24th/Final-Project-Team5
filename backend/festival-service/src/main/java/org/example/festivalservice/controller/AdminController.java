@@ -7,7 +7,6 @@ import org.example.festivalservice.domain.hostapplication.HostApplicationRespons
 import org.example.festivalservice.domain.hostapplication.HostApplicationService;
 import org.example.festivalservice.domain.hostapplication.HostApplicationSetHostRequestDto;
 import org.example.festivalservice.domain.hostapplication.HostApplicationStatus;
-import org.example.festivalservice.domain.hostapplication.HostApplicationSubmitRequestDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +21,7 @@ public class AdminController {
 
     //운영자가 심사 대기 중인 주최자 신청 목록을 조회한다
     @GetMapping
-    public ResponseEntity<ApiResponse<List<HostApplicationSubmitRequestDto>>> listHostApplications(
+    public ResponseEntity<ApiResponse<List<HostApplicationResponseDto>>> listHostApplications(
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role){
         return ResponseEntity.ok(ApiResponse.success(hostApplicationService.getListHostApplications(role),"주최자 신청 목록 조회"));

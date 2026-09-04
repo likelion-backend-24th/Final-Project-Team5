@@ -2,7 +2,7 @@ package org.example.festivalservice.domain.hostapplication;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.example.festivalservice.common.ApiException;
+import org.example.festivalservice.common.exception.ApiException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -17,13 +17,6 @@ public class HostApplicationService {
 
     private static final String HOST_ROLE = "HOST";
     private static final String ADMIN_ROLE = "ADMIN";
-    private static final String ALREADY_HOST = "ALREADY_HOST";
-    private static final String DUPLICATE_APPLICATION = "DUPLICATE_APPLICATION";
-    private static final String APPLICATION_NOT_FOUND = "APPLICATION_NOT_FOUND";
-    private static final String FORBIDDEN_ROLE = "FORBIDDEN_ROLE";
-    private static final String ALREADY_REVIEWED = "ALREADY_REVIEWED";
-    private static final String INVALID_DECISION = "INVALID_DECISION";
-    private static final String REJECT_REASON_REQUIRED = "REJECT_REASON_REQUIRED";
 
     private final HostApplicationRepository hostApplicationRepository;
     private final RestClient authServiceRestClient;
@@ -35,13 +28,13 @@ public class HostApplicationService {
     @Transactional
     public HostApplicationResponseDto submit(Long userId, String role, HostApplicationSubmitRequestDto request) {
         if (ADMIN_ROLE.equals(role)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "운영자는 주최자 신청을 할 수 없습니다");
+            throw new ApiException(HostApplicationErrorCode.FORBIDDEN_ROLE);
         }
         if (HOST_ROLE.equals(role)) {
-            throw new ApiException(HttpStatus.CONFLICT, ALREADY_HOST, "이미 주최자 권한을 가지고 있습니다");
+            throw new ApiException(HostApplicationErrorCode.ALREADY_HOST);
         }
         if (hostApplicationRepository.existsByUserIdAndStatus(userId, HostApplicationStatus.PENDING)) {
-            throw new ApiException(HttpStatus.CONFLICT, DUPLICATE_APPLICATION, "이미 처리 대기 중인 신청이 있습니다");
+            throw new ApiException(HostApplicationErrorCode.DUPLICATE_APPLICATION);
         }
 
         HostApplication application =
@@ -54,14 +47,14 @@ public class HostApplicationService {
     public HostApplicationResponseDto getMy(Long userId) {
         HostApplication application = hostApplicationRepository
                 .findFirstByUserIdOrderByCreatedAtDesc(userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, APPLICATION_NOT_FOUND, "신청 내역이 없습니다"));
+                .orElseThrow(() -> new ApiException(HostApplicationErrorCode.APPLICATION_NOT_FOUND));
         return HostApplicationResponseDto.from(application);
     }
 
     //운영자가 심사 대기 중인 주최 신청 목록을 조회
     public List<HostApplicationResponseDto> getListHostApplications(String role) {
         if (!ADMIN_ROLE.equals(role)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "운영자 권한이 없습니다");
+            throw new ApiException(HostApplicationErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
         return hostApplicationRepository.findByStatus(HostApplicationStatus.PENDING).stream()
                 .map(HostApplicationResponseDto::from)
@@ -73,14 +66,14 @@ public class HostApplicationService {
     //auth-service 호출이 실패해도 APPROVAL_PENDING 전이만은 그대로 커밋되어 있어야 나중에 같은 요청으로 안전하게 재시도할 수 있다.
     public HostApplicationResponseDto review(Long applicationId, String role, HostApplicationSetHostRequestDto request) {
         if (!ADMIN_ROLE.equals(role)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "운영자 권한이 없습니다");
+            throw new ApiException(HostApplicationErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
         HostApplication application = hostApplicationRepository.findById(applicationId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, APPLICATION_NOT_FOUND, "존재하지 않는 신청입니다"));
+                .orElseThrow(() -> new ApiException(HostApplicationErrorCode.APPLICATION_NOT_FOUND));
 
         if (application.getStatus() == HostApplicationStatus.APPROVED
                 || application.getStatus() == HostApplicationStatus.REJECTED) {
-            throw new ApiException(HttpStatus.CONFLICT, ALREADY_REVIEWED, "이미 처리된 신청입니다");
+            throw new ApiException(HostApplicationErrorCode.ALREADY_REVIEWED);
         }
 
         if (request.getStatus() == HostApplicationStatus.APPROVED) {
@@ -100,15 +93,15 @@ public class HostApplicationService {
         } else if (request.getStatus() == HostApplicationStatus.REJECTED) {
             //Role 부여 절차 중(APPROVAL_PENDING)인 신청은 반려할 수 없다(중복 요청 재확인 경로와 충돌 방지)
             if (application.getStatus() == HostApplicationStatus.APPROVAL_PENDING) {
-                throw new ApiException(HttpStatus.CONFLICT, ALREADY_REVIEWED, "Role 부여 처리 중인 신청은 반려할 수 없습니다");
+                throw new ApiException(HostApplicationErrorCode.APPROVAL_PENDING_CANNOT_REJECT);
             }
             if (request.getRejectReason() == null || request.getRejectReason().isBlank()) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, REJECT_REASON_REQUIRED, "반려 사유는 필수입니다");
+                throw new ApiException(HostApplicationErrorCode.REJECT_REASON_REQUIRED);
             }
             application.reject(request.getRejectReason());
             hostApplicationRepository.save(application);
         } else {
-            throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_DECISION, "승인 또는 반려만 결정할 수 있습니다");
+            throw new ApiException(HostApplicationErrorCode.INVALID_DECISION);
         }
         return HostApplicationResponseDto.from(application);
     }

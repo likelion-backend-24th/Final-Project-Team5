@@ -1,7 +1,7 @@
 package org.example.festivalservice.domain.tickettype;
 
 import lombok.RequiredArgsConstructor;
-import org.example.festivalservice.common.ApiException;
+import org.example.festivalservice.common.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +16,7 @@ public class TicketTypeService {
     public void deductStock(Long ticketTypeId, int quantity) {
         int updated = ticketTypeRepository.deductStock(ticketTypeId, quantity);
         if (updated == 0) {
-            throw new ApiException(HttpStatus.CONFLICT, "STOCK_EXCEEDED", "재고가 부족합니다");
+            throw new ApiException(TicketTypeErrorCode.STOCK_EXCEEDED);
         }
     }
 

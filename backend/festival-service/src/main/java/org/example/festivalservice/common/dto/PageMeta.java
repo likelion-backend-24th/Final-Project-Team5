@@ -1,4 +1,4 @@
-package org.example.festivalservice.common;
+package org.example.festivalservice.common.dto;
 
 import org.springframework.data.domain.Page;
 

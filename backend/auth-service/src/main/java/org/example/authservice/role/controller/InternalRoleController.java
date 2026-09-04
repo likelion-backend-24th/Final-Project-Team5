@@ -6,6 +6,7 @@ import org.example.authservice.auth.exception.AuthErrorCode;
 import org.example.authservice.common.dto.ApiResponse;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.role.dto.GrantRoleRequest;
+import org.example.authservice.role.exception.RoleErrorCode;
 import org.example.authservice.role.service.RoleService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -35,9 +36,9 @@ public class InternalRoleController {
             @Valid @RequestBody GrantRoleRequest request
     ) {
         if (!authorization.equals(BEARER_PREFIX + internalAuthToken)) {
-            throw new ApiException(AuthErrorCode.INVALID_INTERNAL_TOKEN);
+            throw new ApiException(RoleErrorCode.INVALID_INTERNAL_TOKEN);
         }
         roleService.grantRole(request);
-        return ResponseEntity.ok(ApiResponse.success(null, "Role 부여 성공"));
+        return ResponseEntity.ok(ApiResponse.success("Role 부여 성공", null ));
     }
 }

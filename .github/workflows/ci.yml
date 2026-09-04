@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "deploy"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "deploy"]
 
 jobs:
   build-and-test:
@@ -38,11 +38,12 @@ jobs:
   # 배포 서버(Oracle E2.1.Micro, RAM 1GB)에서 직접 이미지를 빌드하면 다른 컨테이너들과
   # 메모리를 나눠 쓰는 상태에서 Gradle 빌드가 스왑까지 밀려 들어가 사실상 멈춰버리는
   # 문제가 있었음. 빌드는 러너에서 하고 배포 서버는 완성된 이미지를 pull만 하도록 분리.
-  # main에 push된 경우에만 실행(PR에서는 빌드/푸시 안 함).
+  # deploy 브랜치에 push된 경우에만 실행(main push나 PR에서는 빌드/푸시 안 함 — main에
+  # 머지되는 모든 PR이 자동 배포로 이어지지 않도록, 실제 배포는 main → deploy PR로만 트리거됨).
   build-and-push-images:
     name: Build & Push Docker Images
     needs: build-and-test
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -65,6 +66,8 @@ jobs:
           chmod +x gradlew
           ./gradlew :${{ matrix.service }}:bootJar -x test --no-daemon
 
+      - uses: docker/setup-buildx-action@v3
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -78,17 +81,21 @@ jobs:
           context: backend/${{ matrix.service }}
           push: true
           tags: ghcr.io/likelion-backend-24th/final-project-team5-${{ matrix.service }}:latest
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   build-and-push-frontend-image:
     name: Build & Push Frontend Image
     needs: build-and-test
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/deploy'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -105,3 +112,5 @@ jobs:
           build-args: |
             VITE_API_BASE_URL=https://fevalgo.duckdns.org
           tags: ghcr.io/likelion-backend-24th/final-project-team5-frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend

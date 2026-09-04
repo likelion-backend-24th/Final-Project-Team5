@@ -23,5 +23,5 @@ jobs:
             set -euo pipefail
             cd ~/Final-Project-Team5
             git pull --ff-only
-            docker compose -f docker-compose.yml -f docker-compose.small.yml pull gateway auth-service festival-service reservation-service
+            docker compose -f docker-compose.yml -f docker-compose.small.yml pull gateway auth-service festival-service reservation-service frontend
             docker compose -f docker-compose.yml -f docker-compose.small.yml up -d

@@ -2,5 +2,8 @@ package org.example.festivalservice.domain.festival;
 
 public enum FestivalCategory {
     MUSIC,
-    LOCAL
+    LOCAL,
+    FOOD,
+    CULTURE,
+    SPORTS
 }

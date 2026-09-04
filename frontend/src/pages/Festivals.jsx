@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { filterByCategory } from '../data/festivals'
+import { fetchFestivals, mapFestivalToCard, FESTIVAL_CATEGORY_LABELS } from '../api/festivalApi'
 import CategoryChips from '../components/CategoryChips'
 import FestivalCard from '../components/FestivalCard'
 import Pagination from '../components/Pagination'
@@ -8,8 +8,15 @@ import sectionStyles from '../components/Section.module.css'
 import styles from './Festivals.module.css'
 
 const PAGE_SIZE = 8
+// 백엔드가 카테고리/검색 쿼리 파라미터를 지원하지 않아, 공개된 페스티벌을 한 번에 크게 받아와 기존처럼 클라이언트에서 거른다.
+const FETCH_SIZE = 100
 
-/** 전체 페스티벌 목록. 카테고리 칩 + ?q= 이름 검색 + ?sort=deadline 마감임박순 + ?page= 페이지네이션을 함께 지원한다. */
+const CATEGORY_CHIPS = [
+  { id: 'all', label: '전체' },
+  ...Object.entries(FESTIVAL_CATEGORY_LABELS).map(([id, label]) => ({ id, label })),
+]
+
+/** 전체 페스티벌 목록. 실제 등록된(PUBLISHED) 페스티벌을 조회한다. */
 function Festivals() {
   const [searchParams, setSearchParams] = useSearchParams()
   const query = searchParams.get('q')?.trim() ?? ''
@@ -17,8 +24,34 @@ function Festivals() {
   const category = searchParams.get('category') ?? 'all'
   const requestedPage = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
 
-  const festivals = useMemo(() => {
-    let list = filterByCategory(category)
+  const [festivals, setFestivals] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setLoadError('')
+
+    fetchFestivals({ page: 0, size: FETCH_SIZE })
+      .then((response) => {
+        if (cancelled) return
+        setFestivals(response.data.data.map(mapFestivalToCard))
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('페스티벌 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const filtered = useMemo(() => {
+    let list = category === 'all' ? festivals : festivals.filter((festival) => festival.category === category)
 
     if (query) {
       const keyword = query.toLowerCase()
@@ -34,11 +67,11 @@ function Festivals() {
     }
 
     return list
-  }, [category, query, sort])
+  }, [festivals, category, query, sort])
 
-  const totalPages = Math.max(1, Math.ceil(festivals.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const page = Math.min(requestedPage, totalPages)
-  const pagedFestivals = festivals.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const pagedFestivals = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   function updateParams(mutate) {
     setSearchParams((prev) => {
@@ -69,7 +102,7 @@ function Festivals() {
       <div className={styles.headerRow}>
         <h1 className={styles.title}>{query ? `"${query}" 검색 결과` : '전체 페스티벌'}</h1>
         <p className={styles.resultCount}>
-          총 {festivals.length}건
+          총 {filtered.length}건
           {query && (
             <>
               {' · '}
@@ -81,17 +114,27 @@ function Festivals() {
         </p>
       </div>
 
-      <CategoryChips value={category} onChange={handleCategoryChange} />
+      <CategoryChips value={category} onChange={handleCategoryChange} categories={CATEGORY_CHIPS} />
 
-      {festivals.length === 0 ? (
+      {loading && <p className={sectionStyles.empty}>불러오는 중…</p>}
+
+      {!loading && loadError && <p className={sectionStyles.empty}>{loadError}</p>}
+
+      {!loading && !loadError && filtered.length === 0 && (
         <p className={sectionStyles.empty}>
           {query ? '검색 결과가 없습니다.' : '해당 카테고리에 등록된 페스티벌이 없습니다.'}
         </p>
-      ) : (
+      )}
+
+      {!loading && !loadError && filtered.length > 0 && (
         <>
           <div className={sectionStyles.grid}>
             {pagedFestivals.map((festival) => (
-              <FestivalCard key={festival.id} festival={festival} />
+              <FestivalCard
+                key={festival.id}
+                festival={festival}
+                categoryLabel={FESTIVAL_CATEGORY_LABELS[festival.category] ?? festival.category}
+              />
             ))}
           </div>
           <Pagination page={page} totalPages={totalPages} onChange={handlePageChange} />

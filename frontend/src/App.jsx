@@ -4,6 +4,7 @@ import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
 import AdminFestivals from './pages/AdminFestivals'
 import AdminHostApplications from './pages/AdminHostApplications'
+import FestivalDetail from './pages/FestivalDetail'
 import Festivals from './pages/Festivals'
 import Home from './pages/Home'
 import HostApplication from './pages/HostApplication'
@@ -21,7 +22,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/festivals" element={<Festivals />} />
-        <Route path="/festivals/:id" element={<Placeholder title="페스티벌 상세" />} />
+        <Route path="/festivals/:id" element={<FestivalDetail />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<Placeholder title="비밀번호 재설정" />} />

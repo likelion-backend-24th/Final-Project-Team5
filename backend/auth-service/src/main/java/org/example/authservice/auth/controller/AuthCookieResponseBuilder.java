@@ -19,7 +19,7 @@ public class AuthCookieResponseBuilder {
 
     //Refresh Token을 HttpOnly 쿠키로 응답에 실어주는 역할
     //(Access Token은 body에, Refresh Token은 쿠키에 분리해서 내려줌)
-    public ResponseEntity<ApiResponse<TokenResponse>> buildWithCookie(TokenResponse response) {
+    public ResponseEntity<ApiResponse<TokenResponse>> buildWithCookie(TokenResponse response,String message) {
         ResponseCookie cookie = ResponseCookie.from("refreshToken", response.getRefreshToken())
                 .httpOnly(true)
                 .secure(true) //Https/localhost 만 전송 나중에 고려
@@ -30,11 +30,11 @@ public class AuthCookieResponseBuilder {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(ApiResponse.success(response,"Access Token/Refresh Token 전송 성공"));
+                .body(ApiResponse.success(message, response));
     }
 
     // 로그아웃 시 - 쿠키를 즉시 만료시켜서 삭제
-    public ResponseEntity<ApiResponse<Void>> buildWithCookieDeleted() {
+    public ResponseEntity<ApiResponse<Void>> buildWithCookieDeleted(String message) {
         ResponseCookie deleteCookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
                 .secure(true)
@@ -45,6 +45,6 @@ public class AuthCookieResponseBuilder {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
-                .body(ApiResponse.success(null,"로그아웃 성공"));
+                .body(ApiResponse.success(message, null));
     }
 }

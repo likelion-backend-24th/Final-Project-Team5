@@ -178,7 +178,7 @@ class HostApplicationReviewAcceptanceTest {
                         .content("""
                                 {"status":"REJECTED","rejectReason":"취소"}"""))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errorCode", is("ALREADY_REVIEWED")));
+                .andExpect(jsonPath("$.errorCode", is("APPROVAL_PENDING_CANNOT_REJECT")));
     }
 
     @Test
@@ -214,6 +214,6 @@ class HostApplicationReviewAcceptanceTest {
                         .content("""
                                 {"status":"APPROVED"}"""))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ADMIN_ROLE")));
     }
 }

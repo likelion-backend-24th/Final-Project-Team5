@@ -9,8 +9,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
-import org.example.festivalservice.common.ApiException;
+import org.example.festivalservice.common.exception.ApiException;
 import org.example.festivalservice.domain.hostapplication.HostApplication;
+import org.example.festivalservice.domain.hostapplication.HostApplicationErrorCode;
 import org.example.festivalservice.domain.hostapplication.HostApplicationRepository;
 import org.example.festivalservice.domain.hostapplication.HostApplicationService;
 import org.example.festivalservice.domain.hostapplication.HostApplicationSetHostRequestDto;
@@ -25,7 +26,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.http.HttpStatus;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 
@@ -59,7 +59,6 @@ class HostApplicationServiceTest {
         ReflectionTestUtils.setField(hostApplicationService, "internalAuthToken", "test-token");
     }
 
-    //승인 케이스에서만 auth-service 호출 체인을 stub — verifyNoInteractions/never()가 stub 설정 자체를 호출로 오인하지 않도록 공용 셋업에 두지 않음
     private void stubGrantHostRoleCall() {
         when(authServiceRestClient.put()).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri("/internal/v1/roles")).thenReturn(requestBodySpec);
@@ -82,7 +81,8 @@ class HostApplicationServiceTest {
     void submitRejectsAlreadyHost() {
         assertThatThrownBy(() -> hostApplicationService.submit(1L, "HOST", REQUEST))
                 .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(HostApplicationErrorCode.ALREADY_HOST));
     }
 
     @Test
@@ -92,7 +92,8 @@ class HostApplicationServiceTest {
 
         assertThatThrownBy(() -> hostApplicationService.submit(1L, "USER", REQUEST))
                 .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(HostApplicationErrorCode.DUPLICATE_APPLICATION));
     }
 
     @Test
@@ -113,7 +114,8 @@ class HostApplicationServiceTest {
 
         assertThatThrownBy(() -> hostApplicationService.getMy(1L))
                 .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.NOT_FOUND));
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(HostApplicationErrorCode.APPLICATION_NOT_FOUND));
     }
 
     @Test
@@ -157,7 +159,8 @@ class HostApplicationServiceTest {
 
         assertThatThrownBy(() -> hostApplicationService.review(10L, "ADMIN", request))
                 .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(HostApplicationErrorCode.REJECT_REASON_REQUIRED));
         verifyNoInteractions(authServiceRestClient);
     }
 
@@ -189,7 +192,8 @@ class HostApplicationServiceTest {
 
         assertThatThrownBy(() -> hostApplicationService.review(10L, "ADMIN", request))
                 .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(HostApplicationErrorCode.APPROVAL_PENDING_CANNOT_REJECT));
     }
 
     @Test
@@ -215,7 +219,8 @@ class HostApplicationServiceTest {
 
         assertThatThrownBy(() -> hostApplicationService.review(10L, "HOST", request))
                 .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.FORBIDDEN));
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(HostApplicationErrorCode.FORBIDDEN_ADMIN_ROLE));
         verify(authServiceRestClient, never()).put();
     }
 
@@ -230,6 +235,7 @@ class HostApplicationServiceTest {
 
         assertThatThrownBy(() -> hostApplicationService.review(10L, "ADMIN", request))
                 .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getStatus()).isEqualTo(HttpStatus.CONFLICT));
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(HostApplicationErrorCode.ALREADY_REVIEWED));
     }
 }

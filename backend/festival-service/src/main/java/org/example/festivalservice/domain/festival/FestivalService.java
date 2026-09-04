@@ -23,6 +23,7 @@ public class FestivalService {
     private static final String FORBIDDEN_NOT_OWNER = "FORBIDDEN_NOT_OWNER";
     private static final String INVALID_DECISION = "INVALID_DECISION";
     private static final String ALREADY_REVIEWED = "ALREADY_REVIEWED";
+    private static final String INVALID_PERIOD = "INVALID_PERIOD";
 
     private final FestivalRepository festivalRepository;
     private final TicketTypeRepository ticketTypeRepository;
@@ -32,6 +33,9 @@ public class FestivalService {
     public FestivalResponseDto createFestival(Long hostUserId, String role, FestivalRequestDto request) {
         if (!HOST_ROLE.equals(role)) {
             throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "주최자 권한이 없습니다");
+        }
+        if (!request.endAt().isAfter(request.startAt())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_PERIOD, "종료 일시는 시작 일시 이후여야 합니다");
         }
 
         Festival festival = Festival.builder()

@@ -2,7 +2,7 @@ package org.example.festivalservice.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.example.festivalservice.common.ApiResponse;
+import org.example.festivalservice.common.dto.ApiResponse;
 import org.example.festivalservice.domain.tickettype.TicketTypeDeductRequestDto;
 import org.example.festivalservice.domain.tickettype.TicketTypeService;
 import org.springframework.http.ResponseEntity;

@@ -12,7 +12,9 @@ spring:
             add-to-simple-url-handler-mapping: true
             cors-configurations:
               '[/**]':
-                allowed-origins: "http://localhost:5173"
+                allowed-origins:
+                  - "http://localhost:5173"
+                  - "https://fevalgo.duckdns.org"
                 allowed-methods:
                   - GET
                   - POST

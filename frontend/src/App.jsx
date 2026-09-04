@@ -8,7 +8,9 @@ import FestivalDetail from './pages/FestivalDetail'
 import Festivals from './pages/Festivals'
 import Home from './pages/Home'
 import HostApplication from './pages/HostApplication'
+import HostFestivalDetail from './pages/HostFestivalDetail'
 import HostFestivalNew from './pages/HostFestivalNew'
+import HostFestivals from './pages/HostFestivals'
 import Login from './pages/Login'
 import Placeholder from './pages/Placeholder'
 import SignUp from './pages/SignUp'
@@ -33,6 +35,8 @@ function App() {
         <Route path="/host/festivals/new" element={<HostFestivalNew />} />
         {/* SiteFooter/OrganizerCta는 여전히 /festivals/new로 링크하므로 같은 화면을 연결해둔다. */}
         <Route path="/festivals/new" element={<HostFestivalNew />} />
+        <Route path="/host/festivals" element={<HostFestivals />} />
+        <Route path="/host/festivals/:id" element={<HostFestivalDetail />} />
         <Route path="/admin/host-applications" element={<AdminHostApplications />} />
         <Route path="/admin/festivals" element={<AdminFestivals />} />
         <Route path="/terms" element={<Placeholder title="이용약관" />} />

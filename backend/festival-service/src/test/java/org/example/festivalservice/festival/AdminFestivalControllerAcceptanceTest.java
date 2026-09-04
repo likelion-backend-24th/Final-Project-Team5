@@ -55,7 +55,7 @@ class AdminFestivalControllerAcceptanceTest {
                         .header("X-User-Id", "1")
                         .header("X-User-Role", "HOST"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ADMIN_ROLE")));
     }
 
     @Test
@@ -125,7 +125,7 @@ class AdminFestivalControllerAcceptanceTest {
                         .content("""
                                 {"decision":"PUBLISHED"}"""))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ADMIN_ROLE")));
     }
 
     private Festival saveFestival(String name, FestivalStatus status) {

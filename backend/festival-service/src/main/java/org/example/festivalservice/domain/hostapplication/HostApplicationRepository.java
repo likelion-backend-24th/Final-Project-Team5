@@ -10,5 +10,5 @@ public interface HostApplicationRepository extends JpaRepository<HostApplication
 
     Optional<HostApplication> findFirstByUserIdOrderByCreatedAtDesc(Long userId);
 
-    List<HostApplicationSubmitRequestDto> findByStatus(HostApplicationStatus status);
+    List<HostApplication> findByStatus(HostApplicationStatus status);
 }

@@ -51,6 +51,24 @@ function SiteHeader() {
         </form>
 
         <div className={styles.actions}>
+          {isAuthenticated && user.role === 'ADMIN' && (
+            <>
+              <Link
+                to="/admin/host-applications"
+                className={`${styles.action} ${styles.actionInvisible}`}
+                aria-label="주최자 신청 심사"
+              >
+                <span className={styles.actionLabel}>주최자 심사</span>
+              </Link>
+              <Link
+                to="/admin/festivals"
+                className={`${styles.action} ${styles.actionInvisible}`}
+                aria-label="페스티벌 등록 심사"
+              >
+                <span className={styles.actionLabel}>페스티벌 심사</span>
+              </Link>
+            </>
+          )}
           {isAuthenticated ? (
             <>
               <span className={styles.userNickname}>{user.nickname}님</span>

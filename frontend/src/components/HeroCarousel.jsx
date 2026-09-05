@@ -3,9 +3,7 @@ import { Link } from 'react-router-dom'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { FEATURED_FESTIVALS } from '../data/festivals'
 import Badge from './Badge'
-import styles from './HeroCarousel.module.css'
 
-/** 추천 페스티벌 메인 배너. 좌우 화살표 + 하단 도트로 이동한다. */
 function HeroCarousel({ slides = FEATURED_FESTIVALS }) {
   const [index, setIndex] = useState(0)
   const count = slides.length
@@ -15,15 +13,17 @@ function HeroCarousel({ slides = FEATURED_FESTIVALS }) {
   const go = (step) => setIndex((current) => (current + step + count) % count)
 
   return (
-    <section aria-label="추천 페스티벌" className={styles.carousel}>
-      <div className={styles.viewport}>
+    <section className="mx-auto max-w-[1440px] px-6 pt-6">
+      <div className="relative aspect-[16/6] w-full overflow-hidden rounded-3xl bg-gray-100">
         {slides.map((festival, i) => {
           const active = i === index
           return (
             <Link
               key={festival.id}
               to={`/festivals/${festival.id}`}
-              className={`${styles.slide} ${active ? styles.slideActive : ''}`}
+              className={`absolute inset-0 block transition-opacity duration-300 ${
+                active ? 'opacity-100' : 'pointer-events-none opacity-0'
+              }`}
               aria-label={`${festival.title} 상세 보기`}
               aria-hidden={!active}
               tabIndex={active ? 0 : -1}
@@ -31,13 +31,15 @@ function HeroCarousel({ slides = FEATURED_FESTIVALS }) {
               <img
                 src={festival.image}
                 alt={festival.title}
-                className={styles.slideImage}
+                className="h-full w-full object-cover"
               />
-              <div className={styles.scrim} />
-              <div className={styles.caption}>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              <div className="absolute bottom-0 left-0 p-6 md:p-10">
                 {festival.badge ? <Badge>{festival.badge}</Badge> : null}
-                <h2 className={styles.title}>{festival.title}</h2>
-                <p className={styles.meta}>
+                <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-white text-balance md:text-4xl">
+                  {festival.title}
+                </h2>
+                <p className="mt-2 text-sm text-gray-200 md:text-base">
                   {festival.location} · {festival.date}
                 </p>
               </div>
@@ -45,37 +47,37 @@ function HeroCarousel({ slides = FEATURED_FESTIVALS }) {
           )
         })}
 
-        <div className={styles.arrows}>
-          <button
-            type="button"
-            className={styles.arrow}
-            onClick={() => go(-1)}
-            aria-label="이전 페스티벌"
-          >
-            <ChevronLeftIcon size={20} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={styles.arrow}
-            onClick={() => go(1)}
-            aria-label="다음 페스티벌"
-          >
-            <ChevronRightIcon size={20} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
+        <button
+          type="button"
+          onClick={() => go(-1)}
+          aria-label="이전 슬라이드"
+          className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-white"
+        >
+          <ChevronLeftIcon className="h-5 w-5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => go(1)}
+          aria-label="다음 슬라이드"
+          className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-white"
+        >
+          <ChevronRightIcon className="h-5 w-5" />
+        </button>
 
-      <div className={styles.dots}>
-        {slides.map((festival, i) => (
-          <button
-            key={festival.id}
-            type="button"
-            className={`${styles.dot} ${i === index ? styles.dotActive : ''}`}
-            onClick={() => setIndex(i)}
-            aria-label={`${i + 1}번째 슬라이드로 이동`}
-            aria-current={i === index}
-          />
-        ))}
+        <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+          {slides.map((festival, i) => (
+            <button
+              key={festival.id}
+              type="button"
+              onClick={() => setIndex(i)}
+              aria-label={`${i + 1}번째 슬라이드로 이동`}
+              aria-current={i === index}
+              className={`h-2 rounded-full transition-all ${
+                i === index ? 'w-6 bg-blue-600' : 'w-2 bg-white/70'
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </section>
   )

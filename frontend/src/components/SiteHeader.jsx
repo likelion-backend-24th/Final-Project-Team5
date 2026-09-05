@@ -2,9 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BookmarkIcon, LogInIcon, LogOutIcon, SearchIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
-import styles from './SiteHeader.module.css'
 
-/** 스크롤해도 고정되는 상단바. 로고 / 검색 / 우측 액션 3단 구성. */
 function SiteHeader() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
@@ -23,84 +21,83 @@ function SiteHeader() {
   }
 
   return (
-    <header className={styles.header}>
-      <div className={styles.inner}>
-        <Link to="/" className={styles.logo} aria-label="FevalGo 홈">
+    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-4 px-6 py-4">
+        <Link to="/" className="text-2xl font-extrabold tracking-tight text-blue-600" aria-label="FevalGo 홈">
           FevalGo
         </Link>
 
         <form
-          className={styles.search}
           role="search"
           onSubmit={handleSubmit}
+          className="relative max-w-[380px] flex-1 max-md:order-3 max-md:basis-full"
         >
-          <div className={styles.searchField}>
-            <input
-              type="search"
-              name="q"
-              className={styles.searchInput}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="어떤 페스티벌을 찾으세요?"
-              aria-label="페스티벌 검색"
-            />
-            <button type="submit" className={styles.searchButton} aria-label="검색">
-              <SearchIcon size={16} aria-hidden="true" />
-            </button>
-          </div>
+          <input
+            type="search"
+            name="q"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="어떤 페스티벌을 찾으세요?"
+            aria-label="페스티벌 검색"
+            className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-4 pr-11 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          />
+          <button
+            type="submit"
+            aria-label="검색"
+            className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+          >
+            <SearchIcon className="h-4 w-4" />
+          </button>
         </form>
 
-        <div className={styles.actions}>
+        <nav className="ml-auto flex items-center gap-2">
           {isAuthenticated && user.role === 'ADMIN' && (
             <>
               <Link
                 to="/admin/host-applications"
-                className={`${styles.action} ${styles.actionInvisible}`}
-                aria-label="주최자 신청 심사"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
               >
-                <span className={styles.actionLabel}>주최자 심사</span>
+                주최자 심사
               </Link>
               <Link
                 to="/admin/festivals"
-                className={`${styles.action} ${styles.actionInvisible}`}
-                aria-label="페스티벌 등록 심사"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
               >
-                <span className={styles.actionLabel}>페스티벌 심사</span>
+                페스티벌 심사
               </Link>
             </>
           )}
+
           {isAuthenticated ? (
             <>
-              <span className={styles.userNickname}>{user.nickname}님</span>
+              <span className="text-sm font-semibold text-gray-700">{user.nickname}님</span>
               <button
                 type="button"
                 onClick={handleLogout}
-                className={`${styles.action} ${styles.actionInvisible}`}
-                aria-label="로그아웃"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-100"
               >
-                <LogOutIcon size={16} aria-hidden="true" />
-                <span className={styles.actionLabel}>로그아웃</span>
+                <LogOutIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">로그아웃</span>
               </button>
             </>
           ) : (
             <Link
               to="/login"
-              className={`${styles.action} ${styles.actionInvisible}`}
-              aria-label="로그인·회원가입"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-100"
             >
-              <LogInIcon size={16} aria-hidden="true" className={styles.actionIcon} />
-              <span className={styles.actionLabel}>로그인·회원가입</span>
+              <LogInIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">로그인·회원가입</span>
             </Link>
           )}
+
           <Link
             to="/reservations"
-            className={`${styles.action} ${styles.actionPrimary}`}
-            aria-label="내 예약"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-50"
           >
-            <BookmarkIcon size={16} aria-hidden="true" />
-            <span className={styles.actionLabel}>내 예약</span>
+            <BookmarkIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">내 예약</span>
           </Link>
-        </div>
+        </nav>
       </div>
     </header>
   )

@@ -13,6 +13,7 @@ function SiteHeader() {
     const keyword = query.trim()
     if (!keyword) return
     navigate(`/festivals?q=${encodeURIComponent(keyword)}`)
+    setQuery('')
   }
 
   function handleLogout() {

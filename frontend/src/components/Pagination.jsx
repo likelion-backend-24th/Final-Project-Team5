@@ -1,5 +1,4 @@
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
-import styles from './Pagination.module.css'
 
 /** 번호형 페이지네이션. totalPages가 1 이하면 아무것도 그리지 않는다. */
 function Pagination({ page, totalPages, onChange }) {
@@ -7,25 +6,32 @@ function Pagination({ page, totalPages, onChange }) {
 
   const pages = Array.from({ length: totalPages }, (_, i) => i + 1)
 
+  const buttonBaseClass =
+    'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border text-sm font-semibold transition'
+
   return (
-    <nav className={styles.pagination} aria-label="페이지네이션">
+    <nav aria-label="페이지네이션" className="mt-2 flex items-center justify-center gap-1.5">
       <button
         type="button"
-        className={styles.arrow}
         onClick={() => onChange(page - 1)}
         disabled={page <= 1}
         aria-label="이전 페이지"
+        className={`${buttonBaseClass} border-gray-200 bg-white text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white`}
       >
-        <ChevronLeftIcon size={18} aria-hidden="true" />
+        <ChevronLeftIcon className="h-[18px] w-[18px]" />
       </button>
 
       {pages.map((p) => (
         <button
           key={p}
           type="button"
-          className={`${styles.page} ${p === page ? styles.pageActive : ''}`}
           onClick={() => onChange(p)}
           aria-current={p === page ? 'page' : undefined}
+          className={
+            p === page
+              ? `${buttonBaseClass} border-blue-600 bg-blue-600 text-white`
+              : `${buttonBaseClass} border-gray-200 bg-white text-gray-900 hover:bg-gray-50`
+          }
         >
           {p}
         </button>
@@ -33,12 +39,12 @@ function Pagination({ page, totalPages, onChange }) {
 
       <button
         type="button"
-        className={styles.arrow}
         onClick={() => onChange(page + 1)}
         disabled={page >= totalPages}
         aria-label="다음 페이지"
+        className={`${buttonBaseClass} border-gray-200 bg-white text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white`}
       >
-        <ChevronRightIcon size={18} aria-hidden="true" />
+        <ChevronRightIcon className="h-[18px] w-[18px]" />
       </button>
     </nav>
   )

@@ -4,8 +4,6 @@ import { fetchFestivals, mapFestivalToCard, FESTIVAL_CATEGORY_LABELS } from '../
 import CategoryChips from '../components/CategoryChips'
 import FestivalCard from '../components/FestivalCard'
 import Pagination from '../components/Pagination'
-import sectionStyles from '../components/Section.module.css'
-import styles from './Festivals.module.css'
 
 const PAGE_SIZE = 8
 // 백엔드가 카테고리/검색 쿼리 파라미터를 지원하지 않아, 공개된 페스티벌을 한 번에 크게 받아와 기존처럼 클라이언트에서 거른다.
@@ -98,15 +96,18 @@ function Festivals() {
   }
 
   return (
-    <main className={styles.main}>
-      <div className={styles.headerRow}>
-        <h1 className={styles.title}>{query ? `"${query}" 검색 결과` : '전체 페스티벌'}</h1>
-        <p className={styles.resultCount}>
+  <main className="w-full">
+    <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-6 pt-5 pb-14 sm:gap-6 sm:pt-7 sm:pb-[60px]">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900 sm:text-[28px]">
+          {query ? `"${query}" 검색 결과` : '전체 페스티벌'}
+        </h1>
+        <p className="text-sm text-gray-500">
           총 {filtered.length}건
           {query && (
             <>
               {' · '}
-              <Link to="/festivals" className={styles.clearSearch}>
+              <Link to="/festivals" className="text-[13px] font-semibold text-blue-600 hover:underline">
                 검색 초기화
               </Link>
             </>
@@ -116,19 +117,19 @@ function Festivals() {
 
       <CategoryChips value={category} onChange={handleCategoryChange} categories={CATEGORY_CHIPS} />
 
-      {loading && <p className={sectionStyles.empty}>불러오는 중…</p>}
+      {loading && <p className="py-10 text-sm text-gray-500">불러오는 중…</p>}
 
-      {!loading && loadError && <p className={sectionStyles.empty}>{loadError}</p>}
+      {!loading && loadError && <p className="py-10 text-sm text-gray-500">{loadError}</p>}
 
       {!loading && !loadError && filtered.length === 0 && (
-        <p className={sectionStyles.empty}>
+        <p className="py-10 text-sm text-gray-500">
           {query ? '검색 결과가 없습니다.' : '해당 카테고리에 등록된 페스티벌이 없습니다.'}
         </p>
       )}
 
       {!loading && !loadError && filtered.length > 0 && (
         <>
-          <div className={sectionStyles.grid}>
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
             {pagedFestivals.map((festival) => (
               <FestivalCard
                 key={festival.id}
@@ -140,8 +141,9 @@ function Festivals() {
           <Pagination page={page} totalPages={totalPages} onChange={handlePageChange} />
         </>
       )}
-    </main>
-  )
+    </div>
+  </main>
+)
 }
 
 export default Festivals

@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { signup } from '../api/authApi'
 import { GoogleIcon, KakaoIcon } from '../components/SocialIcons'
-import styles from './AuthForm.module.css'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
@@ -48,6 +47,13 @@ function validate(form) {
   }
 
   return errors
+}
+
+const inputBaseClass =
+  'w-full rounded-2xl border bg-white px-4 py-3 text-[15px] text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
+
+function inputClass(hasError) {
+  return `${inputBaseClass} ${hasError ? 'border-red-500' : 'border-gray-300'}`
 }
 
 /** feval-go wireframe 기준 회원가입 화면. 이름/이메일/닉네임/비밀번호(확인)를 받는다. */
@@ -104,205 +110,213 @@ function SignUp() {
   }
 
   return (
-    <main className={styles.main}>
-      <div className={styles.card}>
-        <h1 className={styles.title}>회원가입</h1>
-        <p className={styles.subtitle}>
+    <main className="flex flex-1 justify-center bg-gray-50 px-6 pt-6 pb-14 sm:pt-10 sm:pb-20">
+      <div className="h-fit w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+        <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">회원가입</h1>
+        <p className="mt-2 text-sm text-gray-500">
           이미 계정이 있으신가요?{' '}
-          <Link to="/login" className={styles.crossLink}>
+          <Link to="/login" className="font-bold text-blue-600 hover:underline">
             로그인
           </Link>
         </p>
 
         {submitError && (
-          <p className={styles.submitError} role="alert">
-            <CircleAlertIcon size={16} aria-hidden="true" />
+          <p
+            role="alert"
+            className="mt-4 flex items-center gap-2 rounded-2xl bg-red-50 px-3.5 py-3 text-[13px] font-semibold text-red-600"
+          >
+            <CircleAlertIcon className="h-4 w-4" />
             {submitError}
           </p>
         )}
 
-        <form className={styles.form} onSubmit={handleSubmit} noValidate>
-          <div className={styles.field}>
-            <label htmlFor="name" className={styles.label}>
+        <form className="mt-6 space-y-5" onSubmit={handleSubmit} noValidate>
+          <div className="space-y-2">
+            <label htmlFor="name" className="block text-sm font-bold text-gray-900">
               이름
             </label>
             <input
               id="name"
               type="text"
-              className={styles.input}
               placeholder="실명을 입력하세요"
               value={form.name}
               onChange={handleChange('name')}
               aria-invalid={Boolean(errors.name)}
               autoComplete="name"
+              className={inputClass(errors.name)}
             />
-            {errors.name && <p className={styles.errorText}>{errors.name}</p>}
+            {errors.name && <p className="text-xs font-semibold text-red-500">{errors.name}</p>}
           </div>
 
-          <div className={styles.field}>
-            <label htmlFor="username" className={styles.label}>
+          <div className="space-y-2">
+            <label htmlFor="username" className="block text-sm font-bold text-gray-900">
               이메일
             </label>
-            <div className={styles.emailRow}>
+            <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 id="username"
                 type="email"
-                className={styles.input}
                 placeholder="이메일을 입력하세요"
                 value={form.username}
                 onChange={handleChange('username')}
                 aria-invalid={Boolean(errors.username)}
                 autoComplete="email"
+                className={inputClass(errors.username)}
               />
               <button
                 type="button"
-                className={styles.certButton}
                 disabled
                 title="준비 중인 기능이에요"
+                className="shrink-0 whitespace-nowrap rounded-2xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-400 transition disabled:cursor-not-allowed sm:py-0"
               >
                 인증코드 받기
               </button>
             </div>
             {errors.username ? (
-              <p className={styles.errorText}>{errors.username}</p>
+              <p className="text-xs font-semibold text-red-500">{errors.username}</p>
             ) : (
-              <p className={styles.hint}>로그인에 사용할 이메일이에요. 인증 후 가입할 수 있어요.</p>
+              <p className="text-xs text-gray-400">
+                로그인에 사용할 이메일이에요. 인증 후 가입할 수 있어요.
+              </p>
             )}
           </div>
 
-          <div className={styles.field}>
-            <label htmlFor="nickname" className={styles.label}>
+          <div className="space-y-2">
+            <label htmlFor="nickname" className="block text-sm font-bold text-gray-900">
               닉네임
             </label>
             <input
               id="nickname"
               type="text"
-              className={styles.input}
               placeholder="커뮤니티에서 표시될 이름"
               value={form.nickname}
               onChange={handleChange('nickname')}
               aria-invalid={Boolean(errors.nickname)}
               autoComplete="nickname"
+              className={inputClass(errors.nickname)}
             />
             {errors.nickname ? (
-              <p className={styles.errorText}>{errors.nickname}</p>
+              <p className="text-xs font-semibold text-red-500">{errors.nickname}</p>
             ) : (
-              <p className={styles.hint}>2~12자, 언제든 변경 가능해요.</p>
+              <p className="text-xs text-gray-400">2~12자, 언제든 변경 가능해요.</p>
             )}
           </div>
 
-          <div className={styles.field}>
-            <label htmlFor="password" className={styles.label}>
+          <div className="space-y-2">
+            <label htmlFor="password" className="block text-sm font-bold text-gray-900">
               비밀번호
             </label>
-            <div className={styles.inputWithButton}>
+            <div className="relative">
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
-                className={styles.input}
                 placeholder="8자 이상 입력하세요"
                 value={form.password}
                 onChange={handleChange('password')}
                 aria-invalid={Boolean(errors.password)}
                 autoComplete="new-password"
+                className={`${inputClass(errors.password)} pr-12`}
               />
               <button
                 type="button"
-                className={styles.toggleVisibility}
                 onClick={() => setShowPassword((value) => !value)}
                 aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                {showPassword ? (
-                  <EyeOffIcon size={20} aria-hidden="true" />
-                ) : (
-                  <EyeIcon size={20} aria-hidden="true" />
-                )}
+                {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
               </button>
             </div>
             {errors.password ? (
-              <p className={styles.errorText}>{errors.password}</p>
+              <p className="text-xs font-semibold text-red-500">{errors.password}</p>
             ) : (
-              <p className={styles.hint}>영문, 숫자를 포함해 8자 이상 입력해주세요.</p>
+              <p className="text-xs text-gray-400">영문, 숫자를 포함해 8자 이상 입력해주세요.</p>
             )}
           </div>
 
-          <div className={styles.field}>
-            <label htmlFor="passwordConfirm" className={styles.label}>
+          <div className="space-y-2">
+            <label htmlFor="passwordConfirm" className="block text-sm font-bold text-gray-900">
               비밀번호 확인
             </label>
-            <div className={styles.inputWithButton}>
+            <div className="relative">
               <input
                 id="passwordConfirm"
                 type={showPasswordConfirm ? 'text' : 'password'}
-                className={styles.input}
                 placeholder="비밀번호를 다시 입력하세요"
                 value={form.passwordConfirm}
                 onChange={handleChange('passwordConfirm')}
                 aria-invalid={Boolean(errors.passwordConfirm)}
                 autoComplete="new-password"
+                className={`${inputClass(errors.passwordConfirm)} pr-12`}
               />
               <button
                 type="button"
-                className={styles.toggleVisibility}
                 onClick={() => setShowPasswordConfirm((value) => !value)}
                 aria-label={showPasswordConfirm ? '비밀번호 숨기기' : '비밀번호 표시'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 {showPasswordConfirm ? (
-                  <EyeOffIcon size={20} aria-hidden="true" />
+                  <EyeOffIcon className="h-5 w-5" />
                 ) : (
-                  <EyeIcon size={20} aria-hidden="true" />
+                  <EyeIcon className="h-5 w-5" />
                 )}
               </button>
             </div>
             {errors.passwordConfirm && (
-              <p className={styles.errorText}>{errors.passwordConfirm}</p>
+              <p className="text-xs font-semibold text-red-500">{errors.passwordConfirm}</p>
             )}
           </div>
 
-          <label className={styles.agreement}>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
               type="checkbox"
               checked={agreed}
               onChange={(event) => setAgreed(event.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <span>
-              <Link to="/terms" className={styles.crossLink}>
+              <Link to="/terms" className="font-bold text-blue-600 hover:underline">
                 이용약관
               </Link>{' '}
               및{' '}
-              <Link to="/privacy" className={styles.crossLink}>
+              <Link to="/privacy" className="font-bold text-blue-600 hover:underline">
                 개인정보처리방침
               </Link>
-              에 동의합니다. <span className={styles.agreementRequired}>(필수)</span>
+              에 동의합니다. <span className="text-gray-500">(필수)</span>
             </span>
           </label>
 
-          <button type="submit" className={styles.submit} disabled={!agreed || submitting}>
+          <button
+            type="submit"
+            disabled={!agreed || submitting}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-[15px] font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+          >
             {submitting ? '가입 중…' : '가입하기'}
-            <ArrowRightIcon size={16} aria-hidden="true" />
+            <ArrowRightIcon className="h-4 w-4" />
           </button>
         </form>
 
-        <div className={styles.divider}>
-          <span>또는</span>
+        <div className="my-6 flex items-center gap-4">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="text-sm text-gray-400">또는</span>
+          <div className="h-px flex-1 bg-gray-200" />
         </div>
 
-        <div className={styles.social}>
+        <div className="flex items-center justify-center gap-5">
           <button
             type="button"
-            className={styles.socialKakao}
             disabled
             title="준비 중인 기능이에요"
             aria-label="카카오로 가입하기"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FEE500] transition"
           >
             <KakaoIcon size={28} />
           </button>
           <button
             type="button"
-            className={styles.socialGoogle}
             disabled
             title="준비 중인 기능이에요"
             aria-label="Google로 가입하기"
+            className="flex h-14 w-14 items-center justify-center rounded-full border border-gray-200 bg-white transition"
           >
             <GoogleIcon size={28} />
           </button>

@@ -23,6 +23,6 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@RequestHeader("X-User-Id") Long userId) {
         UserResponse response = userService.getMyInfo(userId);
-        return ResponseEntity.ok(ApiResponse.success(response, "내 정보 조회 성공"));
+        return ResponseEntity.ok(ApiResponse.success("내 정보 조회 성공", response ));
     }
 }

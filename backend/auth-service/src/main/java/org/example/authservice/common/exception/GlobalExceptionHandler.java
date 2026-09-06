@@ -3,6 +3,7 @@ package org.example.authservice.common.exception;
 import org.example.authservice.common.dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestCookieException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -25,4 +26,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(400)
                 .body(ApiResponse.error("VALIDATION_ERROR", message));
     }
+
+    // 필수 쿠키가 없을 때 (예: reissue의 refreshToken 쿠키)
+    @ExceptionHandler(MissingRequestCookieException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingCookie(MissingRequestCookieException e) {
+        return ResponseEntity.status(400)
+                .body(ApiResponse.error("MISSING_COOKIE", "필수 쿠키가 존재하지 않습니다: " + e.getCookieName()));
+    }
+
+
 }

@@ -9,18 +9,18 @@ public class ApiResponse<T> {
     private final String message;
     private final String errorCode;
 
-    private ApiResponse(boolean success, T data, String message, String errorCode) {
+    private ApiResponse(boolean success, String message, T data, String errorCode) {
         this.success = success;
-        this.data = data;
         this.message = message;
+        this.data = data;
         this.errorCode = errorCode;
     }
 
-    public static <T> ApiResponse<T> success(T data, String message) {
-        return new ApiResponse<>(true, data, message, null);
+    public static <T> ApiResponse<T> success(String message, T data) {
+        return new ApiResponse<>(true, message, data, null);
     }
 
     public static ApiResponse<Void> error(String errorCode, String message) {
-        return new ApiResponse<>(false, null, message, errorCode);
+        return new ApiResponse<>(false, message, null, errorCode);
     }
 }

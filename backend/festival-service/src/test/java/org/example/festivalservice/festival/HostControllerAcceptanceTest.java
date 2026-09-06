@@ -78,7 +78,7 @@ class HostControllerAcceptanceTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(CREATE_REQUEST_BODY))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_HOST_ROLE")));
     }
 
     @Test
@@ -131,7 +131,7 @@ class HostControllerAcceptanceTest {
                         .header("X-User-Id", "1")
                         .header("X-User-Role", "USER"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_ROLE")));
+                .andExpect(jsonPath("$.errorCode", is("FORBIDDEN_HOST_ROLE")));
     }
 
     @Test

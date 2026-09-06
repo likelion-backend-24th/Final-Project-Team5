@@ -27,7 +27,7 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<Void>> signup(@Valid @RequestBody SignupRequest signupRequest){
         authService.signup(signupRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(null,"회원가입 성공"));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("회원가입 성공",null));
     }
 
     //로그인
@@ -35,7 +35,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<TokenResponse>> login(@Valid @RequestBody LoginRequest loginRequest){
         TokenResponse response = authService.login(loginRequest);
-        return authCookieResponseBuilder.buildWithCookie(response);
+        return authCookieResponseBuilder.buildWithCookie(response,"로그인 성공");
     }
 
     // 토큰 재발급
@@ -44,6 +44,6 @@ public class AuthController {
     public ResponseEntity<ApiResponse<TokenResponse>> reissue(
             @CookieValue("refreshToken") String refreshToken) {
         TokenResponse response = authService.reissue(refreshToken);
-        return authCookieResponseBuilder.buildWithCookie(response);
+        return authCookieResponseBuilder.buildWithCookie(response,"토큰 재발급 성공");
     }
 }

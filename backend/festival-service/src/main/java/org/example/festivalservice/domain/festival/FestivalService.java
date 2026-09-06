@@ -2,7 +2,7 @@ package org.example.festivalservice.domain.festival;
 
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.example.festivalservice.common.ApiException;
+import org.example.festivalservice.common.exception.ApiException;
 import org.example.festivalservice.domain.tickettype.TicketType;
 import org.example.festivalservice.domain.tickettype.TicketTypeRepository;
 import org.example.festivalservice.domain.tickettype.TicketTypeRequestDto;
@@ -18,12 +18,6 @@ public class FestivalService {
 
     private static final String HOST_ROLE = "HOST";
     private static final String ADMIN_ROLE = "ADMIN";
-    private static final String FORBIDDEN_ROLE = "FORBIDDEN_ROLE";
-    private static final String FESTIVAL_NOT_FOUND = "FESTIVAL_NOT_FOUND";
-    private static final String FORBIDDEN_NOT_OWNER = "FORBIDDEN_NOT_OWNER";
-    private static final String INVALID_DECISION = "INVALID_DECISION";
-    private static final String ALREADY_REVIEWED = "ALREADY_REVIEWED";
-    private static final String INVALID_PERIOD = "INVALID_PERIOD";
 
     private final FestivalRepository festivalRepository;
     private final TicketTypeRepository ticketTypeRepository;
@@ -32,10 +26,10 @@ public class FestivalService {
     @Transactional
     public FestivalResponseDto createFestival(Long hostUserId, String role, FestivalRequestDto request) {
         if (!HOST_ROLE.equals(role)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "주최자 권한이 없습니다");
+            throw new ApiException(FestivalErrorCode.FORBIDDEN_HOST_ROLE);
         }
         if (!request.endAt().isAfter(request.startAt())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_PERIOD, "종료 일시는 시작 일시 이후여야 합니다");
+            throw new ApiException(FestivalErrorCode.INVALID_PERIOD);
         }
 
         Festival festival = Festival.builder()
@@ -61,7 +55,7 @@ public class FestivalService {
     //주최자가 본인이 등록한 페스티벌 목록을 조회한다
     public List<FestivalResponseDto> listMyFestivals(Long hostUserId, String role) {
         if (!HOST_ROLE.equals(role)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "주최자 권한이 없습니다");
+            throw new ApiException(FestivalErrorCode.FORBIDDEN_HOST_ROLE);
         }
 
         return festivalRepository.findByHostUserId(hostUserId).stream()
@@ -72,7 +66,7 @@ public class FestivalService {
     //주최자가 본인 페스티벌의 상세 정보를 조회한다
     public FestivalResponseDto getMyFestivalDetail(Long id, Long hostUserId,String role) {
         if (!HOST_ROLE.equals(role)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "주최자 권한이 없습니다");
+            throw new ApiException(FestivalErrorCode.FORBIDDEN_HOST_ROLE);
         }
 
         Festival festival = getOwnedFestival(id, hostUserId);
@@ -82,9 +76,9 @@ public class FestivalService {
     //Festival 불러오기(내부 메서드)
     private Festival getOwnedFestival(Long id, Long hostUserId) {
         Festival festival = festivalRepository.findById(id)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, FESTIVAL_NOT_FOUND, "존재하지 않는 페스티벌입니다"));
+                .orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND));
         if (!festival.getHostUserId().equals(hostUserId)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_NOT_OWNER, "본인 소유 페스티벌만 조회할 수 있습니다");
+            throw new ApiException(FestivalErrorCode.FORBIDDEN_NOT_OWNER);
         }
         return festival;
     }
@@ -109,14 +103,14 @@ public class FestivalService {
     //페스티벌 상세 조회, 인증 불필요 — 공개(PUBLISHED) 상태가 아니면 404(미승인·반려 페스티벌은 존재 자체를 숨김)
     public FestivalResponseDto getFestivalDetail(Long id) {
         Festival festival = festivalRepository.findByIdAndFestivalStatus(id, FestivalStatus.PUBLISHED)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, FESTIVAL_NOT_FOUND, "존재하지 않는 페스티벌입니다"));
+                .orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND));
         return FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(id));
     }
 
     //운영자가 심사 대기(PENDING) 중인 페스티벌 목록을 조회한다
     public List<FestivalResponseDto> listPendingFestivals(String role) {
         if (!ADMIN_ROLE.equals(role)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "운영자 권한이 없습니다");
+            throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
         return festivalRepository.findByFestivalStatus(FestivalStatus.PENDING).stream()
                 .map(festival -> FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(festival.getId())))
@@ -127,16 +121,16 @@ public class FestivalService {
     @Transactional
     public FestivalResponseDto reviewFestival(Long id, String role, FestivalReviewRequestDto request) {
         if (!ADMIN_ROLE.equals(role)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, FORBIDDEN_ROLE, "운영자 권한이 없습니다");
+            throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
         if (request.decision() != FestivalStatus.PUBLISHED && request.decision() != FestivalStatus.REJECTED) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, INVALID_DECISION, "공개 또는 반려만 결정할 수 있습니다");
+            throw new ApiException(FestivalErrorCode.INVALID_DECISION);
         }
 
         Festival festival = festivalRepository.findById(id)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, FESTIVAL_NOT_FOUND, "존재하지 않는 페스티벌입니다"));
+                .orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND));
         if (festival.getFestivalStatus() != FestivalStatus.PENDING) {
-            throw new ApiException(HttpStatus.CONFLICT, ALREADY_REVIEWED, "이미 심사 처리된 페스티벌입니다");
+            throw new ApiException(FestivalErrorCode.ALREADY_REVIEWED);
         }
 
         if (request.decision() == FestivalStatus.PUBLISHED) {

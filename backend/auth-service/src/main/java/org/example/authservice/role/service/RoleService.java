@@ -5,6 +5,7 @@ import org.example.authservice.auth.exception.AuthErrorCode;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.role.dto.GrantRoleRequest;
 import org.example.authservice.role.entity.RoleGrant;
+import org.example.authservice.role.exception.RoleErrorCode;
 import org.example.authservice.role.repository.RoleGrantRepository;
 import org.example.authservice.user.entity.Role;
 import org.example.authservice.user.entity.User;
@@ -30,11 +31,11 @@ public class RoleService {
         try {
             role = Role.valueOf(request.role());
         } catch (IllegalArgumentException e) {
-            throw new ApiException(AuthErrorCode.INVALID_ROLE);
+            throw new ApiException(RoleErrorCode.INVALID_ROLE);
         }
 
         User user = userRepository.findById(request.userId())
-                .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new ApiException(RoleErrorCode.USER_NOT_FOUND));
         user.setRole(role);
         userRepository.save(user);
 

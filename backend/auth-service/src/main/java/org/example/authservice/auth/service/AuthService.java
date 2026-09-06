@@ -23,7 +23,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +32,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenRevocationService refreshTokenRevocationService;
 
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
@@ -100,7 +100,7 @@ public class AuthService {
 
         // 이미 페기된 토큰이 재사용되었는지 확인
         if (savedRefreshToken.getRevokedAt() != null){
-            revokeAllUserTokens(savedRefreshToken.getUser());
+            refreshTokenRevocationService.revokeAllTokens(savedRefreshToken.getUser());
             throw new ApiException(AuthErrorCode.REFRESH_TOKEN_REUSED);
         }
         // DB에서도 만료 여부 확인-> 이중체크
@@ -156,16 +156,6 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 알고리즘을 사용할 수 없습니다.", e);
         }
-    }
-
-    // 재사용 탐지 시 - 해당 유저의 모든 활성 RefreshToken을 강제 폐기 (전체 로그아웃)
-    private void revokeAllUserTokens(User user) {
-        List<RefreshToken> activeTokens = refreshTokenRepository.findAllByUser_IdAndRevokedAtIsNull(user.getId());
-        LocalDateTime now = LocalDateTime.now();
-        for (RefreshToken token : activeTokens) {
-            token.setRevokedAt(now);
-        }
-        refreshTokenRepository.saveAll(activeTokens);
     }
 
 }

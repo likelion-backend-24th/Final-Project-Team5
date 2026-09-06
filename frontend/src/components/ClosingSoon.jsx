@@ -3,34 +3,30 @@ import { AlarmClockIcon } from 'lucide-react'
 import { CLOSING_SOON_FESTIVALS } from '../data/festivals'
 import Badge from './Badge'
 import FestivalCard from './FestivalCard'
-import styles from './Section.module.css'
 
-/** 마감임박 — 남은 일수가 짧은 순으로 가로 스크롤 레일에 노출. */
 function ClosingSoon({ festivals = CLOSING_SOON_FESTIVALS }) {
   if (festivals.length === 0) return null
 
   return (
-    <section aria-label="마감임박" className={styles.section}>
-      <div className={styles.header}>
+    <section aria-label="마감임박" className="mx-auto mt-[44px] max-w-[1440px] px-6">
+      <div className="flex items-end justify-between">
         <div>
-          <h2 className={styles.heading}>
-            <AlarmClockIcon size={22} aria-hidden="true" className={styles.headingIcon} />
+          <h2 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-gray-900">
+            <AlarmClockIcon className="h-6 w-6 text-red-500" />
             마감임박
           </h2>
-          <p className={styles.description}>예매 마감이 코앞인 페스티벌을 먼저 확인하세요.</p>
+          <p className="mt-1 text-sm text-gray-500">예매 마감이 코앞인 페스티벌을 먼저 확인하세요.</p>
         </div>
-        <Link to="/festivals?sort=deadline" className={styles.more}>
+        <Link to="/festivals?sort=deadline" className="text-sm font-bold text-blue-600 hover:underline">
           전체 보기
         </Link>
       </div>
 
-      <div className={styles.rail}>
-        {festivals.map((festival) => (
-          <FestivalCard
-            key={festival.id}
-            festival={festival}
-            badge={<Badge variant="danger">D-{festival.dday}</Badge>}
-          />
+      <div className="mt-5 flex snap-x gap-6 overflow-x-auto pb-4">
+  {festivals.map((festival) => (
+    <div key={festival.id} className="w-[280px] shrink-0 snap-start">
+            <FestivalCard festival={festival} badge={<Badge variant="danger">D-{festival.dday}</Badge>} />
+          </div>
         ))}
       </div>
     </section>

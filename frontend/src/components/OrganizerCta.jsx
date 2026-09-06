@@ -1,42 +1,53 @@
 import { Link } from 'react-router-dom'
 import { ArrowRightIcon, CalendarPlusIcon, ListIcon, MegaphoneIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
-import styles from './OrganizerCta.module.css'
 
-/** 홈 하단 — 주최자 유입을 위한 배너. 신청/등록 두 갈래로 안내하고, HOST면 내 페스티벌 목록 진입도 보여준다. */
-function OrganizerCta() {
+function OrganizerCta({ isFirst = false }) {
   const { user } = useAuth()
   const isHost = user?.role === 'HOST'
 
   return (
-    <section aria-label="주최자 안내" className={styles.banner}>
-      <div className={styles.text}>
-        <h2 className={styles.heading}>페스티벌을 직접 열고 싶으신가요?</h2>
-        <p className={styles.description}>
-          {isHost
-            ? '내가 등록한 페스티벌의 심사 상태와 상세 정보를 확인해보세요.'
-            : '주최자로 등록하고 나만의 페스티벌을 FevalGo에 올려보세요.'}
-        </p>
-      </div>
+    <section className={`mx-auto mb-4 max-w-[1440px] px-6 ${isFirst ? '' : 'mt-[44px]'}`}>
+      <div className="flex flex-col items-start gap-8 rounded-3xl bg-blue-600 px-6 py-10 md:flex-row md:items-center md:justify-between md:px-10">
+        <div>
+          <h2 className="text-balance text-2xl font-extrabold tracking-tight text-white">
+            페스티벌을 직접 열고 싶으신가요?
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-blue-100">
+            {isHost
+              ? '내가 등록한 페스티벌의 심사 상태와 상세 정보를 확인해보세요.'
+              : '주최자로 등록하고 나만의 페스티벌을 FevalGo에 올려보세요.'}
+          </p>
+        </div>
 
-      <div className={styles.actions}>
-        {isHost ? (
-          <Link to="/host/festivals" className={styles.registerButton}>
-            <ListIcon size={18} aria-hidden="true" />
-            내 페스티벌 보기
-            <ArrowRightIcon size={18} aria-hidden="true" />
+        <div className="flex w-full flex-col gap-3 sm:flex-row md:w-auto">
+          {isHost ? (
+            <Link
+              to="/host/festivals"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-400 bg-blue-500 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-blue-400"
+            >
+              <ListIcon className="h-5 w-5" />
+              내 페스티벌 보기
+              <ArrowRightIcon className="h-5 w-5" />
+            </Link>
+          ) : (
+            <Link
+              to="/organizers/apply"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-sm font-bold text-blue-600 transition hover:bg-blue-50"
+            >
+              <MegaphoneIcon className="h-5 w-5" />
+              주최자 신청
+            </Link>
+          )}
+          <Link
+            to="/festivals/new"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-blue-400 bg-blue-500 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-blue-400"
+          >
+            <CalendarPlusIcon className="h-5 w-5" />
+            페스티벌 등록
+            <ArrowRightIcon className="h-4 w-4" />
           </Link>
-        ) : (
-          <Link to="/organizers/apply" className={styles.applyButton}>
-            <MegaphoneIcon size={18} aria-hidden="true" />
-            주최자 신청
-          </Link>
-        )}
-        <Link to="/festivals/new" className={styles.registerButton}>
-          <CalendarPlusIcon size={18} aria-hidden="true" />
-          페스티벌 등록
-          <ArrowRightIcon size={18} aria-hidden="true" />
-        </Link>
+        </div>
       </div>
     </section>
   )

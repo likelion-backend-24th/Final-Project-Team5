@@ -52,6 +52,8 @@ class AuthServiceTest {
 
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
+    @Mock
+    private RefreshTokenRevocationService refreshTokenRevocationService;
     @InjectMocks
     private AuthService authService;
 
@@ -316,21 +318,18 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("이미 폐기된 토큰이 재사용되면 REFRESH_TOKEN_REUSED 예외가 발생하고, 해당 유저의 모든 활성 토큰이 폐기된다")
+    @DisplayName("이미 폐기된 토큰이 재사용되면 REFRESH_TOKEN_REUSED 예외가 발생하고, 해당 유저의 모든 활성 토큰 폐기를 위임한다")
     void reissue_fail_tokenReused() {
         // given
         User user = createActiveUser();
         RefreshToken revokedToken = createSavedRefreshToken(user);
         revokedToken.setRevokedAt(LocalDateTime.now().minusMinutes(5)); // 이미 폐기된 상태
 
-        RefreshToken otherActiveToken = createSavedRefreshToken(user); // 유저의 다른 활성 토큰
         String rawRefreshToken = "reused-token";
 
         given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
         given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
                 .willReturn(Optional.of(revokedToken));
-        given(refreshTokenRepository.findAllByUser_IdAndRevokedAtIsNull(user.getId()))
-                .willReturn(List.of(otherActiveToken));
 
         // when & then
         assertThatThrownBy(() -> authService.reissue(rawRefreshToken))
@@ -338,9 +337,9 @@ class AuthServiceTest {
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(AuthErrorCode.REFRESH_TOKEN_REUSED));
 
-        // 그 유저의 다른 활성 토큰도 강제 폐기됐는지 확인
-        assertThat(otherActiveToken.getRevokedAt()).isNotNull();
-        verify(refreshTokenRepository, times(1)).saveAll(anyList());
+        // 전체 세션 폐기는 별도 트랜잭션(RefreshTokenRevocationService)에 위임해야
+        // reissue()의 롤백에 영향받지 않는다.
+        verify(refreshTokenRevocationService, times(1)).revokeAllTokens(user);
     }
 
     @Test

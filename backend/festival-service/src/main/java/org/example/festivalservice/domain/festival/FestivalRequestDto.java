@@ -1,6 +1,7 @@
 package org.example.festivalservice.domain.festival;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -11,7 +12,7 @@ import org.example.festivalservice.domain.tickettype.TicketTypeRequestDto;
 public record FestivalRequestDto(
         @NotBlank String name,
         String description,
-        @NotNull LocalDateTime startAt,
+        @NotNull @Future LocalDateTime startAt,
         @NotNull LocalDateTime endAt,
         @NotBlank String location,
         @NotNull FestivalCategory festivalCategory,

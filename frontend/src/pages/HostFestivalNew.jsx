@@ -48,6 +48,8 @@ function validate(form) {
   }
   if (!form.startAt) {
     fieldErrors.startAt = '시작 일시를 입력해주세요.'
+  } else if (new Date(form.startAt) <= new Date()) {
+    fieldErrors.startAt = '시작 일시는 현재 이후여야 해요.'
   }
   if (!form.endAt) {
     fieldErrors.endAt = '종료 일시를 입력해주세요.'
@@ -180,6 +182,8 @@ function HostFestivalNew() {
       const errorCode = error.response?.data?.errorCode
       if (errorCode === 'FORBIDDEN_ROLE') {
         setSubmitError('주최자 권한이 없습니다.')
+      } else if (errorCode === 'INVALID_PERIOD') {
+        setSubmitError('종료 일시는 시작 일시 이후여야 해요.')
       } else {
         setSubmitError('등록에 실패했어요. 잠시 후 다시 시도해주세요.')
       }

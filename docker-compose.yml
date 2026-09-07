@@ -38,10 +38,15 @@ services:
       FESTIVAL_DB_HOST: core-db
       FESTIVAL_DB_PORT: 3306
       AUTH_SERVICE_URL: http://auth-service:8081
+      # 컨테이너 내부 경로는 항상 이 절대경로로 고정한다(.env의 SAVED_IMAGE 값을 덮어씀).
+      # 실제 저장 위치(호스트 쪽)는 아래 volumes 왼쪽 경로로 정한다 — 상대경로를 쓰면
+      # docker compose가 호스트 쪽만 절대경로로 바꾸고 컨테이너 쪽은 그대로 둬서
+      # "mount path must be absolute" 에러가 난다.
+      SAVED_IMAGE: /app/savedimage
     # SAVED_IMAGE 경로를 볼륨으로 마운트하지 않으면 컨테이너를 재생성(배포)할 때마다
-    # 업로드된 이미지가 전부 사라진다. 호스트 경로와 컨테이너 내부 경로를 동일하게 맞춘다.
+    # 업로드된 이미지가 전부 사라진다.
     volumes:
-      - ${SAVED_IMAGE:-./backend/festival-service/savedimage}:${SAVED_IMAGE:-./backend/festival-service/savedimage}
+      - ${HOST_SAVED_IMAGE:-./backend/festival-service/savedimage}:/app/savedimage
     depends_on:
       - core-db
       - auth-service

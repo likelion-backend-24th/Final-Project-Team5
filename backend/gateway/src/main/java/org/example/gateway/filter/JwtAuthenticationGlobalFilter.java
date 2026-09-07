@@ -39,7 +39,9 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/auth/**",
             "/api/festivals/**",
-            "/api/ticket-types/**"
+            "/api/ticket-types/**",
+            // PortOne 웹훅은 사용자 JWT 대신 자체 서명(webhook-signature 헤더)으로 인증한다(실전 가이드 12.2).
+            "/api/v1/webhooks/**"
     );
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();

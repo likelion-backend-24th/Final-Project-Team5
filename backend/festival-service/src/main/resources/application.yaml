@@ -12,6 +12,16 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  servlet:
+    multipart:
+      # 요청당 최대 3장 x 10MB. 파일당 제한은 max-file-size, 전체 요청 제한은 여유를 두고 잡는다.
+      max-file-size: 10MB
+      max-request-size: 35MB
+
+# 페스티벌 배너·대표이미지 저장 경로. 운영 환경에서는 .env의 SAVED_IMAGE로 덮어쓴다.
+festival:
+  image:
+    saved-path: ${SAVED_IMAGE:./savedimage}
 
 # Festival-Service → Auth-Service 내부 호출(PUT /internal/v1/roles) 설정
 # TODO: 실제 Bearer Token 계약(값·헤더 형식)은 Auth-Service 담당자와 합의 필요

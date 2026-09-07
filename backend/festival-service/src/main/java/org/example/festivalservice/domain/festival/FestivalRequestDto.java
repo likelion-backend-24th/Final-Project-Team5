@@ -16,6 +16,8 @@ public record FestivalRequestDto(
         @NotNull LocalDateTime endAt,
         @NotBlank String location,
         @NotNull FestivalCategory festivalCategory,
+        //이미지는 선택 사항 — 최대 개수는 FestivalService에서 FestivalErrorCode로 검증한다
+        List<String> imageUrls,
         @NotEmpty @Valid List<TicketTypeRequestDto> ticketTypes
 ) {
 }

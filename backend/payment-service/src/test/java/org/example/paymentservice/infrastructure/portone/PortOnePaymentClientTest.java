@@ -102,6 +102,42 @@ class PortOnePaymentClientTest {
         assertThat(response.failure().pgCode()).isEqualTo("PAY_PROCESS_CANCELED");
     }
 
+    // 2026-09-07 실제 테스트 채널 가상계좌 발급으로 확인한 응답. method.expiredAt이
+    // 입금 기한이며, 가상계좌 홀드 연장 정책(팀 결정)이 이 값을 그대로 사용한다.
+    @Test
+    void 가상계좌_발급_응답은_입금_기한을_담는다() {
+        server.expect(requestTo("https://api.portone.io/payments/BE24-T05-3?storeId=" + STORE_ID))
+                .andRespond(withSuccess("""
+                        {
+                          "status": "VIRTUAL_ACCOUNT_ISSUED",
+                          "id": "BE24-T05-3",
+                          "transactionId": "01a07ac8-8308-5d81-c148-a45d91bd77af",
+                          "storeId": "store-04f7a059-9b5d-4bb8-ac93-f35434438216",
+                          "method": {
+                            "type": "PaymentMethodVirtualAccount",
+                            "bank": "KOOKMIN",
+                            "accountNumber": "X5909014350743",
+                            "accountType": "NORMAL",
+                            "remitterName": "조민규",
+                            "expiredAt": "2026-09-08T07:32:37Z",
+                            "issuedAt": "2026-09-07T07:33:10.757548098Z"
+                          },
+                          "channel": {"type": "TEST", "id": "channel-id-1", "key": "channel-key-1", "name": "토스페이먼츠_일반", "pgProvider": "TOSSPAYMENTS"},
+                          "amount": {"total": 1000, "taxFree": 0, "vat": 91, "supply": 909, "discount": 0, "paid": 1000, "cancelled": 0, "cancelledTaxFree": 0},
+                          "currency": "KRW",
+                          "requestedAt": "2026-09-07T07:32:36.259789357Z",
+                          "updatedAt": "2026-09-07T07:33:10.791152486Z",
+                          "statusChangedAt": "2026-09-07T07:33:10.757548098Z"
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        PortOnePaymentResponse response = client.getPayment("BE24-T05-3");
+
+        assertThat(response.status()).isEqualTo("VIRTUAL_ACCOUNT_ISSUED");
+        assertThat(response.method().bank()).isEqualTo("KOOKMIN");
+        assertThat(response.method().expiredAt()).isEqualTo(java.time.Instant.parse("2026-09-08T07:32:37Z"));
+    }
+
     @Test
     void 존재하지_않는_결제_조회는_404_예외를_던진다() {
         server.expect(requestTo("https://api.portone.io/payments/UNKNOWN?storeId=" + STORE_ID))

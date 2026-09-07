@@ -159,6 +159,29 @@ class PaymentServiceTest {
                         .isEqualTo(PaymentErrorCode.RESERVATION_SERVICE_UNAVAILABLE));
     }
 
+    // ===== syncPayment (웹훅 경로 — 소유권 검사 없음) =====
+
+    @Test
+    void syncPayment은_소유권_확인_없이_PAID를_확정한다() {
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment(10L, PaymentStatus.READY)));
+        when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(paidResponse(10_000L));
+
+        PaymentCompleteResponse response = paymentService.syncPayment(PAYMENT_ID);
+
+        assertThat(response.status()).isEqualTo("PAID");
+        verify(reservationServiceClient).confirmReservation(eq(1L), any(ConfirmReservationRequest.class));
+    }
+
+    @Test
+    void syncPayment은_존재하지_않는_결제면_404다() {
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentService.syncPayment(PAYMENT_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(PaymentErrorCode.PAYMENT_NOT_FOUND));
+    }
+
     // ===== complete =====
 
     @Test

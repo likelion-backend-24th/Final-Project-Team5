@@ -1,11 +1,14 @@
 package org.example.authservice.user.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.authservice.auth.repository.RefreshTokenRepository;
+import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.user.dto.UserResponse;
 import org.example.authservice.user.entity.User;
 import org.example.authservice.user.exception.UserErrorCode;
 import org.example.authservice.user.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenRevocationService refreshTokenRevocationService;
 
     // 내 정보 조회
     public UserResponse getMyInfo(Long userId) {
@@ -45,5 +51,25 @@ public class UserService {
         }
         user.setNickname(newNickname);
         userRepository.save(user);
+    }
+
+    //비밀번호 변경
+    @Transactional
+    public  void updatePassword(Long userId,String currentPassword,String newPassword, String newpasswordConfirm){
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(UserErrorCode.USER_NOT_FOUND));
+        //현재 비밀번호 불일치
+        if(!passwordEncoder.matches(currentPassword,user.getPassword())){
+            throw new ApiException(UserErrorCode.INVALID_CURRENT_PASSWORD);
+        } //새 비밀번호와 새 비밀번호 확인이 불일치
+        if(!newPassword.equals(newpasswordConfirm)){
+            throw new ApiException((UserErrorCode.PASSWORD_CONFIRM_MISMATCH));
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // 비밀번호 변경 시 탈취 의심 상황에 대비해 기존 모든 세션(Refresh Token)을 무효화
+        refreshTokenRevocationService.revokeAllTokens(user);
+
     }
 }

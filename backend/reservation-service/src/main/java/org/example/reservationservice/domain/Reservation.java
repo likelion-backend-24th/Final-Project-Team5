@@ -97,4 +97,9 @@ public class Reservation {
         this.reservationStatus = ReservationStatus.CANCELLED;
         this.cancelReason = reason;
     }
+
+    //가상계좌 발급 시 PortOne이 내려준 입금 기한까지 재고 홀드를 연장
+    public void extendHold(Instant expiresAt) {
+        this.expiresAt = expiresAt;
+    }
 }

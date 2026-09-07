@@ -46,4 +46,14 @@ public class AuthController {
         TokenResponse response = authService.reissue(refreshToken);
         return authCookieResponseBuilder.buildWithCookie(response,"토큰 재발급 성공");
     }
+
+    //로그아웃
+    @Operation(summary = "로그아웃", description = "현재 세션의 Refresh Token을 무효화하고, 쿠키를 삭제합니다.")
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @CookieValue(value = "refreshToken", required = false) String refreshToken) {
+        authService.logout(refreshToken);
+        return authCookieResponseBuilder.buildWithCookieDeleted("로그아웃 성공");
+    }
+
 }

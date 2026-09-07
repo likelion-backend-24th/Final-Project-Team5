@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.authservice.common.dto.ApiResponse;
 import org.example.authservice.user.dto.NicknameUpdateRequest;
+import org.example.authservice.user.dto.PasswordUpdateRequest;
 import org.example.authservice.user.dto.UserResponse;
 import org.example.authservice.user.service.UserService;
 import org.springframework.http.ResponseEntity;
@@ -33,5 +34,15 @@ public class UserController {
             @Valid @RequestBody NicknameUpdateRequest nicknameUpdateRequest){
         userService.updateNickname(userId,nicknameUpdateRequest.getNickname());
         return ResponseEntity.ok(ApiResponse.success("닉네임이 변경되었습니다.",null));
+    }
+
+    // 비밀번호 변경
+    @Operation(summary = "비밀번호 변경", description = "로그인한 사용자 본인의 비밀번호를 변경합니다. 변경 시 기존 로그인 세션은 모두 무효화됩니다.")
+    @PatchMapping("/me/password")
+    public ResponseEntity<ApiResponse<Void>> updatePassword(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody PasswordUpdateRequest request) {
+        userService.updatePassword(userId, request.getCurrentPassword(), request.getNewPassword(), request.getNewPasswordConfirm());
+        return ResponseEntity.ok(ApiResponse.success("비밀번호가 변경되었습니다.", null));
     }
 }

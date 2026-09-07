@@ -24,3 +24,14 @@ Content-Type: application/json
 {
   "nickname": "홍이"
 }
+
+### 비밀번호 변경 - 성공
+PATCH http://localhost:8080/api/users/me/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "test1234",
+  "newPassword": "newpassword1234",
+  "newPasswordConfirm": "newpassword1234"
+}

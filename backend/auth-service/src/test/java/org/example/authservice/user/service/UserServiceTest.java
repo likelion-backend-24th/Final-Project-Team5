@@ -216,4 +216,71 @@ class UserServiceTest {
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(UserErrorCode.USER_NOT_FOUND));
     }
+
+    @Test
+    @DisplayName("정상적인 비밀번호로 탈퇴 요청하면 계정이 탈퇴 처리되고 세션이 무효화된다")
+    void withdrawAccount_success() {
+        // given
+        User user = createActiveUser();
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("test1234", user.getPassword())).willReturn(true);
+
+        // when
+        userService.withdrawAccount(1L, "test1234");
+
+        // then
+        assertThat(user.getStatus()).isEqualTo(AccountStatus.WITHDRAWN);
+        assertThat(user.getWithdrawnAt()).isNotNull();
+        assertThat(user.getName()).isEqualTo("탈퇴한 사용자");
+        assertThat(user.getNickname()).isEqualTo("탈퇴한사용자_null"); // id가 mock이라 null일 수 있음, 아래 참고
+        verify(userRepository, times(1)).save(user);
+        verify(refreshTokenRevocationService, times(1)).revokeAllTokens(user);
+    }
+
+    @Test
+    @DisplayName("비밀번호가 틀리면 INVALID_CURRENT_PASSWORD 예외가 발생한다")
+    void withdrawAccount_fail_invalidPassword() {
+        // given
+        User user = createActiveUser();
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("wrongpassword", user.getPassword())).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> userService.withdrawAccount(1L, "wrongpassword"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(UserErrorCode.INVALID_CURRENT_PASSWORD));
+
+        verify(userRepository, never()).save(any());
+        verify(refreshTokenRevocationService, never()).revokeAllTokens(any());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 userId면 USER_NOT_FOUND 예외가 발생한다")
+    void withdrawAccount_fail_userNotFound() {
+        // given
+        given(userRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.withdrawAccount(999L, "aaa"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("password가 null인 유저(OAuth 등)는 비밀번호 검증을 건너뛰고 탈퇴가 진행된다")
+    void withdrawAccount_withNullPassword_skipsPasswordCheck() {
+        // given
+        User user = createActiveUser();
+        user.setPassword(null); // OAuth 가입 등으로 비밀번호가 없는 케이스 가정
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when
+        userService.withdrawAccount(1L, "anything");
+
+        // then
+        assertThat(user.getStatus()).isEqualTo(AccountStatus.WITHDRAWN);
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
 }

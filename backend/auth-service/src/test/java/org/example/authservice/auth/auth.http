@@ -42,3 +42,8 @@ Content-Type: application/json
 ### reissue 토큰 재발급 성공 / 재발급 실패: 쿠키 없음 (400)
 POST http://localhost:8081/api/auth/reissue
 
+### 로그아웃 - 성공 (로그인해서 쿠키 확보한 상태에서 바로 실행)
+POST http://localhost:8081/api/auth/logout
+
+### 로그아웃 - 쿠키 없이 호출 (에러 없이 정상 처리되는지 확인)
+POST http://localhost:8081/api/auth/logout

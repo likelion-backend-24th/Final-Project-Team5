@@ -10,9 +10,30 @@ import {
   Trash2Icon,
 } from 'lucide-react'
 import { FESTIVAL_CATEGORIES as CATEGORY_OPTIONS } from '../api/festivalApi'
-import { createFestival } from '../api/hostFestivalApi'
+import { createFestival, uploadFestivalImages } from '../api/hostFestivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './HostFestivalNew.module.css'
+
+const MAX_IMAGE_COUNT = 3
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+
+const IMAGE_ERROR_MESSAGES = {
+  FORBIDDEN_ROLE: '주최자 권한이 없습니다.',
+  INVALID_IMAGE_COUNT: '이미지는 최대 3개까지 업로드할 수 있어요.',
+  INVALID_IMAGE_SIZE: '이미지 용량은 파일당 10MB를 초과할 수 없어요.',
+  INVALID_IMAGE_TYPE: '이미지 파일만 업로드할 수 있어요.',
+  IMAGE_UPLOAD_FAILED: '이미지 업로드에 실패했어요. 잠시 후 다시 시도해주세요.',
+}
+
+function validateImages(files) {
+  if (files.length > MAX_IMAGE_COUNT) {
+    return '이미지는 최대 3개까지 선택할 수 있어요.'
+  }
+  if (files.some((file) => file.size > MAX_IMAGE_SIZE_BYTES)) {
+    return '이미지 용량은 파일당 10MB를 초과할 수 없어요.'
+  }
+  return ''
+}
 
 function createEmptyTicketType(key) {
   return { key, name: '', price: '', quantity: '' }
@@ -40,8 +61,13 @@ function validateTicketType(ticket) {
   return errors
 }
 
-function validate(form) {
+function validate(form, images) {
   const fieldErrors = {}
+
+  const imageMessage = validateImages(images)
+  if (imageMessage) {
+    fieldErrors.images = imageMessage
+  }
 
   if (!form.name.trim()) {
     fieldErrors.name = '페스티벌 이름을 입력해주세요.'
@@ -95,9 +121,23 @@ function HostFestivalNew() {
   }))
   const [errors, setErrors] = useState({})
   const [ticketErrors, setTicketErrors] = useState({})
+  const [images, setImages] = useState([])
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(null)
+
+  //선택할 때마다 이전 선택을 교체한다 (누적 선택은 지원하지 않음)
+  function handleImageSelect(event) {
+    const files = Array.from(event.target.files ?? [])
+    const message = validateImages(files)
+    setErrors((prev) => ({ ...prev, images: message || undefined }))
+    setImages(message ? [] : files)
+    if (message) event.target.value = ''
+  }
+
+  function handleRemoveImage(index) {
+    setImages((prev) => prev.filter((_, i) => i !== index))
+  }
 
   function handleChange(field) {
     return (event) => {
@@ -155,7 +195,7 @@ function HostFestivalNew() {
   async function handleSubmit(event) {
     event.preventDefault()
 
-    const { fieldErrors, ticketErrors: nextTicketErrors } = validate(form)
+    const { fieldErrors, ticketErrors: nextTicketErrors } = validate(form, images)
     setErrors(fieldErrors)
     setTicketErrors(nextTicketErrors)
     if (Object.keys(fieldErrors).length > 0) return
@@ -164,6 +204,13 @@ function HostFestivalNew() {
     setSubmitError('')
 
     try {
+      //이미지가 있으면 먼저 업로드해 URL만 받고, 그 URL을 등록 요청 body에 그대로 실어 보낸다.
+      let imageUrls = []
+      if (images.length > 0) {
+        const uploadResponse = await uploadFestivalImages(images)
+        imageUrls = uploadResponse.data.data
+      }
+
       const response = await createFestival({
         name: form.name.trim(),
         description: form.description.trim(),
@@ -171,6 +218,7 @@ function HostFestivalNew() {
         endAt: form.endAt,
         location: form.location.trim(),
         festivalCategory: form.festivalCategory,
+        imageUrls,
         ticketTypes: form.ticketTypes.map((ticket) => ({
           name: ticket.name.trim(),
           price: Number(ticket.price),
@@ -180,10 +228,10 @@ function HostFestivalNew() {
       setSubmitted(response.data.data)
     } catch (error) {
       const errorCode = error.response?.data?.errorCode
-      if (errorCode === 'FORBIDDEN_ROLE') {
-        setSubmitError('주최자 권한이 없습니다.')
-      } else if (errorCode === 'INVALID_PERIOD') {
+      if (errorCode === 'INVALID_PERIOD') {
         setSubmitError('종료 일시는 시작 일시 이후여야 해요.')
+      } else if (IMAGE_ERROR_MESSAGES[errorCode]) {
+        setSubmitError(IMAGE_ERROR_MESSAGES[errorCode])
       } else {
         setSubmitError('등록에 실패했어요. 잠시 후 다시 시도해주세요.')
       }
@@ -356,6 +404,43 @@ function HostFestivalNew() {
               ))}
             </div>
             {errors.festivalCategory && <p className={styles.errorText}>{errors.festivalCategory}</p>}
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="images" className={styles.label}>
+              대표 이미지 <span className={styles.optional}>(선택, 최대 3장·장당 10MB)</span>
+            </label>
+            <input
+              id="images"
+              type="file"
+              accept="image/*"
+              multiple
+              className={styles.input}
+              style={{ height: 'auto', padding: '12px 16px' }}
+              onChange={handleImageSelect}
+              aria-invalid={Boolean(errors.images)}
+            />
+            {errors.images && <p className={styles.errorText}>{errors.images}</p>}
+
+            {images.length > 0 && (
+              <div className={styles.ticketList}>
+                {images.map((file, index) => (
+                  <div className={styles.ticketRowHeader} key={`${file.name}-${index}`}>
+                    <span className={styles.ticketRowTitle}>
+                      {file.name} ({(file.size / (1024 * 1024)).toFixed(1)}MB)
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.ticketRemove}
+                      onClick={() => handleRemoveImage(index)}
+                    >
+                      <Trash2Icon size={14} aria-hidden="true" />
+                      제거
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className={styles.field}>

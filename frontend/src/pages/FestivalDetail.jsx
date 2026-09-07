@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CalendarIcon, ImageIcon, MapPinIcon, TicketIcon } from 'lucide-react'
-import { FESTIVAL_CATEGORY_LABELS, fetchFestivalDetail } from '../api/festivalApi'
+import { FESTIVAL_CATEGORY_LABELS, fetchFestivalDetail, toAbsoluteImageUrl } from '../api/festivalApi'
 import Badge from '../components/Badge'
 import styles from './FestivalDetail.module.css'
 
@@ -81,9 +81,17 @@ function FestivalDetail() {
   return (
     <main className={styles.main}>
       <div className={styles.hero}>
-        <div className={styles.heroPlaceholder} aria-hidden="true">
-          <ImageIcon size={48} />
-        </div>
+        {festival.imageUrls?.length > 0 ? (
+          <img
+            src={toAbsoluteImageUrl(festival.imageUrls[0])}
+            alt={festival.name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          <div className={styles.heroPlaceholder} aria-hidden="true">
+            <ImageIcon size={48} />
+          </div>
+        )}
       </div>
 
       <div className={styles.content}>

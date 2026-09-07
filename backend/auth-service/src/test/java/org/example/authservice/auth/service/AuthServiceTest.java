@@ -405,4 +405,47 @@ class AuthServiceTest {
             throw new IllegalStateException(e);
         }
     }
+
+    @Test
+    @DisplayName("정상적인 토큰으로 로그아웃하면 해당 토큰이 revoked 처리된다")
+    void logout_success() {
+        // given
+        RefreshToken savedToken = createSavedRefreshToken(createActiveUser());
+        String rawRefreshToken = "valid-refresh-token";
+
+        given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
+                .willReturn(Optional.of(savedToken));
+
+        // when
+        authService.logout(rawRefreshToken);
+
+        // then
+        assertThat(savedToken.getRevokedAt()).isNotNull();
+        verify(refreshTokenRepository, times(1)).save(savedToken);
+    }
+
+    @Test
+    @DisplayName("쿠키가 없으면(null) 아무 처리도 하지 않고 조용히 종료한다")
+    void logout_withNullToken_doesNothing() {
+        // when
+        authService.logout(null);
+
+        // then
+        verify(refreshTokenRepository, never()).findByTokenHash(any());
+        verify(refreshTokenRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("DB에 없는 토큰으로 로그아웃해도 예외 없이 조용히 종료한다")
+    void logout_withUnknownToken_doesNothing() {
+        // given
+        String rawRefreshToken = "not-in-db-token";
+        given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
+                .willReturn(Optional.empty());
+
+        // when & then (예외 없이 끝나야 함)
+        authService.logout(rawRefreshToken);
+
+        verify(refreshTokenRepository, never()).save(any());
+    }
 }

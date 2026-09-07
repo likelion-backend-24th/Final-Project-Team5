@@ -127,7 +127,20 @@ public class AuthService {
         refreshTokenRepository.save(savedRefreshToken);
 
         return new TokenResponse(newAccessToken, newRefreshToken);
+    }
 
+    // 로그아웃
+    @Transactional
+    public void logout(String refreshToken) {
+        if (refreshToken == null) {
+            return; // 쿠키 자체가 없으면 이미 로그아웃 상태나 다름없으니 종료
+        }
+        String tokenHash = hashToken(refreshToken);
+        refreshTokenRepository.findByTokenHash(tokenHash)
+                .ifPresent(token -> {
+                    token.setRevokedAt(LocalDateTime.now());
+                    refreshTokenRepository.save(token);
+                });
     }
 
 

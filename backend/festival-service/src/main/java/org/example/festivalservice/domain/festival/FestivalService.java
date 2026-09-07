@@ -19,10 +19,13 @@ public class FestivalService {
     private static final String HOST_ROLE = "HOST";
     private static final String ADMIN_ROLE = "ADMIN";
 
+    private static final int MAX_IMAGE_COUNT = 3;
+
     private final FestivalRepository festivalRepository;
     private final TicketTypeRepository ticketTypeRepository;
+    private final FestivalImageRepository festivalImageRepository;
 
-    //승인된 주최자가 새 페스티벌(및 티켓 종류)을 등록한다
+    //승인된 주최자가 새 페스티벌(및 티켓 종류·이미지)을 등록한다
     @Transactional
     public FestivalResponseDto createFestival(Long hostUserId, String role, FestivalRequestDto request) {
         if (!HOST_ROLE.equals(role)) {
@@ -30,6 +33,10 @@ public class FestivalService {
         }
         if (!request.endAt().isAfter(request.startAt())) {
             throw new ApiException(FestivalErrorCode.INVALID_PERIOD);
+        }
+        List<String> imageUrls = request.imageUrls() == null ? List.of() : request.imageUrls();
+        if (imageUrls.size() > MAX_IMAGE_COUNT) {
+            throw new ApiException(FestivalErrorCode.INVALID_IMAGE_COUNT);
         }
 
         Festival festival = Festival.builder()
@@ -49,7 +56,12 @@ public class FestivalService {
                 .toList();
         ticketTypeRepository.saveAll(ticketTypes);
 
-        return FestivalResponseDto.from(saved, ticketTypes);
+        List<FestivalImage> images = imageUrls.stream()
+                .map(imageUrl -> FestivalImage.builder().festival(saved).imageUrl(imageUrl).build())
+                .toList();
+        festivalImageRepository.saveAll(images);
+
+        return FestivalResponseDto.from(saved, ticketTypes, images);
     }
 
     //주최자가 본인이 등록한 페스티벌 목록을 조회한다
@@ -59,7 +71,7 @@ public class FestivalService {
         }
 
         return festivalRepository.findByHostUserId(hostUserId).stream()
-                .map(festival -> FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(festival.getId())))
+                .map(this::toResponseDto)
                 .toList();
     }
 
@@ -70,7 +82,7 @@ public class FestivalService {
         }
 
         Festival festival = getOwnedFestival(id, hostUserId);
-        return FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(id));
+        return toResponseDto(festival);
     }
 
     //Festival 불러오기(내부 메서드)
@@ -97,14 +109,14 @@ public class FestivalService {
     //페스티벌 목록 조회(페이징), 인증 불필요 — 공개(PUBLISHED) 상태만 노출
     public Page<FestivalResponseDto> listFestivals(Pageable pageable) {
         return festivalRepository.findByFestivalStatus(FestivalStatus.PUBLISHED, pageable)
-                .map(festival -> FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(festival.getId())));
+                .map(this::toResponseDto);
     }
 
     //페스티벌 상세 조회, 인증 불필요 — 공개(PUBLISHED) 상태가 아니면 404(미승인·반려 페스티벌은 존재 자체를 숨김)
     public FestivalResponseDto getFestivalDetail(Long id) {
         Festival festival = festivalRepository.findByIdAndFestivalStatus(id, FestivalStatus.PUBLISHED)
                 .orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND));
-        return FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(id));
+        return toResponseDto(festival);
     }
 
     //운영자가 심사 대기(PENDING) 중인 페스티벌 목록을 조회한다
@@ -113,7 +125,7 @@ public class FestivalService {
             throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
         return festivalRepository.findByFestivalStatus(FestivalStatus.PENDING).stream()
-                .map(festival -> FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(festival.getId())))
+                .map(this::toResponseDto)
                 .toList();
     }
 
@@ -138,6 +150,15 @@ public class FestivalService {
         } else {
             festival.reject();
         }
-        return FestivalResponseDto.from(festival, ticketTypeRepository.findByFestivalId(id));
+        return toResponseDto(festival);
+    }
+
+    //Festival을 응답 DTO로 조립(내부 메서드) — 티켓 종류·이미지를 함께 조회해 붙인다
+    private FestivalResponseDto toResponseDto(Festival festival) {
+        return FestivalResponseDto.from(
+                festival,
+                ticketTypeRepository.findByFestivalId(festival.getId()),
+                festivalImageRepository.findByFestivalId(festival.getId())
+        );
     }
 }

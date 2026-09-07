@@ -1,4 +1,4 @@
-import apiClient from './client'
+import apiClient, { API_BASE_URL } from './client'
 
 export function fetchFestivals(params) {
   return apiClient.get('/api/festivals', { params })
@@ -39,6 +39,11 @@ function formatPrice(ticketTypes) {
   return minPrice <= 0 ? '무료입장' : `${minPrice.toLocaleString()}원~`
 }
 
+//백엔드가 돌려주는 imageUrls는 도메인 없는 상대 경로(/api/festivals/images/...)라 API_BASE_URL을 붙여야 <img>에 바로 쓸 수 있다.
+export function toAbsoluteImageUrl(imageUrl) {
+  return imageUrl ? `${API_BASE_URL}${imageUrl}` : null
+}
+
 /** FestivalResponseDto(백엔드)를 기존 FestivalCard/mock 데이터 형태로 변환한다. */
 export function mapFestivalToCard(festival) {
   return {
@@ -48,6 +53,6 @@ export function mapFestivalToCard(festival) {
     location: festival.location,
     date: formatDateRange(festival.startAt, festival.endAt),
     price: formatPrice(festival.ticketTypes),
-    image: null,
+    image: toAbsoluteImageUrl(festival.imageUrls?.[0]),
   }
 }

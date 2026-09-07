@@ -1,12 +1,14 @@
 package org.example.festivalservice.common.exception;
 
 import org.example.festivalservice.common.dto.ApiResponse;
+import org.example.festivalservice.domain.festival.FestivalErrorCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -15,6 +17,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(ApiException e) {
         ErrorCode errorCode = e.getErrorCode();
         return ResponseEntity.status(errorCode.getHttpStatus()).body(ApiResponse.error(errorCode.name(), e.getMessage()));
+    }
+
+    //Spring이 application.yaml의 multipart 제한(파일당 10MB)을 넘겨 컨트롤러 진입 전에 요청을 거부한 경우
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException e) {
+        FestivalErrorCode errorCode = FestivalErrorCode.INVALID_IMAGE_SIZE;
+        return ResponseEntity.status(errorCode.getHttpStatus()).body(ApiResponse.error(errorCode.name(), errorCode.getMessage()));
     }
 
     @ExceptionHandler(MissingRequestHeaderException.class)

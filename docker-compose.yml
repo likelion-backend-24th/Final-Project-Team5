@@ -38,6 +38,10 @@ services:
       FESTIVAL_DB_HOST: core-db
       FESTIVAL_DB_PORT: 3306
       AUTH_SERVICE_URL: http://auth-service:8081
+    # SAVED_IMAGE 경로를 볼륨으로 마운트하지 않으면 컨테이너를 재생성(배포)할 때마다
+    # 업로드된 이미지가 전부 사라진다. 호스트 경로와 컨테이너 내부 경로를 동일하게 맞춘다.
+    volumes:
+      - ${SAVED_IMAGE:-./backend/festival-service/savedimage}:${SAVED_IMAGE:-./backend/festival-service/savedimage}
     depends_on:
       - core-db
       - auth-service

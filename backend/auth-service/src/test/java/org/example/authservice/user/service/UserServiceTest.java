@@ -1,5 +1,6 @@
 package org.example.authservice.user.service;
 
+import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.user.dto.UserResponse;
 import org.example.authservice.user.entity.AccountStatus;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -30,6 +32,12 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private RefreshTokenRevocationService refreshTokenRevocationService;
 
     @InjectMocks
     private UserService userService;
@@ -141,5 +149,71 @@ class UserServiceTest {
         user.setRole(Role.USER);
         user.setStatus(AccountStatus.ACTIVE);
         return user;
+    }
+
+    @Test
+    @DisplayName("정상적인 비밀번호 변경 시 성공하고, 기존 세션이 전부 무효화된다")
+    void updatePassword_success() {
+        // given
+        User user = createActiveUser();
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("test1234", user.getPassword())).willReturn(true);
+        given(passwordEncoder.encode("newpassword1234")).willReturn("encoded-new-password");
+
+        // when
+        userService.updatePassword(1L, "test1234", "newpassword1234", "newpassword1234");
+
+        // then
+        assertThat(user.getPassword()).isEqualTo("encoded-new-password");
+        verify(userRepository, times(1)).save(user);
+        verify(refreshTokenRevocationService, times(1)).revokeAllTokens(user);
+    }
+
+    @Test
+    @DisplayName("현재 비밀번호가 틀리면 INVALID_CURRENT_PASSWORD 예외가 발생한다")
+    void updatePassword_fail_invalidCurrentPassword() {
+        // given
+        User user = createActiveUser();
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("wrongpassword", user.getPassword())).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> userService.updatePassword(1L, "wrongpassword", "newpassword1234", "newpassword1234"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(UserErrorCode.INVALID_CURRENT_PASSWORD));
+
+        verify(userRepository, never()).save(any());
+        verify(refreshTokenRevocationService, never()).revokeAllTokens(any());
+    }
+
+    @Test
+    @DisplayName("새 비밀번호와 확인 비밀번호가 다르면 PASSWORD_CONFIRM_MISMATCH 예외가 발생한다")
+    void updatePassword_fail_confirmMismatch() {
+        // given
+        User user = createActiveUser();
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(passwordEncoder.matches("test1234", user.getPassword())).willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> userService.updatePassword(1L, "test1234", "newpassword1234", "different1234"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(UserErrorCode.PASSWORD_CONFIRM_MISMATCH));
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 userId면 USER_NOT_FOUND 예외가 발생한다")
+    void updatePassword_fail_userNotFound() {
+        // given
+        given(userRepository.findById(999L)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> userService.updatePassword(999L, "aaa", "bbb", "bbb"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(UserErrorCode.USER_NOT_FOUND));
     }
 }

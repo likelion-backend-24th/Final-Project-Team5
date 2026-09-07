@@ -5,13 +5,12 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.Instant;
 
 /**
- * PortOne V2 "결제 단건 조회"(GET /payments/{paymentId}) 응답.
+ * PortOne V2 "결제 단건 조회"(GET /payments/{paymentId}?storeId=...) 응답.
  *
- * ⚠️ PortOne 공식 문서는 결제 상태별로 다른 응답 타입(ReadyPayment, PaidPayment,
- * FailedPayment, CancelledPayment 등)을 반환하는 유니언 스키마이며, 전체 필드 목록이
- * 문서에 상세히 명시돼 있지 않다. 아래 필드는 상태와 무관하게 공통적으로 쓰이는 값만
- * 담았고, {@link #status()}로 상태를 구분해 사용한다. 7-3·7-4 구현 전에 실제 PortOne
- * 테스트 채널 응답으로 필드명을 한 번 더 검증해야 한다.
+ * 2026-09-07 실제 테스트 채널 결제(PAID)로 검증 완료. status별 유니언 스키마라
+ * paidAt/failure처럼 상태 전용 필드는 해당 상태가 아니면 null로 온다. 아직 FAILED
+ * 외의 CANCELLED·VIRTUAL_ACCOUNT_ISSUED 응답은 실제로 확인하지 못했으니, 취소(Story9)
+ * 구현 전에 cancellations 관련 필드는 다시 검증해야 한다.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record PortOnePaymentResponse(
@@ -22,14 +21,25 @@ public record PortOnePaymentResponse(
         Channel channel,
         Amount amount,
         String currency,
+        String orderName,
         Instant requestedAt,
-        Instant updatedAt
+        Instant updatedAt,
+        Instant statusChangedAt,
+        Instant paidAt,
+        Instant failedAt,
+        Failure failure,
+        String pgTxId
 ) {
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Channel(String id, String key, String type) {
+    public record Channel(String id, String key, String type, String name, String pgProvider) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record Amount(long total, long cancelled) {
+    public record Amount(long total, long taxFree, long vat, long supply, long discount, long paid, long cancelled, long cancelledTaxFree) {
+    }
+
+    // FailedPayment 상태일 때만 채워짐(실제 확인: PAY_PROCESS_CANCELED 등)
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record Failure(String reason, String pgCode, String pgMessage) {
     }
 }

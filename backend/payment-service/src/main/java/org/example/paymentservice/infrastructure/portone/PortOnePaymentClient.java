@@ -2,6 +2,7 @@ package org.example.paymentservice.infrastructure.portone;
 
 import lombok.RequiredArgsConstructor;
 import org.example.paymentservice.infrastructure.portone.dto.PortOnePaymentResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -15,10 +16,18 @@ public class PortOnePaymentClient {
 
     private final RestClient portOneRestClient;
 
+    @Value("${portone.store-id}")
+    private String storeId;
+
     // 브라우저 결과·웹훅 본문을 신뢰하지 않고, 항상 이 조회로 최신 결제 상태를 다시 확인한다.
+    // storeId 쿼리 파라미터가 없으면 PortOne이 결제를 찾지 못해 PAYMENT_NOT_FOUND(404)를 반환한다
+    // (실제 테스트 결제로 확인함 — 이 API Secret이 여러 팀의 store를 포괄하는 계정이라서 그렇다).
     public PortOnePaymentResponse getPayment(String paymentId) {
         return portOneRestClient.get()
-                .uri("/payments/{paymentId}", paymentId)
+                .uri(uriBuilder -> uriBuilder
+                        .path("/payments/{paymentId}")
+                        .queryParam("storeId", storeId)
+                        .build(paymentId))
                 .retrieve()
                 .body(PortOnePaymentResponse.class);
     }

@@ -2,15 +2,15 @@ package org.example.authservice.user.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.authservice.common.dto.ApiResponse;
+import org.example.authservice.user.dto.NicknameUpdateRequest;
 import org.example.authservice.user.dto.UserResponse;
 import org.example.authservice.user.service.UserService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users")
@@ -24,5 +24,14 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@RequestHeader("X-User-Id") Long userId) {
         UserResponse response = userService.getMyInfo(userId);
         return ResponseEntity.ok(ApiResponse.success("내 정보 조회 성공", response ));
+    }
+
+    @Operation(summary = "닉네임 수정", description = "로그인한 사용자 본인의 닉네임을 수정합니다.")
+    @PatchMapping("/me/nickname")
+    public ResponseEntity<ApiResponse<Void>> updateNickname(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody NicknameUpdateRequest nicknameUpdateRequest){
+        userService.updateNickname(userId,nicknameUpdateRequest.getNickname());
+        return ResponseEntity.ok(ApiResponse.success("닉네임이 변경되었습니다.",null));
     }
 }

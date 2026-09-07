@@ -4,6 +4,7 @@ import org.example.authservice.common.dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestCookieException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -32,6 +33,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleMissingCookie(MissingRequestCookieException e) {
         return ResponseEntity.status(400)
                 .body(ApiResponse.error("MISSING_COOKIE", "필수 쿠키가 존재하지 않습니다: " + e.getCookieName()));
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingHeader(MissingRequestHeaderException e) {
+        return ResponseEntity.status(401)
+                .body(ApiResponse.error("UNAUTHORIZED", "인증 정보가 없습니다: " + e.getHeaderName()));
     }
 
 

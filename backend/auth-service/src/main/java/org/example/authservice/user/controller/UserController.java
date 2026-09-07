@@ -8,6 +8,7 @@ import org.example.authservice.common.dto.ApiResponse;
 import org.example.authservice.user.dto.NicknameUpdateRequest;
 import org.example.authservice.user.dto.PasswordUpdateRequest;
 import org.example.authservice.user.dto.UserResponse;
+import org.example.authservice.user.dto.WithdrawAccountRequest;
 import org.example.authservice.user.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,5 +45,15 @@ public class UserController {
             @Valid @RequestBody PasswordUpdateRequest request) {
         userService.updatePassword(userId, request.getCurrentPassword(), request.getNewPassword(), request.getNewPasswordConfirm());
         return ResponseEntity.ok(ApiResponse.success("비밀번호가 변경되었습니다.", null));
+    }
+
+    //회원탈퇴
+    @Operation(summary = "회원 탈퇴", description = "비밀번호 확인 후 회원탈퇴(WITHDRAWN)를 처리합니다.")
+    @DeleteMapping("/me")
+    public ResponseEntity<ApiResponse<Void>> withdraw(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid  @RequestBody WithdrawAccountRequest request){
+        userService.withdrawAccount(userId,request.getPassword());
+        return ResponseEntity.ok(ApiResponse.success("회원 탈퇴가 완료되었습니다.",null));
     }
 }

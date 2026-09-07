@@ -5,12 +5,15 @@ import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.user.dto.UserResponse;
+import org.example.authservice.user.entity.AccountStatus;
 import org.example.authservice.user.entity.User;
 import org.example.authservice.user.exception.UserErrorCode;
 import org.example.authservice.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -70,6 +73,24 @@ public class UserService {
 
         // 비밀번호 변경 시 탈취 의심 상황에 대비해 기존 모든 세션(Refresh Token)을 무효화
         refreshTokenRevocationService.revokeAllTokens(user);
+    }
 
+    // 회원탈퇴
+    @Transactional
+    public void withdrawAccount(Long userId, String password){
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(UserErrorCode.USER_NOT_FOUND));
+        if (user.getPassword() != null && !passwordEncoder.matches(password,user.getPassword())){
+            throw new ApiException(UserErrorCode.INVALID_CURRENT_PASSWORD);
+        }
+        //나중에 티켓 예약이 있으면 어떻게할지 정책 정해야함
+
+        user.setName("탈퇴한 사용자");
+        user.setStatus(AccountStatus.WITHDRAWN);
+        user.setNickname("탈퇴한사용자_" + user.getId());
+        user.setWithdrawnAt(LocalDateTime.now());
+        userRepository.save(user);
+
+        refreshTokenRevocationService.revokeAllTokens(user);
     }
 }

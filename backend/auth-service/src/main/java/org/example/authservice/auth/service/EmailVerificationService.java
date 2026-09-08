@@ -23,10 +23,6 @@ public class EmailVerificationService {
     public void sendCode(String email){
         //나중에 쿨다운,횟수제한 로직 추가
 
-        if (userRepository.existsByUsername(email)) {
-            throw new ApiException(EmailVerificationErrorCode.ALREADY_REGISTERED_EMAIL);
-        }
-
         String code = emailService.generateCode(); //인증코드 6자리
 
         EmailVerification emailVerification = new EmailVerification();

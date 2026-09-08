@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.authservice.auth.dto.LoginRequest;
 import org.example.authservice.auth.dto.SignupRequest;
 import org.example.authservice.auth.dto.TokenResponse;
+import org.example.authservice.auth.dto.emailverification.ResetPasswordRequest;
 import org.example.authservice.auth.service.AuthService;
 import org.example.authservice.common.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
@@ -54,6 +55,14 @@ public class AuthController {
             @CookieValue(value = "refreshToken", required = false) String refreshToken) {
         authService.logout(refreshToken);
         return authCookieResponseBuilder.buildWithCookieDeleted("로그아웃 성공");
+    }
+
+    @Operation(summary = "비밀번호 재설정", description = "이메일 인증 완료 후 비밀번호를 재설정합니다. (로그인 없이 이메일 인증만으로 진행)")
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getUsername(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success("비밀번호가 재설정되었습니다.", null));
     }
 
 }

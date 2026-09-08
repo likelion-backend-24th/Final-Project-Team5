@@ -5,6 +5,7 @@ import org.example.authservice.auth.dto.SignupRequest;
 import org.example.authservice.auth.dto.TokenResponse;
 import org.example.authservice.auth.entity.RefreshToken;
 import org.example.authservice.auth.exception.AuthErrorCode;
+import org.example.authservice.auth.exception.EmailVerificationErrorCode;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.security.JwtTokenProvider;
 import org.example.authservice.common.exception.ApiException;
@@ -34,9 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -449,5 +448,57 @@ class AuthServiceTest {
         authService.logout(rawRefreshToken);
 
         verify(refreshTokenRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("이메일 인증 완료 후 비밀번호 재설정에 성공하고, 기존 세션이 전부 무효화된다")
+    void resetPassword_success() {
+        // given
+        User user = createActiveUser();
+        given(userRepository.findByUsername("test@naver.com")).willReturn(Optional.of(user));
+        given(passwordEncoder.encode("newpassword1234")).willReturn("encoded-new-password");
+
+        // when
+        authService.resetPassword("test@naver.com", "newpassword1234");
+
+        // then
+        assertThat(user.getPassword()).isEqualTo("encoded-new-password");
+        verify(userRepository, times(1)).save(user);
+        verify(emailVerificationService, times(1)).checkVerified("test@naver.com");
+        verify(refreshTokenRevocationService, times(1)).revokeAllTokens(user);
+    }
+
+    @Test
+    @DisplayName("이메일 인증이 완료되지 않았으면 EMAIL_NOT_VERIFIED 예외가 발생하고, 비밀번호는 변경되지 않는다")
+    void resetPassword_fail_emailNotVerified() {
+        // given
+        doThrow(new ApiException(EmailVerificationErrorCode.EMAIL_NOT_VERIFIED))
+                .when(emailVerificationService).checkVerified("notverified@naver.com");
+
+        // when & then
+        assertThatThrownBy(() -> authService.resetPassword("notverified@naver.com", "newpassword1234"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(EmailVerificationErrorCode.EMAIL_NOT_VERIFIED));
+
+        verify(userRepository, never()).findByUsername(any());
+        verify(userRepository, never()).save(any());
+        verify(refreshTokenRevocationService, never()).revokeAllTokens(any());
+    }
+
+    @Test
+    @DisplayName("가입되지 않은 이메일이면 USER_NOT_FOUND 예외가 발생한다")
+    void resetPassword_fail_userNotFound() {
+        // given
+        given(userRepository.findByUsername("notexist@naver.com")).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> authService.resetPassword("notexist@naver.com", "newpassword1234"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.USER_NOT_FOUND));
+
+        verify(userRepository, never()).save(any());
+        verify(refreshTokenRevocationService, never()).revokeAllTokens(any());
     }
 }

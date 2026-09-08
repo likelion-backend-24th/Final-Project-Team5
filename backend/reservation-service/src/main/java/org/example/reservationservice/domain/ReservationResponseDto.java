@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 /** 참가자 본인용 예매 목록/상세 응답. */
 public record ReservationResponseDto(
         Long id,
+        Long festivalId,
         Long ticketTypeId,
         int quantity,
         int price,
@@ -18,6 +19,7 @@ public record ReservationResponseDto(
     public static ReservationResponseDto from(Reservation reservation) {
         return new ReservationResponseDto(
                 reservation.getId(),
+                reservation.getFestivalId(),
                 reservation.getTicketTypeId(),
                 reservation.getQuantity(),
                 reservation.getPrice(),

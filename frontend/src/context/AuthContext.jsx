@@ -34,14 +34,12 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  //로그인 직후 역할에 따라 보낼 화면이 달라서(도우미는 현장 검증 화면), 조회한 내 정보를 그대로 돌려준다.
   const login = useCallback(async (username, password) => {
     const loginResponse = await loginRequest({ username, password })
     setAccessToken(loginResponse.data.data.accessToken)
 
     const meResponse = await fetchMyInfo()
     setUser(meResponse.data.data)
-    return meResponse.data.data
   }, [])
 
   // 추가: 닉네임 변경 등 내 정보가 바뀐 뒤, 서버에서 다시 조회해 전역 상태를 갱신한다.

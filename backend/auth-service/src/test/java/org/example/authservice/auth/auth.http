@@ -47,3 +47,76 @@ POST http://localhost:8081/api/auth/logout
 
 ### 로그아웃 - 쿠키 없이 호출 (에러 없이 정상 처리되는지 확인)
 POST http://localhost:8081/api/auth/logout
+
+
+### 1. 인증코드 발송 (가입된 이메일도 이제 발송 가능해야 함)
+POST http://localhost:8081/api/auth/email/send
+Content-Type: application/json
+
+{
+  "email": "test@naver.com"
+}
+
+### 2. 인증코드 검증 (1번 응답 메일에서 받은 실제 코드로 교체)
+POST http://localhost:8081/api/auth/email/verify
+Content-Type: application/json
+
+{
+  "email": "test@naver.com",
+  "code": "실제로받은코드입력"
+}
+
+### 3. 비밀번호 재설정 - 성공
+POST http://localhost:8081/api/auth/reset-password
+Content-Type: application/json
+
+{
+  "username": "test@naver.com",
+  "newPassword": "newpassword1234"
+}
+
+### 4. 재설정 후 - 새 비밀번호로 로그인 (성공해야 함)
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "test@naver.com",
+  "password": "newpassword1234"
+}
+
+### 5. 재설정 후 - 예전 비밀번호로 로그인 시도 (INVALID_PASSWORD 나야 함)
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "test@naver.com",
+  "password": "test1234"
+}
+
+### 6. 비밀번호 재설정 - 인증 없이 바로 시도 (EMAIL_NOT_VERIFIED 나야 함, 새 이메일로)
+POST http://localhost:8081/api/auth/reset-password
+Content-Type: application/json
+
+{
+  "username": "인증안한이메일@naver.com",
+  "newPassword": "newpassword1234"
+}
+
+### 7. 비밀번호 재설정 - 가입 안 된 이메일로 시도 (인증은 통과했다고 가정, USER_NOT_FOUND 나야 함)
+### 먼저 미가입 이메일로 1,2번 인증코드 발송/검증 거친 후 실행
+POST http://localhost:8081/api/auth/reset-password
+Content-Type: application/json
+
+{
+  "username": "가입안한이메일@naver.com",
+  "newPassword": "newpassword1234"
+}
+
+### 8. 비밀번호 재설정 - 8자 미만
+POST http://localhost:8081/api/auth/reset-password
+Content-Type: application/json
+
+{
+  "username": "test@naver.com",
+  "newPassword": "short"
+}

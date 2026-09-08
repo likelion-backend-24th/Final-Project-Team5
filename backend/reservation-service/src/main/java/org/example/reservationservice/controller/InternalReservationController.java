@@ -6,6 +6,7 @@ import org.example.reservationservice.common.exception.ApiException;
 import org.example.reservationservice.domain.ReservationCancelRequestDto;
 import org.example.reservationservice.domain.ReservationConfirmRequestDto;
 import org.example.reservationservice.domain.ReservationErrorCode;
+import org.example.reservationservice.domain.ReservationExtendHoldRequestDto;
 import org.example.reservationservice.domain.ReservationForPaymentResponseDto;
 import org.example.reservationservice.domain.ReservationService;
 import org.springframework.beans.factory.annotation.Value;
@@ -61,6 +62,18 @@ public class InternalReservationController {
     ) {
         verifyInternalToken(authorization);
         reservationService.cancelReservation(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    //Payment-Service → Reservation-Service: 가상계좌 발급 시 입금 기한까지 재고 홀드 연장
+    @PatchMapping("/{id}/extend-hold")
+    public ResponseEntity<Void> extendHold(
+            @PathVariable Long id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @Valid @RequestBody ReservationExtendHoldRequestDto request
+    ) {
+        verifyInternalToken(authorization);
+        reservationService.extendReservationHold(id, request);
         return ResponseEntity.ok().build();
     }
 

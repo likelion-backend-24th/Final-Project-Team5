@@ -34,6 +34,10 @@ public class Payment {
     @Column(name = "reservation_id", nullable = false)
     private Long reservationId;
 
+    // 결제 완료 API 호출 시 본인 소유 확인용. 예매 조회 없이 바로 검증하기 위해 준비 시점에 저장한다.
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
     // 티켓 원가 스냅샷. 예매 시점 가격을 기준으로 하며, 이후 가격이 바뀌어도 영향받지 않는다.
     @Column(name = "ticket_amount", nullable = false)
     private long ticketAmount;

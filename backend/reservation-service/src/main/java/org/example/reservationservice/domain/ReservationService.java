@@ -151,6 +151,20 @@ public class ReservationService {
         reservation.confirm(request.paymentId());
     }
 
+    //Payment-Service → Reservation-Service 내부 호출: 가상계좌 발급 시 입금 기한까지 재고 홀드 연장
+    @Transactional
+    public void extendReservationHold(Long id, ReservationExtendHoldRequestDto request) {
+        Reservation reservation = reservationRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
+
+        if (reservation.getReservationStatus() != ReservationStatus.PENDING) {
+            //이미 확정·취소된 예매에 대한 지연 호출은 무시한다(멱등).
+            return;
+        }
+
+        reservation.extendHold(request.expiresAt());
+    }
+
     //Payment-Service → Reservation-Service 내부 호출: 결제 실패·취소·만료 시 예매 취소 + 재고 복구
     @Transactional
     public void cancelReservation(Long id, ReservationCancelRequestDto request) {

@@ -15,3 +15,13 @@ spring:
 
 festival-service:
   base-url: ${FESTIVAL_SERVICE_URL:http://localhost:8082}
+
+# 사이트 정책 점검 문서 6번 — 1인당(계정 기준) 티켓 종류당 구매 제한 기본값.
+# 주최자가 티켓 종류별로 이 값보다 낮게 설정하는 기능은 festival-service에 아직 없다(후속 작업).
+reservation:
+  max-quantity-per-ticket-type: ${RESERVATION_MAX_QUANTITY_PER_TICKET_TYPE:4}
+
+# Payment-Service → Reservation-Service 내부 호출(getReservationForPayment/confirm/cancel) 인증 토큰.
+# payment-service·auth-service의 internal.auth-token/internal.role-grant.token과 반드시 같은 값이어야 한다.
+internal:
+  auth-token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}

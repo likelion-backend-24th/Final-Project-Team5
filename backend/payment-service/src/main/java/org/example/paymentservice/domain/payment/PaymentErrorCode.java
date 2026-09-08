@@ -17,6 +17,7 @@ public enum PaymentErrorCode implements ErrorCode {
     FORBIDDEN_PAYMENT_OWNER(HttpStatus.FORBIDDEN, "본인 결제만 확인할 수 있습니다"),
     PAYMENT_VERIFICATION_FAILED(HttpStatus.CONFLICT, "결제 정보가 일치하지 않습니다"),
     UNEXPECTED_PAYMENT_STATUS(HttpStatus.CONFLICT, "처리할 수 없는 결제 상태입니다"),
+    PAYMENT_NOT_YET_PROCESSED(HttpStatus.CONFLICT, "결제가 아직 진행되지 않았습니다"),
     RESERVATION_ALREADY_FINALIZED(HttpStatus.CONFLICT, "예매가 이미 만료되었거나 취소되었습니다");
 
     private final HttpStatus httpStatus;

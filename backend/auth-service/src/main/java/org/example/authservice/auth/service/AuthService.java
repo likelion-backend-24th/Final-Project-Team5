@@ -53,6 +53,10 @@ public class AuthService {
         if (userRepository.existsByNickname(signupRequest.getNickname())) {
             throw new ApiException(AuthErrorCode.DUPLICATE_NICKNAME);
         }
+        if (!signupRequest.isTermsAgreed()) {
+            throw new ApiException(AuthErrorCode.TERMS_NOT_AGREED);
+        }
+
         //이메일 인증이 완료 여부
         emailVerificationService.checkVerified(signupRequest.getUsername());
 
@@ -64,6 +68,7 @@ public class AuthService {
         user.setNickname(signupRequest.getNickname());
         user.setRole(Role.USER);
         user.setStatus(AccountStatus.ACTIVE);
+        user.setTermsAgreeAt(LocalDateTime.now());
 
         userRepository.save(user);
     }

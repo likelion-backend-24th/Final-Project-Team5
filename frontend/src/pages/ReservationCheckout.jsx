@@ -16,17 +16,30 @@ import { completePayment, preparePayment } from '../api/paymentApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './ReservationCheckout.module.css'
 
-//지원하는 결제수단. PortOne.requestPayment()에 넘길 payMethod/easyPay/virtualAccount 값을
-//여기서 결정한다(https://developers.portone.io/opi/ko/integration/pg/v2/readme?v=v2 — PG사별
-//결제수단 코드 기준). 무통장입금(가상계좌)은 결제 완료 API가 이미 VIRTUAL_ACCOUNT_ISSUED 상태를
-//처리하므로(Task 7-4 handleVirtualAccountIssued) 프론트만 추가하면 된다 — virtualAccount의
-//필드는 전부 선택값이라 은행·계좌 지정 없이도 PortOne 위젯이 은행 선택 화면을 보여준다.
+//지원하는 결제수단. PortOne.requestPayment()에 넘길 payMethod/virtualAccount 값을 여기서
+//결정한다(https://developers.portone.io/opi/ko/integration/pg/v2/readme?v=v2 — PG사별
+//결제수단 코드 기준).
+//
+//카카오페이는 payMethod: 'EASY_PAY'로 직접 요청하지 않는다 — 2026-09-07 실제 테스트 결제로
+//이미 확인된 사실: 이 채널(토스페이먼츠 일반)은 카카오페이를 카드 결제창 안의 간편결제
+//퀵버튼으로 제공하는 구조이고, 그때 실제로 성공한 결제도 payMethod: 'CARD'로 요청한 뒤
+//위젯 안에서 사용자가 카카오페이를 선택한 것이었다(실제 응답: method.type이
+//"PaymentMethodEasyPay", provider가 "KAKAOPAY"로 찍힘 — CARD 요청이었는데도 결과는
+//간편결제로 나온다). payMethod: 'EASY_PAY'를 직접 요청하면 이 채널에서 위젯이 응답하지
+//않는 것을 실제로 확인했다 — 채널이 EASY_PAY 단독 호출용으로 등록돼 있지 않은 것으로 보인다.
+//그래서 카카오페이 선택지는 안내 목적으로만 남기고 실제 요청은 CARD와 동일하게 보낸다.
+//
+//무통장입금(가상계좌)은 결제 완료 API가 이미 VIRTUAL_ACCOUNT_ISSUED 상태를 처리하므로
+//(Task 7-4 handleVirtualAccountIssued) 프론트만 추가하면 된다 — 다만 이 채널에서 실제로
+//성공하는 것은 아직 확인하지 못했다(아래 PAYMENT_WIDGET_TIMEOUT_MS 주석 참고).
 const PAY_METHODS = [
   { key: 'CARD', label: '카드', toRequest: () => ({ payMethod: 'CARD' }) },
   {
     key: 'KAKAOPAY',
     label: '카카오페이',
-    toRequest: () => ({ payMethod: 'EASY_PAY', easyPay: { easyPayProvider: 'KAKAOPAY' } }),
+    // 카드와 동일한 요청을 보내고, 위젯이 뜨면 사용자가 그 안에서 카카오페이 퀵버튼을
+    // 직접 선택한다(위 설명 참고). 별도 결제수단 파라미터가 없다.
+    toRequest: () => ({ payMethod: 'CARD' }),
   },
   {
     key: 'VIRTUAL_ACCOUNT',

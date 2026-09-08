@@ -11,6 +11,7 @@ const primaryBtn =
 const STATUS_META = {
   결제대기: 'bg-yellow-50 text-yellow-700',
   예정: 'bg-blue-50 text-blue-600',
+  입장완료: 'bg-green-50 text-green-700',
   완료: 'bg-gray-100 text-gray-600',
   취소: 'bg-red-50 text-red-600',
 }
@@ -29,10 +30,12 @@ function formatDateRange(startAt, endAt) {
 }
 
 //백엔드 reservationStatus(PENDING/CONFIRMED/CANCELLED/REFUNDED/PARTIALLY_REFUNDED)를
-//화면 라벨로 변환한다. CONFIRMED는 페스티벌 종료 여부로 예정/완료를 다시 나눈다.
-function toStatusLabel(reservationStatus, festivalEndAt) {
+//화면 라벨로 변환한다. CONFIRMED는 현장 입장 여부와 페스티벌 종료 여부로 다시 나눈다 —
+//이미 입장한 티켓을 계속 "예정"으로 보여주면 참가자가 티켓을 썼는지 알 수 없다.
+function toStatusLabel(reservationStatus, festivalEndAt, checkedInAt) {
   if (reservationStatus === 'PENDING') return '결제대기'
   if (reservationStatus === 'CONFIRMED') {
+    if (checkedInAt) return '입장완료'
     return festivalEndAt && new Date(festivalEndAt) < new Date() ? '완료' : '예정'
   }
   return '취소' // CANCELLED, REFUNDED, PARTIALLY_REFUNDED
@@ -46,6 +49,13 @@ function formatRemaining(expiresAt, now) {
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
   const seconds = String(totalSeconds % 60).padStart(2, '0')
   return `${minutes}:${seconds}`
+}
+
+//입장 처리 시각(checkedInAt)은 절대 시각이라 보는 사람의 시간대로 표시한다.
+function formatCheckedInAt(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function QrModal({ reservationId, onClose }) {
@@ -82,8 +92,30 @@ function QrModal({ reservationId, onClose }) {
 
         {qr && (
           <>
-            <img src={qr.qrImageUrl} alt="입장용 QR 코드" className="mx-auto mt-6 h-48 w-48" />
-            <p className="mt-4 text-xs text-gray-400">현장 입장 시 이 QR을 주최자에게 제시해주세요.</p>
+            {/* 입장 처리된 티켓은 흐리게 보여줘서, 이미 쓴 티켓을 다시 내미는 상황을 참가자가 먼저 알 수 있게 한다. */}
+            <img
+              src={qr.qrImageUrl}
+              alt="입장용 QR 코드"
+              className={`mx-auto mt-6 h-48 w-48 ${qr.checkedInAt ? 'opacity-25' : ''}`}
+            />
+
+            {qr.checkedInAt && (
+              <p className="mt-3 text-sm font-bold text-gray-500">
+                {formatCheckedInAt(qr.checkedInAt)} 입장 완료
+              </p>
+            )}
+
+            {/* QR이 안 찍힐 때 도우미에게 불러주는 코드. 입장 후에도 계속 보여준다(백엔드 QR 응답 규약). */}
+            <div className="mt-5 rounded-2xl bg-gray-50 px-4 py-3">
+              <p className="text-xs font-bold text-gray-500">입장 코드</p>
+              <p className="mt-1 font-mono text-xl font-extrabold tracking-widest text-gray-900">
+                {qr.checkInCode}
+              </p>
+            </div>
+
+            <p className="mt-4 text-xs text-gray-400">
+              현장 입장 시 이 QR을 주최자에게 제시해주세요. QR이 잘 안 찍히면 위 입장 코드를 불러주세요.
+            </p>
           </>
         )}
       </div>
@@ -139,7 +171,7 @@ function MyPageReservationsTab() {
               festivalImage: toAbsoluteImageUrl(festival?.imageUrls?.[0]),
               festivalDate: festival ? formatDateRange(festival.startAt, festival.endAt) : '',
               ticketTypeName: ticketType?.name ?? '',
-              statusLabel: toStatusLabel(reservation.reservationStatus, festival?.endAt),
+              statusLabel: toStatusLabel(reservation.reservationStatus, festival?.endAt, reservation.checkedInAt),
             }
           }),
         )
@@ -172,7 +204,7 @@ function MyPageReservationsTab() {
     }
   }
 
-  const filterTabs = ['전체', '결제대기', '예정', '완료', '취소']
+  const filterTabs = ['전체', '결제대기', '예정', '입장완료', '완료', '취소']
 
   const visible = reservations
     .filter((r) => filter === '전체' || r.statusLabel === filter)

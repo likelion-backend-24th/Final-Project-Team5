@@ -7,6 +7,7 @@ import AdminFestivals from './pages/AdminFestivals'
 import AdminHostApplications from './pages/AdminHostApplications'
 import CheckIn from './pages/CheckIn'
 import FestivalDetail from './pages/FestivalDetail'
+import HelperHome from './pages/HelperHome'
 import Festivals from './pages/Festivals'
 import Home from './pages/Home'
 import HostApplication from './pages/HostApplication'
@@ -23,16 +24,23 @@ import SignUp from './pages/SignUp'
 function App() {
   const { user, isLoading } = useAuth()
 
-  //도우미(HELPER)는 주최자가 현장 검증만 맡기려고 발급한 임시 계정이라 Gateway가 나머지 API를 전부 막는다.
-  //일반 화면으로 들어가면 대부분의 요청이 403이 되므로, 아예 현장 검증 화면만 열어준다.
+  //도우미(HELPER)는 배정된 행사 하나에서 현장 입장 검증만 담당하는 계정이라, 일반 회원 화면 대신
+  //전용 메인(담당 행사 정보 / 현장 입장 검사)을 보여준다. 페스티벌 목록·예매·주최자·운영자 화면은
+  //들어가도 할 수 있는 일이 없어(Gateway가 API를 막는다) 메인으로 되돌린다.
   if (!isLoading && user?.role === 'HELPER') {
     return (
       <>
         <ScrollToTop />
         <SiteHeader />
         <Routes>
+          <Route path="/" element={<HelperHome />} />
           <Route path="/check-in" element={<CheckIn />} />
-          <Route path="*" element={<Navigate to="/check-in" replace />} />
+          {/* 메인의 '행사 정보' 버튼이 담당 행사 상세로 보낸다(공개 조회 API라 도우미도 볼 수 있다). */}
+          <Route path="/festivals/:id" element={<FestivalDetail />} />
+          <Route path="/mypage" element={<MyPage />} />
+          <Route path="/terms" element={<Placeholder title="이용약관" />} />
+          <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <SiteFooter />
       </>

@@ -9,6 +9,7 @@ import MyPageSettingsTab from '../components/MyPageSettingsTab'
 const ROLE_META = {
   USER: { label: '일반 회원', badge: 'bg-gray-100 text-gray-600' },
   HOST: { label: '주최자', badge: 'bg-blue-50 text-blue-600' },
+  HELPER: { label: '도우미', badge: 'bg-green-50 text-green-700' },
   ADMIN: { label: '운영자', badge: 'bg-purple-50 text-purple-600' },
 }
 
@@ -20,11 +21,14 @@ function MyPage({ initialTab = 'info' }) {
 
   if (!user) return null
 
+  //도우미는 예매를 할 수 없고(내 예약 조회 API가 막혀 있다) 닉네임·비밀번호 변경도 허용되지 않아,
+  //본인 정보 확인만 남긴다.
+  const isHelper = user.role === 'HELPER'
   const tabs = [
     { key: 'info', label: '내 정보', icon: UserIcon, show: true },
-    { key: 'reservations', label: '내 예약', icon: TicketIcon, show: true },
+    { key: 'reservations', label: '내 예약', icon: TicketIcon, show: !isHelper },
     { key: 'host', label: '주최자 관리', icon: MegaphoneIcon, show: user.role === 'HOST' },
-    { key: 'settings', label: '설정', icon: SettingsIcon, show: true },
+    { key: 'settings', label: '설정', icon: SettingsIcon, show: !isHelper },
   ]
   const visibleTabs = tabs.filter((t) => t.show)
   const roleMeta = ROLE_META[user.role] ?? ROLE_META.USER

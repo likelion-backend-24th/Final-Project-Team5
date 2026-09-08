@@ -7,7 +7,8 @@ function SiteHeader() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useAuth()
-  //도우미는 현장 입장 검증 외의 API가 전부 막혀 있어, 검색·내 예약 같은 메뉴를 눌러도 갈 수 있는 곳이 없다.
+  //도우미는 담당 행사 하나만 다루고 예매를 할 수 없어 검색·내 예약이 의미가 없다.
+  //대신 현장 검증 화면으로 가는 링크를 둔다(본인 정보 확인은 도우미도 가능해 그대로 남긴다).
   const isHelper = user?.role === 'HELPER'
 
   function handleSubmit(event) {
@@ -74,13 +75,9 @@ function SiteHeader() {
 
           {isAuthenticated ? (
             <>
-              {isHelper ? (
-                <span className="text-sm font-semibold text-gray-700">{user.nickname}님</span>
-              ) : (
-                <Link to="/mypage" className="text-sm font-semibold text-gray-700 hover:underline">
-                  {user.nickname}님
-                </Link>
-              )}
+              <Link to="/mypage" className="text-sm font-semibold text-gray-700 hover:underline">
+                {user.nickname}님
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}

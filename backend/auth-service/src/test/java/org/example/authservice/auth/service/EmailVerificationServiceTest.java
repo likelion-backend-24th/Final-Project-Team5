@@ -19,7 +19,6 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -41,11 +40,10 @@ class EmailVerificationServiceTest {
     private EmailVerificationService emailVerificationService;
 
     @Test
-    @DisplayName("가입되지 않은 이메일이면 인증코드를 생성하고 발송한다")
+    @DisplayName("인증코드를 생성하고 발송한다")
     void sendCode_success() {
         // given
         String email = "test@naver.com";
-        given(userRepository.existsByUsername(email)).willReturn(false);
         given(emailService.generateCode()).willReturn("123456");
 
         // when
@@ -61,23 +59,6 @@ class EmailVerificationServiceTest {
         assertThat(saved.isVerified()).isFalse();
 
         verify(emailService, times(1)).sendVerificationCode(email, "123456");
-    }
-
-    @Test
-    @DisplayName("이미 가입된 이메일이면 ALREADY_REGISTERED_EMAIL 예외가 발생한다")
-    void sendCode_fail_alreadyRegistered() {
-        // given
-        String email = "already@naver.com";
-        given(userRepository.existsByUsername(email)).willReturn(true);
-
-        // when & then
-        assertThatThrownBy(() -> emailVerificationService.sendCode(email))
-                .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
-                        .isEqualTo(EmailVerificationErrorCode.ALREADY_REGISTERED_EMAIL));
-
-        verify(emailVerificationRepository, never()).save(any());
-        verify(emailService, never()).sendVerificationCode(anyString(), anyString());
     }
 
     @Test

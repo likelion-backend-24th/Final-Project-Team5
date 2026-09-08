@@ -4,7 +4,12 @@
 # (서버에 swap을 반드시 먼저 설정해둘 것 — 힙을 줄여도 스왑 없이는 여전히 빠듯함)
 services:
   core-db:
-    command: --innodb-buffer-pool-size=64M --performance-schema=OFF --table-open-cache=64 --max-connections=30
+    # max-connections=30은 payment-service 도입 전 3개 서비스(auth/festival/reservation) 기준으로
+    # 잡은 값이었다. 각 서비스가 HikariCP 기본 풀 크기(10)를 그대로 쓰면 3개만으로도 이미 30에
+    # 딱 맞아 여유가 없었고, 4번째 서비스가 추가되자 payment-service가 커넥션을 아예 못 받아
+    # "Too many connections"로 계속 재시작하며 CPU를 독점해 서버 전체 응답이 느려지는 장애로
+    # 이어졌다(2026-09-08). 서비스별 max-pool-size를 5로 낮춘 것과 함께 60으로 올려 여유를 둔다.
+    command: --innodb-buffer-pool-size=64M --performance-schema=OFF --table-open-cache=64 --max-connections=60
 
   gateway:
     environment:

@@ -8,6 +8,10 @@ spring:
     url: jdbc:mysql://${PAYMENT_DB_HOST:localhost}:${PAYMENT_DB_PORT:3307}/${PAYMENT_DB_NAME:payment_db}
     username: ${PAYMENT_DB_USERNAME:payment_user}
     password: ${PAYMENT_DB_PASSWORD:payment_password}
+    hikari:
+      # 기본값(10)대로면 서비스 4개만으로 MySQL max_connections를 다 써버린다 — 4개 서비스가
+      # 각자 여유를 갖도록 5로 낮춘다(2026-09-08, payment-service 도입 후 커넥션 고갈 장애).
+      maximum-pool-size: 5
   jpa:
     hibernate:
       ddl-auto: update

@@ -10,7 +10,7 @@ import org.springframework.http.HttpStatus;
 public enum ReservationErrorCode implements ErrorCode {
 
     INVALID_QUANTITY(HttpStatus.BAD_REQUEST, "예매 수량은 1장 이상이어야 합니다."),
-    FESTIVAL_NOT_PUBLISHED(HttpStatus.BAD_REQUEST, "예매할 수 없는 페스티벌입니다."),
+    FESTIVAL_NOT_PUBLISHED(HttpStatus.NOT_FOUND, "존재하지 않거나 예매할 수 없는 페스티벌입니다."),
     TICKET_TYPE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 티켓 종류입니다."),
     STOCK_EXCEEDED(HttpStatus.CONFLICT, "재고가 부족합니다."),
     FESTIVAL_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "페스티벌 정보를 확인할 수 없습니다."),

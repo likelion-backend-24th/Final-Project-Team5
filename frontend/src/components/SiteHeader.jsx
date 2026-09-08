@@ -7,7 +7,8 @@ function SiteHeader() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useAuth()
-  //도우미는 현장 입장 검증 외의 API가 전부 막혀 있어, 검색·내 예약 같은 메뉴를 눌러도 갈 수 있는 곳이 없다.
+  //도우미는 예매를 할 수 없어 "내 예약"이 의미가 없다. 대신 현장 검증 화면으로 가는 링크를 둔다.
+  //(페스티벌 검색·조회와 본인 정보 확인은 도우미도 가능해서 그대로 남겨둔다.)
   const isHelper = user?.role === 'HELPER'
 
   function handleSubmit(event) {
@@ -33,7 +34,6 @@ function SiteHeader() {
         <form
           role="search"
           onSubmit={handleSubmit}
-          hidden={isHelper}
           className="relative max-w-[380px] flex-1 max-md:order-3 max-md:basis-full"
         >
           <input
@@ -74,13 +74,9 @@ function SiteHeader() {
 
           {isAuthenticated ? (
             <>
-              {isHelper ? (
-                <span className="text-sm font-semibold text-gray-700">{user.nickname}님</span>
-              ) : (
-                <Link to="/mypage" className="text-sm font-semibold text-gray-700 hover:underline">
-                  {user.nickname}님
-                </Link>
-              )}
+              <Link to="/mypage" className="text-sm font-semibold text-gray-700 hover:underline">
+                {user.nickname}님
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}

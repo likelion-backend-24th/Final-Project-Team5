@@ -23,8 +23,9 @@ import SignUp from './pages/SignUp'
 function App() {
   const { user, isLoading } = useAuth()
 
-  //도우미(HELPER)는 주최자가 현장 검증만 맡기려고 발급한 임시 계정이라 Gateway가 나머지 API를 전부 막는다.
-  //일반 화면으로 들어가면 대부분의 요청이 403이 되므로, 아예 현장 검증 화면만 열어준다.
+  //도우미(HELPER)가 실제로 쓸 수 있는 화면만 남긴다. Gateway는 도우미에게 현장 검증 API 3개와
+  //본인 정보 조회만 허용하고, 페스티벌 조회는 로그인 없이도 되는 공개 API다 — 딱 그만큼만 연다.
+  //예매·결제·주최자·운영자 화면은 어차피 API가 막혀 들어가도 아무것도 못 하므로 검증 화면으로 되돌린다.
   if (!isLoading && user?.role === 'HELPER') {
     return (
       <>
@@ -32,6 +33,12 @@ function App() {
         <SiteHeader />
         <Routes>
           <Route path="/check-in" element={<CheckIn />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/festivals" element={<Festivals />} />
+          <Route path="/festivals/:id" element={<FestivalDetail />} />
+          <Route path="/mypage" element={<MyPage />} />
+          <Route path="/terms" element={<Placeholder title="이용약관" />} />
+          <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
           <Route path="*" element={<Navigate to="/check-in" replace />} />
         </Routes>
         <SiteFooter />

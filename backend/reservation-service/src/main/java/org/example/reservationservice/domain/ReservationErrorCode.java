@@ -21,7 +21,11 @@ public enum ReservationErrorCode implements ErrorCode {
     RESERVATION_NOT_CANCELLABLE(HttpStatus.CONFLICT, "취소할 수 없는 예매 상태입니다."),
     PAYMENT_AMOUNT_MISMATCH(HttpStatus.CONFLICT, "결제 금액이 예매 금액과 일치하지 않습니다."),
     PURCHASE_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "1인당 구매 가능 수량을 초과했습니다."),
-    INVALID_INTERNAL_TOKEN(HttpStatus.UNAUTHORIZED, "내부 호출 인증에 실패했습니다.");
+    INVALID_INTERNAL_TOKEN(HttpStatus.UNAUTHORIZED, "내부 호출 인증에 실패했습니다."),
+    RESERVATION_NOT_CONFIRMED(HttpStatus.CONFLICT, "결제가 확정된 예매만 QR을 발급받을 수 있습니다."),
+    INVALID_QR_TOKEN(HttpStatus.NOT_FOUND, "유효하지 않은 QR입니다."),
+    ALREADY_CHECKED_IN(HttpStatus.CONFLICT, "이미 입장 처리된 예매입니다."),
+    FORBIDDEN_NOT_ORGANIZER(HttpStatus.FORBIDDEN, "본인이 주최한 페스티벌의 예매만 검증할 수 있습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

@@ -25,3 +25,8 @@ reservation:
 # payment-service·auth-service의 internal.auth-token/internal.role-grant.token과 반드시 같은 값이어야 한다.
 internal:
   auth-token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}
+
+# 입장용 QR 이미지를 그려주는 외부 API(goqr.me / api.qrserver.com). 디코딩(read-qr-code)은 쓰지 않는다 —
+# 스캔은 프론트에서 카메라로 직접 처리하고 결과 문자열(qrToken)만 서버로 전달받는다.
+qr:
+  image-base-url: ${QR_IMAGE_BASE_URL:https://api.qrserver.com/v1/create-qr-code/}

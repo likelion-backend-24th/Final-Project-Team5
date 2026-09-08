@@ -24,6 +24,11 @@ public class Reservation {
     @Column(name = "user_id")
     private Long userId;
 
+    //QR 검증 시 이 예매가 어느 페스티벌 소속인지(=어느 주최자가 검증 권한을 갖는지) 매번
+    //festival-service를 왕복 조회하지 않도록 예매 시점에 스냅샷으로 저장해둔다.
+    @Column(name = "festival_id")
+    private Long festivalId;
+
     @Column(name = "ticket_type_id")
     private Long ticketTypeId;
 
@@ -53,6 +58,16 @@ public class Reservation {
     @Column(name = "expires_at")
     private Instant expiresAt;
 
+    //결제 확정(confirm) 시 발급되는 QR 원본 값. 순차 id를 그대로 노출하면 추측·위조가 쉬워
+    //별도의 예측 불가능한 값을 발급한다. PENDING/CANCELLED 상태에서는 null.
+    @Column(name = "qr_token", unique = true, length = 36)
+    private String qrToken;
+
+    //현장 입장 검증(주최자) 처리 시각. null이면 미입장, 값이 있으면 이미 입장 처리되어
+    //같은 QR을 다시 스캔해도 재입장 처리되지 않는다.
+    @Column(name = "checked_in_at")
+    private Instant checkedInAt;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -65,10 +80,16 @@ public class Reservation {
         return (long) price * quantity;
     }
 
-    //결제 성공 확정
+    //결제 성공 확정. 이 시점부터 QR로 입장 검증이 가능해야 하므로 같이 발급한다.
     public void confirm(String paymentId) {
         this.reservationStatus = ReservationStatus.CONFIRMED;
         this.paymentId = paymentId;
+        this.qrToken = java.util.UUID.randomUUID().toString();
+    }
+
+    //주최자 현장 검증 시 입장 처리
+    public void checkIn() {
+        this.checkedInAt = Instant.now();
     }
 
     //결제 실패·취소·만료

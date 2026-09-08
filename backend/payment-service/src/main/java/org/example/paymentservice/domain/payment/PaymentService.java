@@ -102,7 +102,14 @@ public class PaymentService {
             return toCompleteResponse(payment);
         }
 
-        PortOnePaymentResponse remote = portOnePaymentClient.getPayment(payment.getPaymentId());
+        PortOnePaymentResponse remote;
+        try {
+            remote = portOnePaymentClient.getPayment(payment.getPaymentId());
+        } catch (HttpClientErrorException.NotFound e) {
+            // 브라우저가 PortOne 결제창을 실제로 완료하기 전에 completed API가 먼저 호출된 경우
+            // (더블클릭, 뒤로가기 등) PortOne이 이 paymentId를 아직 모른다 — 500 대신 409로 알려준다.
+            throw new ApiException(PaymentErrorCode.PAYMENT_NOT_YET_PROCESSED);
+        }
         validateRemotePayment(payment, remote);
         recordTransaction(payment, remote);
 

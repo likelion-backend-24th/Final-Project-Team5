@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import org.example.reservationservice.domain.Reservation;
 import org.example.reservationservice.domain.ReservationRepository;
@@ -296,13 +297,19 @@ class CheckInAcceptanceTest {
         return "{\"checkInCode\":\"" + checkInCode + "\"}";
     }
 
+    //페스티벌 시각은 호스트가 입력한 타임존 없는 벽시계라, 서비스가 비교에 쓰는 기준 타임존(app.timezone)과
+    //같은 시계로 만들어야 CI처럼 서버 타임존이 다른 환경에서도 결과가 흔들리지 않는다.
+    private LocalDateTime festivalClockNow() {
+        return LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+    }
+
     private FestivalDetailResponseDto startedFestival(Long festivalId) {
         return new FestivalDetailResponseDto(festivalId, HOST_USER_ID, "PUBLISHED",
-                LocalDateTime.now().minusHours(1), LocalDateTime.now().plusHours(5), List.of());
+                festivalClockNow().minusHours(1), festivalClockNow().plusHours(5), List.of());
     }
 
     private FestivalDetailResponseDto upcomingFestival(Long festivalId) {
         return new FestivalDetailResponseDto(festivalId, HOST_USER_ID, "PUBLISHED",
-                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(2), List.of());
+                festivalClockNow().plusDays(1), festivalClockNow().plusDays(2), List.of());
     }
 }

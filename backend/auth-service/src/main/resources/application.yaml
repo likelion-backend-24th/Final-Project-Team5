@@ -56,3 +56,8 @@ internal:
 helper:
   account:
     revoke-after-hours: ${HELPER_ACCOUNT_REVOKE_AFTER_HOURS:24}
+
+# 호스트가 입력한 페스티벌 시각(타임존 없는 벽시계)을 "지금"과 비교할 때 쓰는 기준 타임존.
+# 컨테이너 TZ 설정에 의존하지 않도록 명시한다 — 팀원 로컬·CI 등 TZ가 다른 환경에서도 같게 동작해야 한다.
+app:
+  timezone: ${APP_TIMEZONE:Asia/Seoul}

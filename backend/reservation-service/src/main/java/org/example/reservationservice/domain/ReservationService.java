@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.exception.ApiException;
@@ -39,6 +40,10 @@ public class ReservationService {
     //디코딩(read-qr-code)은 쓰지 않는다 — 스캔 결과 문자열은 프론트에서 카메라로 직접 디코딩해 전달받는다.
     @Value("${qr.image-base-url:https://api.qrserver.com/v1/create-qr-code/}")
     private String qrImageBaseUrl;
+
+    //페스티벌 시각 비교 기준 타임존. 서버(JVM) 기본 타임존에 기대지 않는다 — 아래 checkIn() 주석 참고.
+    @Value("${app.timezone:Asia/Seoul}")
+    private String appTimezone;
 
     //참가자가 티켓 예매를 신청한다: 페스티벌·티켓종류 검증 → 구매 제한 검증 → 재고 차감(festival-service) → 예매 저장
     @Transactional
@@ -150,7 +155,10 @@ public class ReservationService {
                 verifyFestivalAccess(reservation.getFestivalId(), scannerUserId, scannerRole, scannerFestivalId);
 
         //공연 시작 전에 미리 입장시켜 버리는 사고를 막는다. 종료 시각은 막지 않는다 — 늦게 온 관객도 들여보내야 한다.
-        if (festival.startAt() != null && LocalDateTime.now().isBefore(festival.startAt())) {
+        //startAt은 호스트가 입력한 타임존 없는 벽시계(KST)라서, 서버 기본 타임존으로 now()를 뽑으면
+        //UTC 환경에서 9시간 어긋난다. 비교 기준 타임존을 명시해 서버 설정과 무관하게 같은 결과를 낸다.
+        if (festival.startAt() != null
+                && LocalDateTime.now(ZoneId.of(appTimezone)).isBefore(festival.startAt())) {
             throw new ApiException(ReservationErrorCode.FESTIVAL_NOT_STARTED);
         }
 

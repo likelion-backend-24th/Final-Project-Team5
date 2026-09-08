@@ -1,9 +1,11 @@
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import ScrollToTop from './components/ScrollToTop'
 import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
+import { useAuth } from './context/AuthContext.jsx'
 import AdminFestivals from './pages/AdminFestivals'
 import AdminHostApplications from './pages/AdminHostApplications'
+import CheckIn from './pages/CheckIn'
 import FestivalDetail from './pages/FestivalDetail'
 import Festivals from './pages/Festivals'
 import Home from './pages/Home'
@@ -19,6 +21,24 @@ import SignUp from './pages/SignUp'
 
 /** 상단바·푸터는 모든 화면에 고정, 가운데만 라우팅으로 갈아끼운다. */
 function App() {
+  const { user, isLoading } = useAuth()
+
+  //도우미(HELPER)는 주최자가 현장 검증만 맡기려고 발급한 임시 계정이라 Gateway가 나머지 API를 전부 막는다.
+  //일반 화면으로 들어가면 대부분의 요청이 403이 되므로, 아예 현장 검증 화면만 열어준다.
+  if (!isLoading && user?.role === 'HELPER') {
+    return (
+      <>
+        <ScrollToTop />
+        <SiteHeader />
+        <Routes>
+          <Route path="/check-in" element={<CheckIn />} />
+          <Route path="*" element={<Navigate to="/check-in" replace />} />
+        </Routes>
+        <SiteFooter />
+      </>
+    )
+  }
+
   return (
     <>
       <ScrollToTop />
@@ -41,6 +61,9 @@ function App() {
         <Route path="/festivals/new" element={<HostFestivalNew />} />
         <Route path="/host/festivals" element={<HostFestivals />} />
         <Route path="/host/festivals/:id" element={<HostFestivalDetail />} />
+        {/* 현장 입장 검증 — 주최자는 페스티벌을 지정해서, 도우미는 배정된 페스티벌로 /check-in에서 들어온다. */}
+        <Route path="/host/festivals/:id/check-in" element={<CheckIn />} />
+        <Route path="/check-in" element={<CheckIn />} />
         <Route path="/admin/host-applications" element={<AdminHostApplications />} />
         <Route path="/admin/festivals" element={<AdminFestivals />} />
         <Route path="/terms" element={<Placeholder title="이용약관" />} />

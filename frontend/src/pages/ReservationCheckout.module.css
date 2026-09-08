@@ -32,6 +32,13 @@
   color: var(--fgColor-default);
 }
 
+.holdTimer {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fgColor-danger);
+}
+
 .summary {
   margin-top: 20px;
   padding: 20px;
@@ -83,6 +90,64 @@
   color: var(--fgColor-accent);
 }
 
+.payMethods {
+  margin-top: 20px;
+  padding: 0;
+  border: none;
+  display: flex;
+  gap: 8px;
+}
+
+.payMethods:disabled {
+  opacity: 0.6;
+}
+
+.payMethodsLegend {
+  width: 100%;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fgColor-muted);
+}
+
+.payMethodOption {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fgColor-default);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) ease, background-color var(--duration-fast) ease;
+}
+
+.payMethodOption:has(input:checked) {
+  border-color: var(--fgColor-accent);
+  background-color: var(--bgColor-accent-muted);
+  color: var(--fgColor-accent);
+}
+
+.payMethodOption input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .submitError {
   margin-top: 16px;
   display: flex;
@@ -123,6 +188,28 @@
   background-color: var(--bgColor-muted);
   color: var(--fgColor-muted);
   cursor: not-allowed;
+}
+
+.cancelLink {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fgColor-muted);
+  cursor: pointer;
+}
+
+.cancelLink:hover:not(:disabled) {
+  color: var(--fgColor-danger);
+  text-decoration: underline;
+}
+
+.cancelLink:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .infoState {

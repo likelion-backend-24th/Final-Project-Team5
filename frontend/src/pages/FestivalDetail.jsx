@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CalendarIcon, ImageIcon, MapPinIcon, TicketIcon } from 'lucide-react'
 import { FESTIVAL_CATEGORY_LABELS, fetchFestivalDetail, toAbsoluteImageUrl } from '../api/festivalApi'
+import { fetchMyReservations } from '../api/reservationApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
 import styles from './FestivalDetail.module.css'
@@ -32,12 +33,38 @@ function FestivalDetail() {
     setQuantities((prev) => ({ ...prev, [ticketType.id]: next }))
   }
 
-  function handleReserve(ticketType) {
+  async function handleReserve(ticketType) {
     if (!user) {
       navigate('/login')
       return
     }
     const quantity = quantities[ticketType.id] ?? 1
+
+    // 이미 결제 대기 중인 예매가 있으면 새로 만들지 않고 그 결제로 이어갈 수 있게 안내한다
+    // (안 그러면 재고가 중복으로 묶이고 결제대기 건도 계속 쌓인다).
+    try {
+      const { data } = await fetchMyReservations()
+      // 다른 페스티벌의 결제대기 건까지 여기서 붙잡으면(동시에 여러 페스티벌 예매를 원하는 게
+      // 자연스러운 경우도 있어) 오히려 불편하다 — 지금 보고 있는 이 페스티벌과 같을 때만 안내한다.
+      const pending = data.data.find(
+        (r) =>
+          r.reservationStatus === 'PENDING' &&
+          new Date(r.expiresAt).getTime() > Date.now() &&
+          String(r.festivalId) === String(id),
+      )
+      if (pending) {
+        const goToPending = window.confirm('결제 진행중인 예매 건이 있습니다. 이동할까요?')
+        if (goToPending) {
+          navigate(
+            `/festivals/${pending.festivalId}/reserve?ticketTypeId=${pending.ticketTypeId}&quantity=${pending.quantity}&reservationId=${pending.id}`,
+          )
+          return
+        }
+      }
+    } catch {
+      // 조회 실패는 이 안내 기능만 건너뛰고 평소처럼 새 예매를 진행한다.
+    }
+
     navigate(`/festivals/${id}/reserve?ticketTypeId=${ticketType.id}&quantity=${quantity}`)
   }
 

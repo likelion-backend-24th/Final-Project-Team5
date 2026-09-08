@@ -19,3 +19,8 @@ export function fetchReservationDetail(id) {
 export function fetchReservationQr(id) {
   return apiClient.get(`/api/reservations/${id}/qr`)
 }
+
+//참가자 본인이 결제대기 중인 예매를 직접 취소한다 (PATCH /api/reservations/{id}/cancel)
+export function cancelReservation(id) {
+  return apiClient.patch(`/api/reservations/${id}/cancel`)
+}

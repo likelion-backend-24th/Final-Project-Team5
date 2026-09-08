@@ -26,14 +26,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
-
-import static org.mockito.ArgumentMatchers.any;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
@@ -51,10 +48,16 @@ class AuthServiceTest {
 
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
+
     @Mock
     private RefreshTokenRevocationService refreshTokenRevocationService;
+
     @Mock
     private EmailVerificationService emailVerificationService;
+
+    @Mock
+    private LoginAttemptService loginAttemptService;
+
     @InjectMocks
     private AuthService authService;
 
@@ -63,12 +66,13 @@ class AuthServiceTest {
                 "홍길동",
                 "test@naver.com",
                 "안양개발자",
-                "test1234"
+                "test1234",
+                true // termsAgreed
         );
     }
 
     @Test
-    @DisplayName("정상적인 요청이면 회원가입에 성공하고, 비밀번호는 암호화되어 저장된다")
+    @DisplayName("정상적인 요청이면 회원가입에 성공하고, 비밀번호는 암호화되어 저장되며 약관동의 시각이 기록된다")
     void signup_success() {
         // given
         SignupRequest request = createValidRequest();
@@ -87,9 +91,10 @@ class AuthServiceTest {
         assertThat(savedUser.getName()).isEqualTo("홍길동");
         assertThat(savedUser.getUsername()).isEqualTo("test@naver.com");
         assertThat(savedUser.getNickname()).isEqualTo("안양개발자");
-        assertThat(savedUser.getPassword()).isEqualTo("encoded-password"); // 평문이 아니라 암호화된 값이 들어갔는지 확인
+        assertThat(savedUser.getPassword()).isEqualTo("encoded-password");
         assertThat(savedUser.getRole()).isEqualTo(Role.USER);
         assertThat(savedUser.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(savedUser.getTermsAgreeAt()).isNotNull();
     }
 
     @Test
@@ -106,7 +111,7 @@ class AuthServiceTest {
                         .isEqualTo(AuthErrorCode.DUPLICATE_USERNAME));
 
         verify(userRepository, never()).save(any());
-        verify(userRepository, never()).existsByNickname(any()); // username 중복이면 nickname 체크까지 안 가야 함
+        verify(userRepository, never()).existsByNickname(any());
     }
 
     @Test
@@ -127,6 +132,30 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("약관에 동의하지 않으면 TERMS_NOT_AGREED 예외가 발생하고, save는 호출되지 않는다")
+    void signup_fail_termsNotAgreed() {
+        // given
+        SignupRequest request = new SignupRequest(
+                "홍길동",
+                "test@naver.com",
+                "안양개발자",
+                "test1234",
+                false // termsAgreed = false
+        );
+        given(userRepository.existsByUsername(request.getUsername())).willReturn(false);
+        given(userRepository.existsByNickname(request.getNickname())).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.signup(request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.TERMS_NOT_AGREED));
+
+        verify(userRepository, never()).save(any());
+        verify(emailVerificationService, never()).checkVerified(any());
+    }
+
+    @Test
     @DisplayName("비밀번호는 반드시 PasswordEncoder를 거쳐서 저장된다 (평문 저장 방지)")
     void signup_passwordIsEncoded() {
         // given
@@ -143,14 +172,14 @@ class AuthServiceTest {
 
         ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(captor.capture());
-        assertThat(captor.getValue().getPassword()).isNotEqualTo("test1234"); // 평문 그대로 저장되면 안 됨
+        assertThat(captor.getValue().getPassword()).isNotEqualTo("test1234");
     }
 
     @Test
-    @DisplayName("정상적인 로그인 요청이면 Access/Refresh Token을 발급하고, Refresh Token은 해시되어 저장된다")
+    @DisplayName("정상적인 로그인 요청이면 Access/Refresh Token을 발급하고, 실패 카운트/잠금을 초기화한다")
     void login_success() {
         // given
-        User user = createActiveUser(); // 아래 헬퍼 참고
+        User user = createActiveUser();
         LoginRequest request = new LoginRequest("test@naver.com", "test1234");
 
         given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.of(user));
@@ -165,10 +194,13 @@ class AuthServiceTest {
         // then
         assertThat(response.getAccessToken()).isEqualTo("access-token");
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
+        assertThat(user.getFailedLoginAttempts()).isEqualTo(0);
+        assertThat(user.getLockedUntil()).isNull();
+        verify(userRepository, times(1)).save(user);
 
         ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
         verify(refreshTokenRepository, times(1)).save(captor.capture());
-        assertThat(captor.getValue().getTokenHash()).isNotEqualTo("refresh-token"); // 평문 저장 방지 확인
+        assertThat(captor.getValue().getTokenHash()).isNotEqualTo("refresh-token");
         assertThat(captor.getValue().getUser()).isEqualTo(user);
     }
 
@@ -189,7 +221,7 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("비밀번호가 틀리면 INVALID_PASSWORD 예외가 발생한다")
+    @DisplayName("비밀번호가 틀리면 INVALID_PASSWORD 예외가 발생하고, 실패 기록이 위임된다")
     void login_fail_invalidPassword() {
         // given
         User user = createActiveUser();
@@ -204,7 +236,50 @@ class AuthServiceTest {
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(AuthErrorCode.INVALID_PASSWORD));
 
+        verify(loginAttemptService, times(1)).recordFailedLoginAttempt(user);
         verify(refreshTokenRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("계정이 잠긴 상태면 비밀번호가 맞아도 ACCOUNT_LOCKED 예외가 발생하고, 비밀번호 검증 자체를 하지 않는다")
+    void login_fail_accountLocked() {
+        // given
+        User user = createActiveUser();
+        user.setLockedUntil(LocalDateTime.now().plusMinutes(5));
+        LoginRequest request = new LoginRequest("test@naver.com", "test1234");
+
+        given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.ACCOUNT_LOCKED));
+
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(loginAttemptService, never()).recordFailedLoginAttempt(any());
+    }
+
+    @Test
+    @DisplayName("잠금 시간이 지났으면 정상적으로 로그인 시도가 진행된다")
+    void login_success_afterLockExpired() {
+        // given
+        User user = createActiveUser();
+        user.setLockedUntil(LocalDateTime.now().minusMinutes(1));
+        LoginRequest request = new LoginRequest("test@naver.com", "test1234");
+
+        given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.of(user));
+        given(passwordEncoder.matches(request.getPassword(), user.getPassword())).willReturn(true);
+        given(jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId()))
+                .willReturn("access-token");
+        given(jwtTokenProvider.generateRefreshToken(user.getUsername())).willReturn("refresh-token");
+
+        // when
+        TokenResponse response = authService.login(request);
+
+        // then
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(user.getLockedUntil()).isNull();
     }
 
     @Test
@@ -277,11 +352,7 @@ class AuthServiceTest {
         // then
         assertThat(response.getAccessToken()).isEqualTo("new-access-token");
         assertThat(response.getRefreshToken()).isEqualTo("new-refresh-token");
-
-        // 기존 토큰이 폐기(revoked)됐는지 확인
         assertThat(savedToken.getRevokedAt()).isNotNull();
-        // replacedByTokenId는 mock 환경에서 새 엔티티의 id가 null이라 같이 null이 됨 (정상)
-        // → id 자체보다는 "새 토큰 저장 로직이 실행됐는지"를 확인하는 게 더 적절함
 
         verify(refreshTokenRepository, times(2)).save(any(RefreshToken.class));
     }
@@ -324,7 +395,7 @@ class AuthServiceTest {
         // given
         User user = createActiveUser();
         RefreshToken revokedToken = createSavedRefreshToken(user);
-        revokedToken.setRevokedAt(LocalDateTime.now().minusMinutes(5)); // 이미 폐기된 상태
+        revokedToken.setRevokedAt(LocalDateTime.now().minusMinutes(5));
 
         String rawRefreshToken = "reused-token";
 
@@ -338,8 +409,6 @@ class AuthServiceTest {
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(AuthErrorCode.REFRESH_TOKEN_REUSED));
 
-        // 전체 세션 폐기는 별도 트랜잭션(RefreshTokenRevocationService)에 위임해야
-        // reissue()의 롤백에 영향받지 않는다.
         verify(refreshTokenRevocationService, times(1)).revokeAllTokens(user);
     }
 
@@ -349,7 +418,7 @@ class AuthServiceTest {
         // given
         User user = createActiveUser();
         RefreshToken expiredToken = createSavedRefreshToken(user);
-        expiredToken.setExpiresAt(LocalDateTime.now().minusDays(1)); // DB 상 이미 만료
+        expiredToken.setExpiresAt(LocalDateTime.now().minusDays(1));
 
         String rawRefreshToken = "expired-token";
         given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
@@ -444,7 +513,7 @@ class AuthServiceTest {
         given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
                 .willReturn(Optional.empty());
 
-        // when & then (예외 없이 끝나야 함)
+        // when & then
         authService.logout(rawRefreshToken);
 
         verify(refreshTokenRepository, never()).save(any());

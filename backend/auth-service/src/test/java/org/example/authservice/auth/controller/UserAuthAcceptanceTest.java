@@ -29,7 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 /**
  * Task 2-4 — Story 2(회원가입/로그인) Acceptance Test.
  * 정상 가입→로그인→재발급 흐름, 중복·검증 실패, 로그인 실패, Refresh Token 만료·재사용 탐지,
- * 인증 없는 보호 API 접근을 실제 컨트롤러~DB(H2) 경로로 검증한다.
+ * 계정 잠금, 인증 없는 보호 API 접근을 실제 컨트롤러~DB(H2) 경로로 검증한다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -100,7 +100,8 @@ class UserAuthAcceptanceTest {
                   "name": "",
                   "username": "blank@test.com",
                   "nickname": "blankuser",
-                  "password": "%s"
+                  "password": "%s",
+                  "termsAgreed": true
                 }""".formatted(PASSWORD);
 
         mockMvc.perform(post(SIGNUP_ENDPOINT)
@@ -111,12 +112,48 @@ class UserAuthAcceptanceTest {
     }
 
     @Test
+    void signupWithoutTermsAgreedFails() throws Exception {
+        verifyEmail("noterms@test.com");
+        String body = """
+                {
+                  "name": "홍길동",
+                  "username": "noterms@test.com",
+                  "nickname": "notermsuser",
+                  "password": "%s",
+                  "termsAgreed": false
+                }""".formatted(PASSWORD);
+
+        mockMvc.perform(post(SIGNUP_ENDPOINT)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode", is("TERMS_NOT_AGREED")));
+    }
+
+    @Test
     void loginWithWrongPasswordIsUnauthorized() throws Exception {
         signup("wrongpw@test.com", "wrongpwuser");
 
         login("wrongpw@test.com", "incorrect-password")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.errorCode", is("INVALID_PASSWORD")));
+    }
+
+    @Test
+    void loginFailsFiveTimesThenAccountIsLocked() throws Exception {
+        signup("locktest@test.com", "lockuser");
+
+        // 5번 연속 비밀번호 틀리게 로그인 시도
+        for (int i = 0; i < 5; i++) {
+            login("locktest@test.com", "wrong-password")
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.errorCode", is("INVALID_PASSWORD")));
+        }
+
+        // 5번째 실패 시점에 계정이 잠겼으므로, 정확한 비밀번호를 넣어도 잠금에 걸려야 한다
+        login("locktest@test.com", PASSWORD)
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode", is("ACCOUNT_LOCKED")));
     }
 
     @Test
@@ -208,7 +245,8 @@ class UserAuthAcceptanceTest {
                   "name": "홍길동",
                   "username": "%s",
                   "nickname": "%s",
-                  "password": "%s"
+                  "password": "%s",
+                  "termsAgreed": true
                 }""".formatted(username, nickname, PASSWORD);
     }
 

@@ -21,7 +21,8 @@ public class EmailVerificationService {
     //인증코드 발송
     @Transactional
     public void sendCode(String email){
-        //나중에 쿨다운,횟수제한 로직 추가
+        // 재발송 쿨다운 30초, 횟수제한
+        checkRateLimit(email);
 
         String code = emailService.generateCode(); //인증코드 6자리
 
@@ -64,4 +65,20 @@ public class EmailVerificationService {
         // 회원가입때 인증받으면 한번의 인증으로 계속 인증이 필요없어짐 비밀번호 재설정하기위하여 삭제해서 재인증을 유도
         emailVerificationRepository.delete(emailVerification);
     }
+
+    // 재발송 쿨다운(30초), 횟수 제한(10분 5회)
+    public void checkRateLimit(String email) {
+        emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email)
+                .ifPresent(last -> {
+                    if (last.getCreatedAt().isAfter(LocalDateTime.now().minusSeconds(30))) {
+                        throw new ApiException(EmailVerificationErrorCode.TOO_MANY_REQUESTS_COOLDOWN);
+                    }
+                });
+        long count = emailVerificationRepository.countByEmailAndCreatedAtAfter(email, LocalDateTime.now().minusMinutes(10));
+
+        if (count >= 5) {
+            throw new ApiException(EmailVerificationErrorCode.TOO_MANY_REQUESTS_LIMIT);
+        }
+    }
+
 }

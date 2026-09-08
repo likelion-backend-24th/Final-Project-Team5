@@ -59,8 +59,9 @@ function Login() {
     setSubmitError('')
 
     try {
-      await login(form.username.trim(), form.password)
-      navigate('/')
+      const loggedInUser = await login(form.username.trim(), form.password)
+      //도우미 계정은 현장 입장 검증 외에는 모든 API가 막혀 있어(Gateway 허용 목록) 홈으로 보내면 쓸 화면이 없다.
+      navigate(loggedInUser?.role === 'HELPER' ? '/check-in' : '/')
     } catch (error) {
       if (error.response?.status === 401) {
         setSubmitError('이메일 또는 비밀번호가 올바르지 않아요.')

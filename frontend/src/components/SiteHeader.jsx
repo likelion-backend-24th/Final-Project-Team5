@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookmarkIcon, LogInIcon, LogOutIcon, SearchIcon } from 'lucide-react'
+import { BookmarkIcon, LogInIcon, LogOutIcon, ScanLineIcon, SearchIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function SiteHeader() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useAuth()
+  //도우미는 현장 입장 검증 외의 API가 전부 막혀 있어, 검색·내 예약 같은 메뉴를 눌러도 갈 수 있는 곳이 없다.
+  const isHelper = user?.role === 'HELPER'
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -31,6 +33,7 @@ function SiteHeader() {
         <form
           role="search"
           onSubmit={handleSubmit}
+          hidden={isHelper}
           className="relative max-w-[380px] flex-1 max-md:order-3 max-md:basis-full"
         >
           <input
@@ -71,9 +74,13 @@ function SiteHeader() {
 
           {isAuthenticated ? (
             <>
-              <Link to="/mypage" className="text-sm font-semibold text-gray-700 hover:underline">
-                {user.nickname}님
-              </Link>
+              {isHelper ? (
+                <span className="text-sm font-semibold text-gray-700">{user.nickname}님</span>
+              ) : (
+                <Link to="/mypage" className="text-sm font-semibold text-gray-700 hover:underline">
+                  {user.nickname}님
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={handleLogout}
@@ -94,11 +101,11 @@ function SiteHeader() {
           )}
 
           <Link
-            to="/reservations"
+            to={isHelper ? '/check-in' : '/reservations'}
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-50"
           >
-            <BookmarkIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">내 예약</span>
+            {isHelper ? <ScanLineIcon className="h-4 w-4" /> : <BookmarkIcon className="h-4 w-4" />}
+            <span className="hidden sm:inline">{isHelper ? '입장 검증' : '내 예약'}</span>
           </Link>
         </nav>
       </div>

@@ -6,6 +6,7 @@ import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.user.dto.UserResponse;
 import org.example.authservice.user.entity.AccountStatus;
+import org.example.authservice.user.entity.Role;
 import org.example.authservice.user.entity.User;
 import org.example.authservice.user.exception.UserErrorCode;
 import org.example.authservice.user.repository.UserRepository;
@@ -36,6 +37,8 @@ public class UserService {
                 .role(user.getRole())
                 .status(user.getStatus())
                 .createdAt(user.getCreatedAt())
+                //도우미가 로그인한 뒤 자기가 어느 페스티벌 담당인지 알아야 해당 화면을 열 수 있다.
+                .festivalId(user.getFestivalId())
                 .build();
     }
 
@@ -61,6 +64,11 @@ public class UserService {
     public  void updatePassword(Long userId,String currentPassword,String newPassword, String newpasswordConfirm){
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(UserErrorCode.USER_NOT_FOUND));
+        //도우미 계정은 주최자가 발급·회수하는 임시 계정이라 알바가 임의로 비밀번호를 바꿀 수 없다.
+        //비밀번호를 분실하면 주최자가 재발급해준다(Gateway에서도 이 경로를 막지만 여기서 한 번 더 확인한다).
+        if (user.getRole() == Role.HELPER) {
+            throw new ApiException(UserErrorCode.HELPER_PASSWORD_CHANGE_NOT_ALLOWED);
+        }
         //현재 비밀번호 불일치
         if(!passwordEncoder.matches(currentPassword,user.getPassword())){
             throw new ApiException(UserErrorCode.INVALID_CURRENT_PASSWORD);

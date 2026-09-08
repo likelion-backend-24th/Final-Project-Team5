@@ -69,6 +69,8 @@ class ReservationAcceptanceTest {
                 FESTIVAL_ID,
                 999L,
                 "PUBLISHED",
+                java.time.LocalDateTime.now().plusDays(1),
+                java.time.LocalDateTime.now().plusDays(2),
                 List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE))
         );
     }
@@ -198,6 +200,8 @@ class ReservationAcceptanceTest {
     void 비공개_페스티벌에_신청하면_404를_반환한다() throws Exception {
         when(festivalServiceClient.getFestival(FESTIVAL_ID)).thenReturn(new FestivalDetailResponseDto(
                 FESTIVAL_ID, 999L, "PENDING",
+                java.time.LocalDateTime.now().plusDays(1),
+                java.time.LocalDateTime.now().plusDays(2),
                 List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE))));
 
         mockMvc.perform(post(CREATE_ENDPOINT)

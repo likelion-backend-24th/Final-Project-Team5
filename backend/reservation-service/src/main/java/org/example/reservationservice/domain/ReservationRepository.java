@@ -14,6 +14,15 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     //QR 검증 시 스캔된 토큰으로 예매를 조회할 때 사용
     Optional<Reservation> findByQrToken(String qrToken);
 
+    //QR 스캔이 실패했을 때 도우미가 손으로 입력한 입장 코드로 예매를 조회할 때 사용
+    Optional<Reservation> findByCheckInCode(String checkInCode);
+
+    //입장 코드 발급 시 중복 확인
+    boolean existsByCheckInCode(String checkInCode);
+
+    //입장 현황 집계 — 해당 페스티벌의 확정된 예매 전체(총 티켓 수 / 입장 인원 계산용)
+    List<Reservation> findByFestivalIdAndReservationStatus(Long festivalId, ReservationStatus status);
+
     //만료 배치가 PENDING 상태 중 기한을 넘긴 예매를 찾을 때 사용
     List<Reservation> findByReservationStatusAndExpiresAtBefore(ReservationStatus status, Instant now);
 

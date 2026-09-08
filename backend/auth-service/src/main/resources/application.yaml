@@ -46,8 +46,18 @@ jwt:
   access-token-expiration: 3600000 # 1시간
   refresh-token-expiration: 1209600000 # 14일
 
-# Festival-Service -> Auth-Service 내부 호출(PUT /internal/v1/roles) 인증 토큰.
+# Festival-Service -> Auth-Service 내부 호출(PUT /internal/v1/roles, /internal/v1/helper-accounts) 인증 토큰.
 # festival-service의 INTERNAL_AUTH_TOKEN과 반드시 같은 값이어야 한다.
 internal:
   role-grant:
     token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}
+
+# 도우미(HELPER) 계정 자동 회수 정책 — 페스티벌 종료(endAt) 후 이 시간이 지나면 배치가 자동 탈퇴 처리한다.
+helper:
+  account:
+    revoke-after-hours: ${HELPER_ACCOUNT_REVOKE_AFTER_HOURS:24}
+
+# 호스트가 입력한 페스티벌 시각(타임존 없는 벽시계)을 "지금"과 비교할 때 쓰는 기준 타임존.
+# 컨테이너 TZ 설정에 의존하지 않도록 명시한다 — 팀원 로컬·CI 등 TZ가 다른 환경에서도 같게 동작해야 한다.
+app:
+  timezone: ${APP_TIMEZONE:Asia/Seoul}

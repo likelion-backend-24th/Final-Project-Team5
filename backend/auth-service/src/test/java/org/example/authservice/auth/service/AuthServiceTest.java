@@ -155,7 +155,7 @@ class AuthServiceTest {
 
         given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.of(user));
         given(passwordEncoder.matches(request.getPassword(), user.getPassword())).willReturn(true);
-        given(jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name()))
+        given(jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId()))
                 .willReturn("access-token");
         given(jwtTokenProvider.generateRefreshToken(user.getUsername())).willReturn("refresh-token");
 
@@ -266,7 +266,7 @@ class AuthServiceTest {
         given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
         given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
                 .willReturn(Optional.of(savedToken));
-        given(jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name()))
+        given(jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId()))
                 .willReturn("new-access-token");
         given(jwtTokenProvider.generateRefreshToken(user.getUsername()))
                 .willReturn("new-refresh-token");

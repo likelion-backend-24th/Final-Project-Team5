@@ -63,6 +63,11 @@ public class Reservation {
     @Column(name = "qr_token", unique = true, length = 36)
     private String qrToken;
 
+    //QR 스캔이 안 될 때 도우미가 손으로 입력해 확인하는 입장 코드(2-4-4). qrToken(UUID)은 타이핑이 사실상
+    //불가능해서 별도로 발급한다. 입장 처리 후에도 참가자 화면에 계속 노출되는 값이라 확인용으로도 쓰인다.
+    @Column(name = "check_in_code", unique = true, length = 12)
+    private String checkInCode;
+
     //현장 입장 검증(주최자) 처리 시각. null이면 미입장, 값이 있으면 이미 입장 처리되어
     //같은 QR을 다시 스캔해도 재입장 처리되지 않는다.
     @Column(name = "checked_in_at")
@@ -80,11 +85,13 @@ public class Reservation {
         return (long) price * quantity;
     }
 
-    //결제 성공 확정. 이 시점부터 QR로 입장 검증이 가능해야 하므로 같이 발급한다.
-    public void confirm(String paymentId) {
+    //결제 성공 확정. 이 시점부터 QR·입장 코드로 입장 검증이 가능해야 하므로 같이 발급한다.
+    //checkInCode는 중복 확인이 필요해 서비스에서 만들어 넘긴다(엔티티가 저장소를 알 필요는 없다).
+    public void confirm(String paymentId, String checkInCode) {
         this.reservationStatus = ReservationStatus.CONFIRMED;
         this.paymentId = paymentId;
         this.qrToken = java.util.UUID.randomUUID().toString();
+        this.checkInCode = checkInCode;
     }
 
     //주최자 현장 검증 시 입장 처리

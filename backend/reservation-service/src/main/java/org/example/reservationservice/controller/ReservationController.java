@@ -54,4 +54,14 @@ public class ReservationController {
     ) {
         return ResponseEntity.ok(ApiResponse.success("QR 발급 성공", reservationService.getQrForReservation(id, userId)));
     }
+
+    //참가자 본인이 결제대기 중인 예매를 직접 취소한다
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<Void>> cancelMyReservation(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        reservationService.cancelMyReservation(id, userId);
+        return ResponseEntity.ok(ApiResponse.success("예매 취소 성공", null));
+    }
 }

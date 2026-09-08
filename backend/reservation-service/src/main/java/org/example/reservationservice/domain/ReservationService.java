@@ -251,6 +251,17 @@ public class ReservationService {
         reservation.extendHold(request.expiresAt());
     }
 
+    //참가자 본인이 결제대기 중인 예매를 직접 취소한다
+    @Transactional
+    public void cancelMyReservation(Long id, Long userId) {
+        Reservation reservation = getOwnedReservation(id, userId);
+        if (reservation.getReservationStatus() != ReservationStatus.PENDING) {
+            throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CANCELLABLE);
+        }
+        reservation.cancel(CancelReason.USER_CANCELLED);
+        festivalServiceClient.restoreStock(reservation.getTicketTypeId(), reservation.getQuantity());
+    }
+
     //Payment-Service → Reservation-Service 내부 호출: 결제 실패·취소·만료 시 예매 취소 + 재고 복구
     @Transactional
     public void cancelReservation(Long id, ReservationCancelRequestDto request) {

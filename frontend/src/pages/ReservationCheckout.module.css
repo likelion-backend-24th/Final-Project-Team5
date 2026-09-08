@@ -32,6 +32,13 @@
   color: var(--fgColor-default);
 }
 
+.holdTimer {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fgColor-danger);
+}
+
 .summary {
   margin-top: 20px;
   padding: 20px;
@@ -181,6 +188,28 @@
   background-color: var(--bgColor-muted);
   color: var(--fgColor-muted);
   cursor: not-allowed;
+}
+
+.cancelLink {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fgColor-muted);
+  cursor: pointer;
+}
+
+.cancelLink:hover:not(:disabled) {
+  color: var(--fgColor-danger);
+  text-decoration: underline;
+}
+
+.cancelLink:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .infoState {

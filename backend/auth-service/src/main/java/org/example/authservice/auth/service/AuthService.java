@@ -33,6 +33,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenRevocationService refreshTokenRevocationService;
+    private final EmailVerificationService emailVerificationService;
 
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
@@ -48,6 +49,9 @@ public class AuthService {
         if (userRepository.existsByNickname(signupRequest.getNickname())) {
             throw new ApiException(AuthErrorCode.DUPLICATE_NICKNAME);
         }
+        //이메일 인증이 완료 여부
+        emailVerificationService.checkVerified(signupRequest.getUsername());
+
 
         User user = new User();
         user.setName(signupRequest.getName());

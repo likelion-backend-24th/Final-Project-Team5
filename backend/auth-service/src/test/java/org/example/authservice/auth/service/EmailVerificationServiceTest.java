@@ -183,4 +183,71 @@ class EmailVerificationServiceTest {
         verification.setVerified(false);
         return verification;
     }
+
+    @Test
+    @DisplayName("30초 이내 재발송 요청이면 TOO_MANY_REQUESTS_COOLDOWN 예외가 발생한다")
+    void sendCode_fail_cooldown() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification recentSend = createVerification(email, "111111", LocalDateTime.now().plusMinutes(5));
+        setCreatedAt(recentSend, LocalDateTime.now().minusSeconds(10)); // 10초 전에 발송됨
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(recentSend));
+
+        // when & then
+        assertThatThrownBy(() -> emailVerificationService.sendCode(email))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(EmailVerificationErrorCode.TOO_MANY_REQUESTS_COOLDOWN));
+
+        verify(emailVerificationRepository, never()).save(any());
+        verify(emailService, never()).sendVerificationCode(any(), any());
+    }
+
+    @Test
+    @DisplayName("쿨다운(30초)은 지났지만 10분 내 5회를 초과했으면 TOO_MANY_REQUESTS_LIMIT 예외가 발생한다")
+    void sendCode_fail_rateLimitExceeded() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification recentSend = createVerification(email, "111111", LocalDateTime.now().plusMinutes(5));
+        setCreatedAt(recentSend, LocalDateTime.now().minusSeconds(40)); // 쿨다운은 지남
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(recentSend));
+        given(emailVerificationRepository.countByEmailAndCreatedAtAfter(any(), any()))
+                .willReturn(5L); // 이미 10분 내 5회 발송함
+
+        // when & then
+        assertThatThrownBy(() -> emailVerificationService.sendCode(email))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(EmailVerificationErrorCode.TOO_MANY_REQUESTS_LIMIT));
+
+        verify(emailVerificationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("쿨다운도 지나고 횟수 제한도 안 걸렸으면 정상적으로 발송된다")
+    void sendCode_success_afterCooldownAndUnderLimit() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification recentSend = createVerification(email, "111111", LocalDateTime.now().plusMinutes(5));
+        setCreatedAt(recentSend, LocalDateTime.now().minusSeconds(40));
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(recentSend));
+        given(emailVerificationRepository.countByEmailAndCreatedAtAfter(any(), any()))
+                .willReturn(2L); // 아직 5회 미만
+        given(emailService.generateCode()).willReturn("222222");
+
+        // when
+        emailVerificationService.sendCode(email);
+
+        // then
+        verify(emailVerificationRepository, times(1)).save(any(EmailVerification.class));
+        verify(emailService, times(1)).sendVerificationCode(email, "222222");
+    }
+
+    // 헬퍼: @CreationTimestamp가 자동 생성하는 createdAt 필드를 테스트에서 강제로 세팅
+    private void setCreatedAt(EmailVerification verification, LocalDateTime createdAt) {
+        org.springframework.test.util.ReflectionTestUtils.setField(verification, "createdAt", createdAt);
+    }
 }

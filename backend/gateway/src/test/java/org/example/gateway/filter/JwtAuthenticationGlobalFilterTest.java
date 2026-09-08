@@ -64,6 +64,16 @@ class JwtAuthenticationGlobalFilterTest {
     }
 
     @Test
+    void allowsWebhookPathWithoutToken() {
+        MockServerHttpRequest request = MockServerHttpRequest.post("/api/v1/webhooks/portone").build();
+        MockServerWebExchange exchange = MockServerWebExchange.from(request);
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isNull();
+    }
+
+    @Test
     void rejectsProtectedPathWithoutToken() {
         MockServerHttpRequest request = MockServerHttpRequest.post("/api/host-applications").build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);

@@ -121,6 +121,44 @@
   color: var(--fgColor-accent);
 }
 
+.ticketActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.qtyInput {
+  width: 56px;
+  height: 36px;
+  padding: 0 8px;
+  text-align: center;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-default);
+  font: inherit;
+  font-size: 14px;
+}
+
+.reserveButton {
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter var(--duration-fast) ease;
+}
+
+.reserveButton:hover {
+  filter: brightness(0.92);
+}
+
 .infoState {
   padding: 80px 0;
   display: flex;
@@ -155,5 +193,9 @@
 @media (max-width: 720px) {
   .title {
     font-size: 24px;
+  }
+
+  .ticketCard {
+    flex-wrap: wrap;
   }
 }

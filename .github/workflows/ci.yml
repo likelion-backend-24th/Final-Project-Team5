@@ -50,7 +50,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        service: [gateway, auth-service, festival-service, reservation-service]
+        service: [gateway, auth-service, festival-service, reservation-service, payment-service]
     steps:
       - uses: actions/checkout@v4
 

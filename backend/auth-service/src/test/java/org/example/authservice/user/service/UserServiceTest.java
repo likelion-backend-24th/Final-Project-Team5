@@ -205,6 +205,21 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("도우미 계정은 비밀번호를 변경할 수 없다 — 분실 시 주최자가 재발급해준다")
+    void updatePassword_fail_helperAccount() {
+        // given
+        User helper = createActiveUser();
+        helper.setRole(Role.HELPER);
+        given(userRepository.findById(1L)).willReturn(Optional.of(helper));
+
+        // when & then
+        assertThatThrownBy(() -> userService.updatePassword(1L, "test1234", "newpassword1234", "newpassword1234"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(UserErrorCode.HELPER_PASSWORD_CHANGE_NOT_ALLOWED));
+    }
+
+    @Test
     @DisplayName("존재하지 않는 userId면 USER_NOT_FOUND 예외가 발생한다")
     void updatePassword_fail_userNotFound() {
         // given

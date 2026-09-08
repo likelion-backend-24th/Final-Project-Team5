@@ -4,6 +4,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.exception.ApiException;
@@ -20,12 +21,15 @@ import org.springframework.web.client.RestClientException;
 public class ReservationService {
 
     private static final String PUBLISHED = "PUBLISHED";
+    private static final String HELPER_ROLE = "HELPER";
     private static final Duration RESERVATION_HOLD_DURATION = Duration.ofMinutes(10);
+    private static final int MAX_CHECK_IN_CODE_ATTEMPTS = 5;
     //취소되지 않은 것으로 보고 구매 제한에 합산할 상태들 (만료·취소 건은 다시 살 수 있어야 하므로 제외)
     private static final List<ReservationStatus> HELD_STATUSES = List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED);
 
     private final ReservationRepository reservationRepository;
     private final FestivalServiceClient festivalServiceClient;
+    private final CheckInCodeGenerator checkInCodeGenerator;
 
     //사이트 전체 기본 1인당 구매 제한(계정 기준, 티켓 종류당). 주최자가 티켓 종류별로 더 낮게 설정하는 기능은 아직 없다(festival-service TicketType에 필드 추가 필요 — 후속 작업).
     @Value("${reservation.max-quantity-per-ticket-type:4}")
@@ -92,22 +96,62 @@ public class ReservationService {
         }
         String qrImageUrl = qrImageBaseUrl + "?size=200x200&data="
                 + URLEncoder.encode(reservation.getQrToken(), StandardCharsets.UTF_8);
-        return new ReservationQrResponseDto(reservation.getId(), reservation.getQrToken(), qrImageUrl);
+        return new ReservationQrResponseDto(reservation.getId(), reservation.getQrToken(), qrImageUrl,
+                reservation.getCheckInCode(), reservation.getCheckedInAt());
     }
 
-    //주최자가 현장에서 스캔한 QR을 검증하고 입장 처리한다
+    //주최자·도우미가 현장에서 스캔한 QR을 검증하고 입장 처리한다
     @Transactional
-    public ReservationVerifyResponseDto verifyAndCheckIn(Long organizerUserId, ReservationVerifyRequestDto request) {
+    public ReservationVerifyResponseDto verifyAndCheckIn(
+            Long scannerUserId, String scannerRole, Long scannerFestivalId, ReservationVerifyRequestDto request) {
         Reservation reservation = reservationRepository.findByQrToken(request.qrToken())
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.INVALID_QR_TOKEN));
 
+        return checkIn(reservation, scannerUserId, scannerRole, scannerFestivalId);
+    }
+
+    //QR 스캔이 안 될 때 도우미가 손으로 입력한 입장 코드로 검증하고 입장 처리한다
+    @Transactional
+    public ReservationVerifyResponseDto verifyAndCheckInByCode(
+            Long scannerUserId, String scannerRole, Long scannerFestivalId, ReservationVerifyByCodeRequestDto request) {
+        //현장에서 소문자로 입력하거나 앞뒤 공백이 섞여 들어오는 경우가 많아 정규화해서 조회한다.
+        String checkInCode = request.checkInCode().trim().toUpperCase();
+        Reservation reservation = reservationRepository.findByCheckInCode(checkInCode)
+                .orElseThrow(() -> new ApiException(ReservationErrorCode.INVALID_CHECK_IN_CODE));
+
+        return checkIn(reservation, scannerUserId, scannerRole, scannerFestivalId);
+    }
+
+    //총 티켓 수 대비 현재 입장 인원. 도우미 현장 화면과 주최자 화면이 같이 쓴다.
+    public CheckInStatsResponseDto getCheckInStats(Long festivalId, Long scannerUserId, String scannerRole,
+                                                   Long scannerFestivalId) {
+        verifyFestivalAccess(festivalId, scannerUserId, scannerRole, scannerFestivalId);
+
+        List<Reservation> confirmedReservations =
+                reservationRepository.findByFestivalIdAndReservationStatus(festivalId, ReservationStatus.CONFIRMED);
+
+        int totalTickets = confirmedReservations.stream().mapToInt(Reservation::getQuantity).sum();
+        int checkedInTickets = confirmedReservations.stream()
+                .filter(reservation -> reservation.getCheckedInAt() != null)
+                .mapToInt(Reservation::getQuantity)
+                .sum();
+
+        return new CheckInStatsResponseDto(festivalId, totalTickets, checkedInTickets);
+    }
+
+    //입장 검증 공통 로직(내부 메서드) — QR이든 입장 코드든 확인 순서와 거절 사유는 같아야 한다.
+    private ReservationVerifyResponseDto checkIn(Reservation reservation, Long scannerUserId, String scannerRole,
+                                                 Long scannerFestivalId) {
         if (reservation.getReservationStatus() != ReservationStatus.CONFIRMED) {
             throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CONFIRMED);
         }
 
-        FestivalDetailResponseDto festival = getFestivalOrThrow(reservation.getFestivalId());
-        if (!organizerUserId.equals(festival.hostUserId())) {
-            throw new ApiException(ReservationErrorCode.FORBIDDEN_NOT_ORGANIZER);
+        FestivalDetailResponseDto festival =
+                verifyFestivalAccess(reservation.getFestivalId(), scannerUserId, scannerRole, scannerFestivalId);
+
+        //공연 시작 전에 미리 입장시켜 버리는 사고를 막는다. 종료 시각은 막지 않는다 — 늦게 온 관객도 들여보내야 한다.
+        if (festival.startAt() != null && LocalDateTime.now().isBefore(festival.startAt())) {
+            throw new ApiException(ReservationErrorCode.FESTIVAL_NOT_STARTED);
         }
 
         if (reservation.getCheckedInAt() != null) {
@@ -116,6 +160,28 @@ public class ReservationService {
 
         reservation.checkIn();
         return ReservationVerifyResponseDto.from(reservation);
+    }
+
+    //검증자가 이 페스티벌을 다룰 권한이 있는지 확인한다(내부 메서드).
+    //HOST는 본인이 주최한 페스티벌만, HELPER는 계정 발급 시 배정된 그 페스티벌만 볼 수 있다.
+    private FestivalDetailResponseDto verifyFestivalAccess(Long festivalId, Long scannerUserId, String scannerRole,
+                                                           Long scannerFestivalId) {
+        if (HELPER_ROLE.equals(scannerRole)) {
+            if (scannerFestivalId == null) {
+                throw new ApiException(ReservationErrorCode.HELPER_FESTIVAL_NOT_ASSIGNED);
+            }
+            //도우미가 담당하지 않는 페스티벌의 티켓 — 현장에서 가장 흔한 오스캔이라 사유를 명확히 구분해준다.
+            if (!scannerFestivalId.equals(festivalId)) {
+                throw new ApiException(ReservationErrorCode.OTHER_FESTIVAL_TICKET);
+            }
+            return getFestivalOrThrow(festivalId);
+        }
+
+        FestivalDetailResponseDto festival = getFestivalOrThrow(festivalId);
+        if (!scannerUserId.equals(festival.hostUserId())) {
+            throw new ApiException(ReservationErrorCode.FORBIDDEN_NOT_ORGANIZER);
+        }
+        return festival;
     }
 
     //Payment-Service → Reservation-Service 내부 호출: 결제 시작 전 예매 정보 조회
@@ -148,7 +214,19 @@ public class ReservationService {
             throw new ApiException(ReservationErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
 
-        reservation.confirm(request.paymentId());
+        reservation.confirm(request.paymentId(), generateUnusedCheckInCode());
+    }
+
+    //입장 코드 발급(내부 메서드) — 32^10 조합이라 실제로는 첫 시도에서 끝나지만, 유니크 제약 위반으로
+    //결제 확정 자체가 실패하는 일이 없도록 몇 번 더 뽑아본다.
+    private String generateUnusedCheckInCode() {
+        for (int attempt = 0; attempt < MAX_CHECK_IN_CODE_ATTEMPTS; attempt++) {
+            String checkInCode = checkInCodeGenerator.generate();
+            if (!reservationRepository.existsByCheckInCode(checkInCode)) {
+                return checkInCode;
+            }
+        }
+        throw new ApiException(ReservationErrorCode.CHECK_IN_CODE_GENERATION_FAILED);
     }
 
     //Payment-Service → Reservation-Service 내부 호출: 가상계좌 발급 시 입금 기한까지 재고 홀드 연장

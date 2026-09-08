@@ -30,4 +30,6 @@ public class UserResponse {
     private AccountStatus status;
     @Schema(description = "내 가입일시", example = "2026-08-01T10:00:00")
     private LocalDateTime createdAt;
+    @Schema(description = "도우미(HELPER) 계정이 담당하는 페스티벌 ID. 그 외 역할은 null", example = "1")
+    private Long festivalId;
 }

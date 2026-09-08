@@ -24,8 +24,14 @@ public enum ReservationErrorCode implements ErrorCode {
     INVALID_INTERNAL_TOKEN(HttpStatus.UNAUTHORIZED, "내부 호출 인증에 실패했습니다."),
     RESERVATION_NOT_CONFIRMED(HttpStatus.CONFLICT, "결제가 확정된 예매만 QR을 발급받을 수 있습니다."),
     INVALID_QR_TOKEN(HttpStatus.NOT_FOUND, "유효하지 않은 QR입니다."),
-    ALREADY_CHECKED_IN(HttpStatus.CONFLICT, "이미 입장 처리된 예매입니다."),
-    FORBIDDEN_NOT_ORGANIZER(HttpStatus.FORBIDDEN, "본인이 주최한 페스티벌의 예매만 검증할 수 있습니다.");
+    INVALID_CHECK_IN_CODE(HttpStatus.NOT_FOUND, "유효하지 않은 입장 코드입니다."),
+    ALREADY_CHECKED_IN(HttpStatus.CONFLICT, "이미 입장 처리된 티켓입니다."),
+    OTHER_FESTIVAL_TICKET(HttpStatus.CONFLICT, "다른 공연의 티켓입니다."),
+    FESTIVAL_NOT_STARTED(HttpStatus.CONFLICT, "아직 공연 시작 전이라 입장할 수 없습니다."),
+    FORBIDDEN_NOT_ORGANIZER(HttpStatus.FORBIDDEN, "본인이 주최한 페스티벌의 예매만 검증할 수 있습니다."),
+    //도우미 계정인데 담당 페스티벌 정보(X-Festival-Id)가 없는 비정상 토큰으로 들어온 경우
+    HELPER_FESTIVAL_NOT_ASSIGNED(HttpStatus.FORBIDDEN, "담당 페스티벌이 지정되지 않은 도우미 계정입니다."),
+    CHECK_IN_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "입장 코드 발급에 실패했습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

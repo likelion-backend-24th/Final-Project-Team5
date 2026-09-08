@@ -78,7 +78,7 @@ public class AuthService {
         checkAccountActive(user);
 
         // 토큰(엑세스,리플레쉬) 생성
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
 
         // DB에 RefreshToken 저장
@@ -117,7 +117,7 @@ public class AuthService {
         //회탈/정지 검증
         checkAccountActive(user);
 
-        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name());
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
 
         RefreshToken newRefreshTokenEntity = new RefreshToken();

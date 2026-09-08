@@ -75,23 +75,34 @@ public class PaymentService {
         return new PaymentPrepareResponse(payment.getPaymentId(), storeId, channelKeyPayment, payment.totalAmount());
     }
 
-    // 브라우저 완료 요청: PortOne 조회로 재검증한 뒤 예매를 확정하거나 취소한다. 완료 API와 웹훅(Task 7-5)은
-    // 이 메서드를 그대로 재사용해 같은 동기화 로직을 공유해야 한다(실전 가이드 7.3).
-    // PortOne 조회와 Reservation-Service 호출(둘 다 외부 네트워크 호출) 동안 DB 트랜잭션을 열어두지 않는다
-    // (실전 가이드 11.4 "PortOne 조회는 DB 트랜잭션 밖에서 수행"). 각 상태 반영은 개별 save() 호출로 짧게 끝낸다.
+    // 브라우저 완료 요청: 본인 결제인지 확인한 뒤 동기화 로직(syncPayment)에 위임한다.
     public PaymentCompleteResponse complete(Long userId, String paymentId) {
         Payment payment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new ApiException(PaymentErrorCode.PAYMENT_NOT_FOUND));
-
         if (!payment.getUserId().equals(userId)) {
             throw new ApiException(PaymentErrorCode.FORBIDDEN_PAYMENT_OWNER);
         }
+        return syncPayment(payment);
+    }
+
+    // PortOne 조회로 재검증한 뒤 예매를 확정하거나 취소한다. 완료 API와 웹훅(Task 7-5)이 이 메서드를
+    // 그대로 재사용해 같은 동기화 로직을 공유한다(실전 가이드 7.3) — 웹훅은 로그인 사용자가 없으므로
+    // 소유권 검증 없이 바로 이 메서드를 호출한다(인증은 PortOne 서명이 대신한다, 실전 가이드 12.2).
+    // PortOne 조회와 Reservation-Service 호출(둘 다 외부 네트워크 호출) 동안 DB 트랜잭션을 열어두지 않는다
+    // (실전 가이드 11.4 "PortOne 조회는 DB 트랜잭션 밖에서 수행"). 각 상태 반영은 개별 save() 호출로 짧게 끝낸다.
+    public PaymentCompleteResponse syncPayment(String paymentId) {
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
+                .orElseThrow(() -> new ApiException(PaymentErrorCode.PAYMENT_NOT_FOUND));
+        return syncPayment(payment);
+    }
+
+    private PaymentCompleteResponse syncPayment(Payment payment) {
         if (isFinalized(payment.getStatus())) {
             // 완료 API가 반복 호출돼도 오류 대신 현재 성공 상태를 그대로 반환한다(멱등).
             return toCompleteResponse(payment);
         }
 
-        PortOnePaymentResponse remote = portOnePaymentClient.getPayment(paymentId);
+        PortOnePaymentResponse remote = portOnePaymentClient.getPayment(payment.getPaymentId());
         validateRemotePayment(payment, remote);
         recordTransaction(payment, remote);
 

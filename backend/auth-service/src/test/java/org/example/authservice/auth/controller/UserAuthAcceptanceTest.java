@@ -157,9 +157,10 @@ class UserAuthAcceptanceTest {
     @Test
     void accessingProtectedApiWithoutUserIdHeaderFails() throws Exception {
         // 게이트웨이를 거치지 않고 auth-service에 직접 요청하는 상황을 재현한다.
-        // 게이트웨이가 X-User-Id 헤더를 채워주지 않으면 auth-service는 이 요청을 처리할 수 없다.
+        // 게이트웨이가 X-User-Id 헤더를 채워주지 않으면 auth-service는 401로 응답한다
+        // (GlobalExceptionHandler의 MissingRequestHeaderException 처리).
         mockMvc.perform(get(ME_ENDPOINT))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnauthorized());
     }
 
     private void signup(String username, String nickname) throws Exception {

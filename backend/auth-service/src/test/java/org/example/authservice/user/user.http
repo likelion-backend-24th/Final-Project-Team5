@@ -1,13 +1,56 @@
+POST http://localhost:8081/api/auth/signup
+Content-Type: application/json
+
+{
+  "name": "홍길동",
+  "username": "test4@naver.com",
+  "password": "test1234",
+  "nickname": "길동이잉"
+}
+
 ### 로그인 - 성공 (200)
 POST http://localhost:8081/api/auth/login
 Content-Type: application/json
 
 {
-  "username": "test@naver.com",
+  "username": "test4@naver.com",
   "password": "test1234"
 }
+
+> {%
+    client.global.set("accessToken", response.body.data.accessToken);
+%}
 
 
 ### 내 정보 조회
 GET http://localhost:8080/api/users/me
-Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0QG5hdmVyLmNvbSIsInVzZXJJZCI6MSwicm9sZSI6IlVTRVIiLCJpYXQiOjE3ODg0NTQ3NzUsImV4cCI6MTc4ODQ1ODM3NX0.mxbT8ZOK43BQbhz0nAEDbDRB89BYK0bekuoGn5PHzRQ
+Authorization: Bearer {{accessToken}}
+
+### 닉네임 수정 - 성공
+PATCH http://localhost:8080/api/users/me/nickname
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "nickname": "홍이"
+}
+
+### 비밀번호 변경 - 성공
+PATCH http://localhost:8080/api/users/me/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "currentPassword": "test1234",
+  "newPassword": "newpassword1234",
+  "newPasswordConfirm": "newpassword1234"
+}
+
+### 회원 탈퇴 - 성공
+DELETE http://localhost:8080/api/users/me
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "password": "test1234"
+}

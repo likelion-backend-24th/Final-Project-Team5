@@ -37,6 +37,7 @@ public class AuthService {
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
 
+    //회원가입
     @Transactional
     public void signup(SignupRequest signupRequest) {
         // 이메일 중복 검증

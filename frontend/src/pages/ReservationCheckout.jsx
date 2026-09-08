@@ -21,17 +21,15 @@ import styles from './ReservationCheckout.module.css'
 //결제수단 코드 기준).
 //
 //카카오페이는 payMethod: 'EASY_PAY'로 직접 요청하지 않는다 — 2026-09-07 실제 테스트 결제로
-//이미 확인된 사실: 이 채널(토스페이먼츠 일반)은 카카오페이를 카드 결제창 안의 간편결제
-//퀵버튼으로 제공하는 구조이고, 그때 실제로 성공한 결제도 payMethod: 'CARD'로 요청한 뒤
-//위젯 안에서 사용자가 카카오페이를 선택한 것이었다(실제 응답: method.type이
-//"PaymentMethodEasyPay", provider가 "KAKAOPAY"로 찍힘 — CARD 요청이었는데도 결과는
-//간편결제로 나온다). payMethod: 'EASY_PAY'를 직접 요청하면 이 채널에서 위젯이 응답하지
-//않는 것을 실제로 확인했다 — 채널이 EASY_PAY 단독 호출용으로 등록돼 있지 않은 것으로 보인다.
-//그래서 카카오페이 선택지는 안내 목적으로만 남기고 실제 요청은 CARD와 동일하게 보낸다.
+//확인된 유일한 성공 경로는 payMethod: 'CARD'로 요청한 뒤 위젯 안에서 사용자가 카카오페이
+//퀵버튼을 직접 선택하는 것이었다(실제 응답: method.type이 "PaymentMethodEasyPay",
+//provider가 "KAKAOPAY"로 찍힘 — CARD 요청이었는데도 결과는 간편결제로 나온다).
+//payMethod: 'EASY_PAY' 직접 요청은 실제 브라우저로 검증해본 적이 없어 이 채널에서 되는지
+//불확실하다 — 그래서 실증된 CARD 경로를 그대로 쓴다.
 //
-//무통장입금(가상계좌)은 결제 완료 API가 이미 VIRTUAL_ACCOUNT_ISSUED 상태를 처리하므로
-//(Task 7-4 handleVirtualAccountIssued) 프론트만 추가하면 된다 — 다만 이 채널에서 실제로
-//성공하는 것은 아직 확인하지 못했다(아래 PAYMENT_WIDGET_TIMEOUT_MS 주석 참고).
+//무통장입금(가상계좌)도 2026-09-07 실제 테스트 결제로 이 파라미터 그대로 성공 확인됨
+//(응답: status VIRTUAL_ACCOUNT_ISSUED, method.bank/accountNumber/expiredAt 정상 수신).
+//결제 완료 API도 이미 그 상태를 처리한다(Task 7-4 handleVirtualAccountIssued).
 const PAY_METHODS = [
   { key: 'CARD', label: '카드', toRequest: () => ({ payMethod: 'CARD' }) },
   {
@@ -60,8 +58,9 @@ const STEP_LABELS = {
   opening: '결제창을 여는 중이에요…',
 }
 
-//결제창이 이 시간 안에 응답하지 않으면(카드는 보통 3초 안팎, 그 외 수단은 채널 설정에 따라
-//무한 대기할 수 있어 실제로 확인됨) 포기하고 사용자에게 알린다.
+//결제창이 이 시간 안에 응답하지 않으면 포기하고 사용자에게 알린다. 정상 케이스는 보통
+//3초 안팎에 뜨지만, 네트워크 문제나 팝업 차단(브라우저 확장 프로그램 등) 같은 클라이언트
+//환경 문제로 응답이 영영 안 올 수 있어 버튼이 영구히 멈추지 않도록 안전장치로 둔다.
 const PAYMENT_WIDGET_TIMEOUT_MS = 20_000
 
 const CREATE_RESERVATION_ERROR_MESSAGES = {

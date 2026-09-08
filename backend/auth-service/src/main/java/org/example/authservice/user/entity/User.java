@@ -58,6 +58,16 @@ public class User {
     @Column(name = "withdrawn_at")
     private LocalDateTime withdrawnAt;
 
+    @Column(name = "terms_agree_at", nullable = true)
+    private LocalDateTime termsAgreeAt;  // 회원가입 약관동의
+
+    @Column(name = "failed_login_attempts",nullable = false)
+    private int failedLoginAttempts = 0;  //연속으로 몇번 틀렸는지 확인하는 필드
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;  //로그인 몇번 틀리면 몇분간 잠그는 시간 필드
+
+
     //HELPER 계정이 배정된 페스티벌. 도우미 한 명은 정확히 한 페스티벌만 담당하므로 컬럼 하나로 충분하다.
     //HELPER가 아닌 계정은 항상 null이며, 로그인 시 JWT의 festivalId 클레임으로 실려 Gateway가 X-Festival-Id로 전달한다.
     @Column(name = "festival_id")
@@ -67,13 +77,4 @@ public class User {
     //계정 발급 시점에 복사해둔다(페스티벌 수정 API가 없어 endAt이 사후에 바뀌지 않는다).
     @Column(name = "festival_end_at")
     private LocalDateTime festivalEndAt;
-
-//    @Column(name = "terms_agree_at", nullable = true)
-//    private LocalDateTime termsAgreeAt;  // 회원가입 약관동의
-
-    @Column(name = "failed_login_attempts",nullable = false)
-    private int failedLoginAttempts = 0;  //연속으로 몇번 틀렸는지 확인하는 필드
-
-    @Column(name = "locked_until")
-    private LocalDateTime lockedUntil;  //로그인 몇번 틀리면 몇분간 잠그는 시간 필드
 }

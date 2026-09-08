@@ -70,10 +70,10 @@ public class User {
 
 //    @Column(name = "terms_agree_at", nullable = true)
 //    private LocalDateTime termsAgreeAt;  // 회원가입 약관동의
-//
-//    @Column(name = "failed_login_attempts",nullable = false) //나중에 쓸거
-//    private int failedLoginAttempts = 0;  //연속으로 몇번 틀렸는지 확인하는 필드
-//
-//    @Column(name = "locked_until")      //나중에 쓸거
-//    private LocalDateTime lockedUntil;  //로그인 틀리기 몇번 틀리면 몇분간 잠그는 시간 필드
+
+    @Column(name = "failed_login_attempts",nullable = false)
+    private int failedLoginAttempts = 0;  //연속으로 몇번 틀렸는지 확인하는 필드
+
+    @Column(name = "locked_until")
+    private LocalDateTime lockedUntil;  //로그인 몇번 틀리면 몇분간 잠그는 시간 필드
 }

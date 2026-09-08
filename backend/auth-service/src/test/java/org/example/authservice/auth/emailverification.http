@@ -81,3 +81,47 @@ Content-Type: application/json
   "nickname": "안양개발자2",
   "password": "test1234"
 }
+
+
+
+###로그인 연속으로 누르면 제한 걸리는 테스트
+
+### 1. 인증코드 발송 - 1회차 (성공)
+POST http://localhost:8081/api/auth/email/send
+Content-Type: application/json
+
+{
+  "email": "ratelimit@naver.com"
+}
+
+### 2. 인증코드 발송 - 즉시 재요청 (30초 쿨다운 안 지났으니 TOO_MANY_REQUESTS_COOLDOWN 나야 함)
+POST http://localhost:8081/api/auth/email/send
+Content-Type: application/json
+
+{
+  "email": "ratelimit@naver.com"
+}
+
+### 3. (30초 기다린 후) 인증코드 발송 - 2회차 (성공해야 함)
+POST http://localhost:8081/api/auth/email/send
+Content-Type: application/json
+
+{
+  "email": "ratelimit@naver.com"
+}
+
+### 4. (30초씩 기다리며 3~5회차까지 반복 발송)
+POST http://localhost:8081/api/auth/email/send
+Content-Type: application/json
+
+{
+  "email": "ratelimit@naver.com"
+}
+
+### 5. 6번째 발송 시도 (10분 내 5회 초과, TOO_MANY_REQUESTS_LIMIT 나야 함)
+POST http://localhost:8081/api/auth/email/send
+Content-Type: application/json
+
+{
+  "email": "ratelimit@naver.com"
+}

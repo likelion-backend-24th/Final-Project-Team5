@@ -42,6 +42,12 @@ export function AuthProvider({ children }) {
     setUser(meResponse.data.data)
   }, [])
 
+  // 추가: 닉네임 변경 등 내 정보가 바뀐 뒤, 서버에서 다시 조회해 전역 상태를 갱신한다.
+const refreshUser = useCallback(async () => {
+  const meResponse = await fetchMyInfo()
+  setUser(meResponse.data.data)
+}, [])
+
   const logout = useCallback(() => {
     clearAccessToken()
     setUser(null)
@@ -55,8 +61,9 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(user),
       login,
       logout,
+      refreshUser,
     }),
-    [accessToken, user, isLoading, login, logout],
+    [accessToken, user, isLoading, login, logout,refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -33,7 +33,9 @@ public class JwtTokenProvider {
     }
 
     // AccessToken 생성
-    public String generateAccessToken(Long userId, String username, String role) {
+    // festivalId는 HELPER(도우미) 계정만 값이 있고 나머지 역할은 null이다 — Gateway가 X-Festival-Id로 전달해
+    // reservation-service가 "이 도우미가 담당하는 페스티벌"을 별도 조회 없이 판별한다.
+    public String generateAccessToken(Long userId, String username, String role, Long festivalId) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessTokenExpiration);
 
@@ -41,6 +43,7 @@ public class JwtTokenProvider {
                 .subject(username)
                 .claim("userId", userId) // Gateway가 X-User-Id로 전달할 회원 숫자 ID
                 .claim("role", role) // 페이로드에 role 필드 추가!!
+                .claim("festivalId", festivalId) // HELPER가 담당하는 페스티벌(그 외 역할은 null)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(key)

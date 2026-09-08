@@ -21,3 +21,7 @@ services:
   reservation-service:
     environment:
       JAVA_OPTS: "-Xms32m -Xmx176m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"
+
+  payment-service:
+    environment:
+      JAVA_OPTS: "-Xms32m -Xmx176m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"

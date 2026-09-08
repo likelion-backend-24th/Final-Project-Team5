@@ -12,7 +12,9 @@ import HostFestivalDetail from './pages/HostFestivalDetail'
 import HostFestivalNew from './pages/HostFestivalNew'
 import HostFestivals from './pages/HostFestivals'
 import Login from './pages/Login'
+import MyPage from './pages/MyPage'
 import Placeholder from './pages/Placeholder'
+import ReservationCheckout from './pages/ReservationCheckout'
 import SignUp from './pages/SignUp'
 
 /** 상단바·푸터는 모든 화면에 고정, 가운데만 라우팅으로 갈아끼운다. */
@@ -25,10 +27,12 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/festivals" element={<Festivals />} />
         <Route path="/festivals/:id" element={<FestivalDetail />} />
+        <Route path="/festivals/:id/reserve" element={<ReservationCheckout />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<Placeholder title="비밀번호 재설정" />} />
-        <Route path="/reservations" element={<Placeholder title="내 예약" />} />
+        <Route path="/mypage" element={<MyPage />} />
+        <Route path="/reservations" element={<MyPage initialTab="reservations" />} />
         <Route path="/host-application" element={<HostApplication />} />
         {/* SiteFooter/OrganizerCta는 여전히 /organizers/apply로 링크하므로 같은 화면을 연결해둔다. */}
         <Route path="/organizers/apply" element={<HostApplication />} />

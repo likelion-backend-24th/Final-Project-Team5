@@ -1,0 +1,35 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:mysql://${PAYMENT_DB_HOST:localhost}:${PAYMENT_DB_PORT:3307}/${PAYMENT_DB_NAME:payment_db}
+    username: ${PAYMENT_DB_USERNAME:payment_user}
+    password: ${PAYMENT_DB_PASSWORD:payment_password}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+# paymentId 팀 접두사 — PortOne 요청·조회에 쓰는 결제 ID를 팀별로 구분한다.
+payment:
+  id-prefix: ${PAYMENT_ID_PREFIX:BE24-T05-}
+
+# PortOne V2 REST API 연동 설정. API Secret·Webhook Secret은 반드시 환경변수로만 주입한다.
+portone:
+  api-base-url: ${PORTONE_API_BASE_URL:https://api.portone.io}
+  store-id: ${PORTONE_STORE_ID:CHANGE_ME_IN_ENV}
+  channel-key:
+    payment: ${PORTONE_CHANNEL_KEY_PAYMENT:CHANGE_ME_IN_ENV}
+    billing: ${PORTONE_CHANNEL_KEY_BILLING:CHANGE_ME_IN_ENV}
+  api-secret: ${PORTONE_API_SECRET:CHANGE_ME_IN_ENV}
+  webhook-secret: ${PORTONE_WEBHOOK_SECRET:CHANGE_ME_IN_ENV}
+
+# Payment-Service → Reservation-Service 내부 호출(getReservationForPayment/confirm/cancel) 설정
+reservation-service:
+  base-url: ${RESERVATION_SERVICE_URL:http://localhost:8083}
+
+internal:
+  auth-token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}

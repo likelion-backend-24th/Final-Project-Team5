@@ -57,10 +57,18 @@ spring:
               uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
               predicates:
                 - Path=/api/reservations/**
+            - id: organizer-reservations
+              uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/organizer/reservations/**
             - id: payment-service
               uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
               predicates:
                 - Path=/api/payments/**
+            - id: payment-webhook
+              uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/webhooks/**
 
 jwt:
   secret: ${JWT_SECRET:local-dev-jwt-secret-please-change-before-deploy}

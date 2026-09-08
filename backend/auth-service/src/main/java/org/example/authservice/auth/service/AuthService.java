@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.authservice.auth.dto.LoginRequest;
 import org.example.authservice.auth.dto.SignupRequest;
 import org.example.authservice.auth.dto.TokenResponse;
+import org.example.authservice.auth.dto.emailverification.ResetPasswordRequest;
 import org.example.authservice.auth.entity.RefreshToken;
 import org.example.authservice.auth.exception.AuthErrorCode;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
@@ -12,6 +13,7 @@ import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.user.entity.AccountStatus;
 import org.example.authservice.user.entity.Role;
 import org.example.authservice.user.entity.User;
+import org.example.authservice.user.exception.UserErrorCode;
 import org.example.authservice.user.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +25,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,10 +36,12 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenRevocationService refreshTokenRevocationService;
+    private final EmailVerificationService emailVerificationService;
 
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
 
+    //회원가입
     @Transactional
     public void signup(SignupRequest signupRequest) {
         // 이메일 중복 검증
@@ -47,6 +52,9 @@ public class AuthService {
         if (userRepository.existsByNickname(signupRequest.getNickname())) {
             throw new ApiException(AuthErrorCode.DUPLICATE_NICKNAME);
         }
+        //이메일 인증이 완료 여부
+        emailVerificationService.checkVerified(signupRequest.getUsername());
+
 
         User user = new User();
         user.setName(signupRequest.getName());
@@ -73,7 +81,7 @@ public class AuthService {
         checkAccountActive(user);
 
         // 토큰(엑세스,리플레쉬) 생성
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name());
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
 
         // DB에 RefreshToken 저장
@@ -112,7 +120,7 @@ public class AuthService {
         //회탈/정지 검증
         checkAccountActive(user);
 
-        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name());
+        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
 
         RefreshToken newRefreshTokenEntity = new RefreshToken();
@@ -127,9 +135,38 @@ public class AuthService {
         refreshTokenRepository.save(savedRefreshToken);
 
         return new TokenResponse(newAccessToken, newRefreshToken);
-
     }
 
+    // 로그아웃
+    @Transactional
+    public void logout(String refreshToken) {
+        if (refreshToken == null) {
+            return; // 쿠키 자체가 없으면 이미 로그아웃 상태나 다름없으니 종료
+        }
+        String tokenHash = hashToken(refreshToken);
+        refreshTokenRepository.findByTokenHash(tokenHash)
+                .ifPresent(token -> {
+                    token.setRevokedAt(LocalDateTime.now());
+                    refreshTokenRepository.save(token);
+                });
+    }
+
+    // 비밀번호 재설정 (이메일 인증 완료 -> 새 비밀번호 설정)
+    @Transactional
+    public void resetPassword(String username,String newPassword){
+        //이메일 인증 완료 확인
+        emailVerificationService.checkVerified(username);
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
+
+        //나중에 소셜 로그인은 변경 불가 로직 추가
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        refreshTokenRevocationService.revokeAllTokens(user);
+    }
 
     // 계정 상태(정지/탈퇴) 확인 편의메서드 -나증에 OAuth,재발급 때에도 쓰여서 만들어놓음
     private void checkAccountActive(User user) {

@@ -25,7 +25,7 @@ jobs:
             git fetch origin
             git checkout deploy
             git pull --ff-only origin deploy
-            docker compose -f docker-compose.yml -f docker-compose.small.yml pull gateway auth-service festival-service reservation-service frontend
+            docker compose -f docker-compose.yml -f docker-compose.small.yml pull gateway auth-service festival-service reservation-service payment-service frontend
             docker compose -f docker-compose.yml -f docker-compose.small.yml up -d
             # nginx는 설정 파일이 bind mount라 내용이 바뀌어도, 이미지도 안 바뀌므로
             # Compose가 재생성 대상으로 인식하지 못한다. 컨테이너를 통째로 재생성하는

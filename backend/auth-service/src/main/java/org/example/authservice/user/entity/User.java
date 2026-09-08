@@ -58,6 +58,16 @@ public class User {
     @Column(name = "withdrawn_at")
     private LocalDateTime withdrawnAt;
 
+    //HELPER 계정이 배정된 페스티벌. 도우미 한 명은 정확히 한 페스티벌만 담당하므로 컬럼 하나로 충분하다.
+    //HELPER가 아닌 계정은 항상 null이며, 로그인 시 JWT의 festivalId 클레임으로 실려 Gateway가 X-Festival-Id로 전달한다.
+    @Column(name = "festival_id")
+    private Long festivalId;
+
+    //HELPER 계정 자동 탈퇴 배치가 쓰는 페스티벌 종료 시각 스냅샷. 배치가 매번 festival-service를 조회하지 않도록
+    //계정 발급 시점에 복사해둔다(페스티벌 수정 API가 없어 endAt이 사후에 바뀌지 않는다).
+    @Column(name = "festival_end_at")
+    private LocalDateTime festivalEndAt;
+
 //    @Column(name = "terms_agree_at", nullable = true)
 //    private LocalDateTime termsAgreeAt;  // 회원가입 약관동의
 //

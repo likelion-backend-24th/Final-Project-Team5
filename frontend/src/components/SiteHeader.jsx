@@ -71,7 +71,9 @@ function SiteHeader() {
 
           {isAuthenticated ? (
             <>
-              <span className="text-sm font-semibold text-gray-700">{user.nickname}님</span>
+              <Link to="/mypage" className="text-sm font-semibold text-gray-700 hover:underline">
+                {user.nickname}님
+              </Link>
               <button
                 type="button"
                 onClick={handleLogout}

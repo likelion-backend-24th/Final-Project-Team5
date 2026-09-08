@@ -37,6 +37,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenRevocationService refreshTokenRevocationService;
     private final EmailVerificationService emailVerificationService;
+    private final LoginAttemptService loginAttemptService;
 
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
@@ -73,12 +74,23 @@ public class AuthService {
         // 회원가입 되어있는지 조회
         User user = userRepository.findByUsername(loginRequest.getUsername())
                 .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
+        //잠금 상태 확인
+        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())){
+            throw new ApiException(AuthErrorCode.ACCOUNT_LOCKED);
+        }
         // 비밀번호 불일치 검증
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+            //비번 틀릴 때마다 실패횟수 1씩 증가
+            loginAttemptService.recordFailedLoginAttempt(user);
             throw new ApiException(AuthErrorCode.INVALID_PASSWORD);
         }
+
         // 회원 탈퇴/정지 계정인지 체크
         checkAccountActive(user);
+        //로그인 성공하면 다시 초기화
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
 
         // 토큰(엑세스,리플레쉬) 생성
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name());
@@ -178,7 +190,6 @@ public class AuthService {
         }
     }
 
-
     // DB에는 토큰 원본을 그대로 저장하지 않고 해시값만 저장해, DB 유출 시에도 실제 토큰이 복원되지 않도록 함
     // 평문을 해시로 변환하는 메서드
     private String hashToken(String token) {
@@ -194,5 +205,4 @@ public class AuthService {
             throw new IllegalStateException("SHA-256 알고리즘을 사용할 수 없습니다.", e);
         }
     }
-
 }

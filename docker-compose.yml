@@ -66,6 +66,21 @@ services:
       - core-db
       - festival-service
 
+  payment-service:
+    build:
+      context: ./backend/payment-service
+    image: ghcr.io/likelion-backend-24th/final-project-team5-payment-service:latest
+    container_name: payment-service
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PAYMENT_DB_HOST: core-db
+      PAYMENT_DB_PORT: 3306
+      RESERVATION_SERVICE_URL: http://reservation-service:8083
+    depends_on:
+      - core-db
+      - reservation-service
+
   gateway:
     build:
       context: ./backend/gateway
@@ -77,15 +92,14 @@ services:
       AUTH_SERVICE_URL: http://auth-service:8081
       FESTIVAL_SERVICE_URL: http://festival-service:8082
       RESERVATION_SERVICE_URL: http://reservation-service:8083
+      PAYMENT_SERVICE_URL: http://payment-service:8084
     ports:
       - "8080:8080"
     depends_on:
       - auth-service
       - festival-service
       - reservation-service
-
-  # payment-service는 아직 application.yaml/DB 연동이 없는 스켈레톤 상태라 기동 시 바로 죽습니다.
-  # 구현이 끝나면 위 3개 서비스와 같은 패턴으로 추가하고, gateway의 PAYMENT_SERVICE_URL도 지정해 주세요.
+      - payment-service
 
   frontend:
     build:

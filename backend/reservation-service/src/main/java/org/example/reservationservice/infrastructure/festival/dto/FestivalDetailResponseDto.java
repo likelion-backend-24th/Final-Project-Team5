@@ -8,6 +8,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record FestivalDetailResponseDto(
         Long id,
+        Long hostUserId,
         String festivalStatus,
         List<TicketTypeSummary> ticketTypes
 ) {

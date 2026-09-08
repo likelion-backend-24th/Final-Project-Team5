@@ -1,5 +1,7 @@
 package org.example.reservationservice.domain;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -29,6 +31,11 @@ public class ReservationService {
     @Value("${reservation.max-quantity-per-ticket-type:4}")
     private int maxQuantityPerTicketType;
 
+    //QR 이미지를 그려주는 goqr.me(api.qrserver.com) create-qr-code API 베이스 URL.
+    //디코딩(read-qr-code)은 쓰지 않는다 — 스캔 결과 문자열은 프론트에서 카메라로 직접 디코딩해 전달받는다.
+    @Value("${qr.image-base-url:https://api.qrserver.com/v1/create-qr-code/}")
+    private String qrImageBaseUrl;
+
     //참가자가 티켓 예매를 신청한다: 페스티벌·티켓종류 검증 → 구매 제한 검증 → 재고 차감(festival-service) → 예매 저장
     @Transactional
     public ReservationResponseDto createReservation(Long userId, ReservationCreateRequestDto request) {
@@ -46,6 +53,7 @@ public class ReservationService {
 
         Reservation reservation = Reservation.builder()
                 .userId(userId)
+                .festivalId(festival.id())
                 .ticketTypeId(request.ticketTypeId())
                 .quantity(request.quantity())
                 .price(ticketType.price())
@@ -74,6 +82,40 @@ public class ReservationService {
     //참가자 본인의 예매 상세를 조회한다
     public ReservationResponseDto getMyReservationDetail(Long id, Long userId) {
         return ReservationResponseDto.from(getOwnedReservation(id, userId));
+    }
+
+    //참가자 본인의 확정된 예매에 대해 입장용 QR을 발급(조회)한다
+    public ReservationQrResponseDto getQrForReservation(Long id, Long userId) {
+        Reservation reservation = getOwnedReservation(id, userId);
+        if (reservation.getReservationStatus() != ReservationStatus.CONFIRMED) {
+            throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CONFIRMED);
+        }
+        String qrImageUrl = qrImageBaseUrl + "?size=200x200&data="
+                + URLEncoder.encode(reservation.getQrToken(), StandardCharsets.UTF_8);
+        return new ReservationQrResponseDto(reservation.getId(), reservation.getQrToken(), qrImageUrl);
+    }
+
+    //주최자가 현장에서 스캔한 QR을 검증하고 입장 처리한다
+    @Transactional
+    public ReservationVerifyResponseDto verifyAndCheckIn(Long organizerUserId, ReservationVerifyRequestDto request) {
+        Reservation reservation = reservationRepository.findByQrToken(request.qrToken())
+                .orElseThrow(() -> new ApiException(ReservationErrorCode.INVALID_QR_TOKEN));
+
+        if (reservation.getReservationStatus() != ReservationStatus.CONFIRMED) {
+            throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CONFIRMED);
+        }
+
+        FestivalDetailResponseDto festival = getFestivalOrThrow(reservation.getFestivalId());
+        if (!organizerUserId.equals(festival.hostUserId())) {
+            throw new ApiException(ReservationErrorCode.FORBIDDEN_NOT_ORGANIZER);
+        }
+
+        if (reservation.getCheckedInAt() != null) {
+            throw new ApiException(ReservationErrorCode.ALREADY_CHECKED_IN);
+        }
+
+        reservation.checkIn();
+        return ReservationVerifyResponseDto.from(reservation);
     }
 
     //Payment-Service → Reservation-Service 내부 호출: 결제 시작 전 예매 정보 조회

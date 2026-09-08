@@ -11,7 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import jakarta.servlet.http.Cookie;
 import java.time.LocalDateTime;
+import org.example.authservice.auth.entity.EmailVerification;
 import org.example.authservice.auth.entity.RefreshToken;
+import org.example.authservice.auth.repository.EmailVerificationRepository;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.user.entity.User;
 import org.example.authservice.user.repository.UserRepository;
@@ -48,10 +50,14 @@ class UserAuthAcceptanceTest {
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Autowired
+    private EmailVerificationRepository emailVerificationRepository;
+
     @BeforeEach
     void setUp() {
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
+        emailVerificationRepository.deleteAll();
     }
 
     @Test
@@ -164,10 +170,30 @@ class UserAuthAcceptanceTest {
     }
 
     private void signup(String username, String nickname) throws Exception {
+        verifyEmail(username);
+
         mockMvc.perform(post(SIGNUP_ENDPOINT)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(signupBody(username, nickname)))
                 .andExpect(status().isCreated());
+    }
+
+    private void verifyEmail(String email) throws Exception {
+        mockMvc.perform(post("/api/auth/email/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "%s"}""".formatted(email)))
+                .andExpect(status().isOk());
+
+        EmailVerification verification = emailVerificationRepository
+                .findTopByEmailOrderByCreatedAtDesc(email)
+                .orElseThrow();
+
+        mockMvc.perform(post("/api/auth/email/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email": "%s", "code": "%s"}""".formatted(email, verification.getCode())))
+                .andExpect(status().isOk());
     }
 
     private org.springframework.test.web.servlet.ResultActions login(String username, String password) throws Exception {

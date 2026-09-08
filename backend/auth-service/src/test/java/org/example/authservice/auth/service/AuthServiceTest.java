@@ -54,6 +54,8 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
     @Mock
     private RefreshTokenRevocationService refreshTokenRevocationService;
+    @Mock
+    private EmailVerificationService emailVerificationService;
     @InjectMocks
     private AuthService authService;
 

@@ -100,7 +100,8 @@ class UserAuthAcceptanceTest {
                   "name": "",
                   "username": "blank@test.com",
                   "nickname": "blankuser",
-                  "password": "%s"
+                  "password": "%s",
+                  "termsAgreed": true
                 }""".formatted(PASSWORD);
 
         mockMvc.perform(post(SIGNUP_ENDPOINT)
@@ -108,6 +109,25 @@ class UserAuthAcceptanceTest {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errorCode", is("VALIDATION_ERROR")));
+    }
+
+    @Test
+    void signupWithoutTermsAgreedFails() throws Exception {
+        verifyEmail("noterms@test.com");
+        String body = """
+                {
+                  "name": "홍길동",
+                  "username": "noterms@test.com",
+                  "nickname": "notermsuser",
+                  "password": "%s",
+                  "termsAgreed": false
+                }""".formatted(PASSWORD);
+
+        mockMvc.perform(post(SIGNUP_ENDPOINT)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode", is("TERMS_NOT_AGREED")));
     }
 
     @Test
@@ -225,7 +245,8 @@ class UserAuthAcceptanceTest {
                   "name": "홍길동",
                   "username": "%s",
                   "nickname": "%s",
-                  "password": "%s"
+                  "password": "%s",
+                  "termsAgreed": true
                 }""".formatted(username, nickname, PASSWORD);
     }
 

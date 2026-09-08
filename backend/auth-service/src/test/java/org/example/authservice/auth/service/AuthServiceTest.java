@@ -66,12 +66,13 @@ class AuthServiceTest {
                 "홍길동",
                 "test@naver.com",
                 "안양개발자",
-                "test1234"
+                "test1234",
+                true // termsAgreed
         );
     }
 
     @Test
-    @DisplayName("정상적인 요청이면 회원가입에 성공하고, 비밀번호는 암호화되어 저장된다")
+    @DisplayName("정상적인 요청이면 회원가입에 성공하고, 비밀번호는 암호화되어 저장되며 약관동의 시각이 기록된다")
     void signup_success() {
         // given
         SignupRequest request = createValidRequest();
@@ -93,6 +94,7 @@ class AuthServiceTest {
         assertThat(savedUser.getPassword()).isEqualTo("encoded-password");
         assertThat(savedUser.getRole()).isEqualTo(Role.USER);
         assertThat(savedUser.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(savedUser.getTermsAgreeAt()).isNotNull();
     }
 
     @Test
@@ -127,6 +129,30 @@ class AuthServiceTest {
                         .isEqualTo(AuthErrorCode.DUPLICATE_NICKNAME));
 
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("약관에 동의하지 않으면 TERMS_NOT_AGREED 예외가 발생하고, save는 호출되지 않는다")
+    void signup_fail_termsNotAgreed() {
+        // given
+        SignupRequest request = new SignupRequest(
+                "홍길동",
+                "test@naver.com",
+                "안양개발자",
+                "test1234",
+                false // termsAgreed = false
+        );
+        given(userRepository.existsByUsername(request.getUsername())).willReturn(false);
+        given(userRepository.existsByNickname(request.getNickname())).willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() -> authService.signup(request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.TERMS_NOT_AGREED));
+
+        verify(userRepository, never()).save(any());
+        verify(emailVerificationService, never()).checkVerified(any());
     }
 
     @Test

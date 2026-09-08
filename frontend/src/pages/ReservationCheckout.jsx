@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import * as PortOne from '@portone/browser-sdk/v2'
 import {
   ArrowRightIcon,
@@ -11,7 +11,7 @@ import {
   TicketIcon,
 } from 'lucide-react'
 import { fetchFestivalDetail } from '../api/festivalApi'
-import { createReservation } from '../api/reservationApi'
+import { cancelReservation, createReservation, fetchReservationDetail } from '../api/reservationApi'
 import { completePayment, preparePayment } from '../api/paymentApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './ReservationCheckout.module.css'
@@ -20,25 +20,17 @@ import styles from './ReservationCheckout.module.css'
 //결정한다(https://developers.portone.io/opi/ko/integration/pg/v2/readme?v=v2 — PG사별
 //결제수단 코드 기준).
 //
-//카카오페이는 payMethod: 'EASY_PAY'로 직접 요청하지 않는다 — 2026-09-07 실제 테스트 결제로
-//확인된 유일한 성공 경로는 payMethod: 'CARD'로 요청한 뒤 위젯 안에서 사용자가 카카오페이
-//퀵버튼을 직접 선택하는 것이었다(실제 응답: method.type이 "PaymentMethodEasyPay",
-//provider가 "KAKAOPAY"로 찍힘 — CARD 요청이었는데도 결과는 간편결제로 나온다).
-//payMethod: 'EASY_PAY' 직접 요청은 실제 브라우저로 검증해본 적이 없어 이 채널에서 되는지
-//불확실하다 — 그래서 실증된 CARD 경로를 그대로 쓴다.
+//카카오페이는 별도 버튼 없이 '카드 결제' 위젯 안에서 사용자가 카카오페이 퀵버튼을 직접
+//선택하는 방식으로 지원된다(2026-09-07 실제 테스트 결제로 확인된 유일한 성공 경로 —
+//응답: method.type이 "PaymentMethodEasyPay", provider가 "KAKAOPAY"로 찍힘. CARD 요청이었는데도
+//결과는 간편결제로 나온다). payMethod: 'EASY_PAY' 직접 요청은 실제 브라우저로 검증해본 적이
+//없어 이 채널에서 되는지 불확실하다 — 그래서 실증된 CARD 경로를 그대로 쓴다.
 //
 //무통장입금(가상계좌)도 2026-09-07 실제 테스트 결제로 이 파라미터 그대로 성공 확인됨
 //(응답: status VIRTUAL_ACCOUNT_ISSUED, method.bank/accountNumber/expiredAt 정상 수신).
 //결제 완료 API도 이미 그 상태를 처리한다(Task 7-4 handleVirtualAccountIssued).
 const PAY_METHODS = [
-  { key: 'CARD', label: '카드', toRequest: () => ({ payMethod: 'CARD' }) },
-  {
-    key: 'KAKAOPAY',
-    label: '카카오페이',
-    // 카드와 동일한 요청을 보내고, 위젯이 뜨면 사용자가 그 안에서 카카오페이 퀵버튼을
-    // 직접 선택한다(위 설명 참고). 별도 결제수단 파라미터가 없다.
-    toRequest: () => ({ payMethod: 'CARD' }),
-  },
+  { key: 'CARD', label: '카드 결제', toRequest: () => ({ payMethod: 'CARD' }) },
   {
     key: 'VIRTUAL_ACCOUNT',
     label: '무통장입금',
@@ -58,10 +50,13 @@ const STEP_LABELS = {
   opening: '결제창을 여는 중이에요…',
 }
 
-//결제창이 이 시간 안에 응답하지 않으면 포기하고 사용자에게 알린다. 정상 케이스는 보통
-//3초 안팎에 뜨지만, 네트워크 문제나 팝업 차단(브라우저 확장 프로그램 등) 같은 클라이언트
-//환경 문제로 응답이 영영 안 올 수 있어 버튼이 영구히 멈추지 않도록 안전장치로 둔다.
-const PAYMENT_WIDGET_TIMEOUT_MS = 20_000
+//결제창이 이 시간 안에 응답하지 않으면 포기하고 사용자에게 알린다. '카드 결제'를 눌러도
+//위젯 안에서 카카오페이 같은 QR/앱 승인형 간편결제를 고를 수 있는데, 이 경우 사용자가
+//QR을 스캔하고 카카오톡 앱에서 직접 승인하는 단계가 끼기 때문에 정상적으로도 수십 초가
+//걸릴 수 있다(실제로 20초로 뒀을 때 정상 결제 도중 타임아웃이 발생함, 2026-09-08).
+//완전히 막힌 경우(팝업 차단 등)를 걸러내는 안전장치이므로, 정상적인 사람의 승인 대기
+//시간까지 넉넉히 포함하도록 넉넉히 잡는다.
+const PAYMENT_WIDGET_TIMEOUT_MS = 120_000
 
 const CREATE_RESERVATION_ERROR_MESSAGES = {
   FESTIVAL_NOT_PUBLISHED: '예매할 수 없는 페스티벌이에요.',
@@ -70,12 +65,23 @@ const CREATE_RESERVATION_ERROR_MESSAGES = {
   PURCHASE_LIMIT_EXCEEDED: '1인당 구매 가능 수량을 초과했어요.',
 }
 
+//예매 보유(hold) 남은 시간을 "MM:SS"로 표시한다.
+function formatRemaining(expiresAt, now) {
+  const remainingMs = Math.max(0, new Date(expiresAt).getTime() - now)
+  const totalSeconds = Math.floor(remainingMs / 1000)
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
+  const seconds = String(totalSeconds % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
+}
+
 /** 예매 신청 → 결제 준비 → PortOne 결제창 → 결제 확인까지 한 화면에서 진행한다. */
 function ReservationCheckout() {
   const { id: festivalId } = useParams()
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const ticketTypeId = Number(searchParams.get('ticketTypeId'))
   const quantity = Number(searchParams.get('quantity')) || 1
+  const resumeReservationId = searchParams.get('reservationId')
   const { user, isLoading: authLoading } = useAuth()
 
   const [festival, setFestival] = useState(null)
@@ -84,8 +90,22 @@ function ReservationCheckout() {
   const [step, setStep] = useState('idle') // idle | reserving | preparing | opening | success | virtualAccountIssued
   const [payError, setPayError] = useState('')
   const [payMethod, setPayMethod] = useState(PAY_METHODS[0].key)
+  // 결제창 타임아웃·취소 후 재시도할 때 매번 새 예매를 만들면 이전 PENDING 예매가 그대로
+  // 재고를 쥔 채 쌓인다(각 예매가 10분 뒤 개별 만료되기 전까지). 같은 화면에서의 재시도는
+  // 기존 예매를 그대로 재사용해 결제만 다시 준비하도록 한다.
+  const reservationIdRef = useRef(null)
+  // 예매 보유 만료 시각. 새로 예매를 만든 시점(또는 "결제 이어하기"로 재진입한 시점)부터
+  // 화면에 남은 시간을 보여주기 위해 별도 상태로 들고 있는다.
+  const [expiresAt, setExpiresAt] = useState(null)
+  const [now, setNow] = useState(Date.now())
+  // "결제 이어하기"로 들어온 경우, 기존 예매 조회가 끝나기 전에 결제 버튼을 누르면
+  // reservationIdRef가 아직 비어있어 새 예매를 또 만들어버린다. 조회가 끝날 때까지 버튼을 막는다.
+  const [resuming, setResuming] = useState(Boolean(resumeReservationId))
+  // 페스티벌 상세의 "예매하기"를 누른 시점(=이 화면에 들어온 시점)부터 10분 보유 타이머가
+  // 시작되어야 하므로, "결제하기" 버튼을 누르기 전에 이 화면 진입과 동시에 예매를 만든다.
+  const creatingRef = useRef(false)
 
-  const isProcessing = step === 'reserving' || step === 'preparing' || step === 'opening'
+  const isProcessing = step === 'reserving' || step === 'preparing' || step === 'opening' || resuming
 
   useEffect(() => {
     let cancelled = false
@@ -104,7 +124,59 @@ function ReservationCheckout() {
     }
   }, [festivalId])
 
+  // "결제 이어하기"로 들어온 경우: 새로 예매를 만들지 않고 기존 예매를 그대로 이어받는다.
+  useEffect(() => {
+    if (!resumeReservationId) return
+    let cancelled = false
+    fetchReservationDetail(resumeReservationId)
+      .then((response) => {
+        if (cancelled) return
+        const reservation = response.data.data
+        if (reservation.reservationStatus !== 'PENDING') {
+          setLoadError('이미 처리되었거나 만료된 예매예요.')
+          return
+        }
+        reservationIdRef.current = reservation.id
+        setExpiresAt(reservation.expiresAt)
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('예매 정보를 불러오지 못했어요.')
+      })
+      .finally(() => {
+        if (!cancelled) setResuming(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [resumeReservationId])
+
+  // 남은 시간 표시용 1초 틱.
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   const ticketType = festival?.ticketTypes.find((t) => t.id === ticketTypeId)
+
+  // "결제 이어하기"가 아닌 일반 진입: 페스티벌 정보 확인이 끝나는 즉시 예매를 만들어 10분
+  // 보유 타이머를 바로 시작한다("결제하기" 버튼을 누를 때까지 미루지 않는다).
+  useEffect(() => {
+    if (resumeReservationId || !user || !ticketType || creatingRef.current || reservationIdRef.current) return
+    creatingRef.current = true
+    setStep('reserving')
+    createReservation({ festivalId: Number(festivalId), ticketTypeId, quantity })
+      .then((reservationRes) => {
+        reservationIdRef.current = reservationRes.data.data.id
+        setExpiresAt(reservationRes.data.data.expiresAt)
+        setStep('idle')
+      })
+      .catch((error) => {
+        const errorCode = error.response?.data?.errorCode
+        setPayError(CREATE_RESERVATION_ERROR_MESSAGES[errorCode] || '예매 신청 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.')
+        setStep('idle')
+      })
+  }, [resumeReservationId, user, ticketType, festivalId, ticketTypeId, quantity])
+
   const totalAmount = ticketType ? ticketType.price * quantity : 0
 
   async function handlePay() {
@@ -113,15 +185,36 @@ function ReservationCheckout() {
     setStep('reserving')
 
     try {
-      const reservationRes = await createReservation({
-        festivalId: Number(festivalId),
-        ticketTypeId,
-        quantity,
-      })
-      const reservationId = reservationRes.data.data.id
+      if (!reservationIdRef.current) {
+        const reservationRes = await createReservation({
+          festivalId: Number(festivalId),
+          ticketTypeId,
+          quantity,
+        })
+        reservationIdRef.current = reservationRes.data.data.id
+        setExpiresAt(reservationRes.data.data.expiresAt)
+      }
 
       setStep('preparing')
-      const prepareRes = await preparePayment(reservationId)
+      let prepareRes
+      try {
+        prepareRes = await preparePayment(reservationIdRef.current)
+      } catch (prepareError) {
+        const prepareErrorCode = prepareError.response?.data?.errorCode
+        // 재사용하려던 예매가 그새 만료·완료 등으로 결제 불가 상태가 된 경우에만 새로 예매해서
+        // 한 번 더 시도한다. 그 외 에러는 그대로 바깥 catch로 던져 평소처럼 처리한다.
+        if (prepareErrorCode !== 'RESERVATION_NOT_PAYABLE' && prepareErrorCode !== 'RESERVATION_NOT_FOUND') {
+          throw prepareError
+        }
+        const reservationRes = await createReservation({
+          festivalId: Number(festivalId),
+          ticketTypeId,
+          quantity,
+        })
+        reservationIdRef.current = reservationRes.data.data.id
+        setExpiresAt(reservationRes.data.data.expiresAt)
+        prepareRes = await preparePayment(reservationIdRef.current)
+      }
       const { paymentId, storeId, channelKey, totalAmount: amount } = prepareRes.data.data
 
       setStep('opening')
@@ -172,6 +265,20 @@ function ReservationCheckout() {
       setPayError(CREATE_RESERVATION_ERROR_MESSAGES[errorCode] || '결제 처리 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.')
       setStep('idle')
     }
+  }
+
+  async function handleCancel() {
+    if (!reservationIdRef.current) {
+      navigate(`/festivals/${festivalId}`)
+      return
+    }
+    if (!window.confirm('예매를 취소할까요? 재고가 다시 풀려요.')) return
+    try {
+      await cancelReservation(reservationIdRef.current)
+    } catch {
+      // 이미 만료·취소된 예매에 대한 재취소 시도는 무시하고 그냥 나간다.
+    }
+    navigate(`/festivals/${festivalId}`)
   }
 
   if (authLoading || loading) {
@@ -263,6 +370,12 @@ function ReservationCheckout() {
       <div className={styles.card}>
         <h1 className={styles.title}>예매 확인</h1>
 
+        {expiresAt && (
+          <p className={styles.holdTimer} role="status">
+            예매 보유 시간 {formatRemaining(expiresAt, now)} 남음
+          </p>
+        )}
+
         <div className={styles.summary}>
           <p className={styles.festivalName}>{festival.name}</p>
 
@@ -319,7 +432,7 @@ function ReservationCheckout() {
           {isProcessing ? (
             <>
               <LoaderCircleIcon size={18} aria-hidden="true" className={styles.spinner} />
-              {STEP_LABELS[step]}
+              {resuming ? '예매 정보를 불러오고 있어요…' : STEP_LABELS[step]}
             </>
           ) : (
             <>
@@ -328,6 +441,15 @@ function ReservationCheckout() {
               <ArrowRightIcon size={16} aria-hidden="true" />
             </>
           )}
+        </button>
+
+        <button
+          type="button"
+          className={styles.cancelLink}
+          disabled={isProcessing}
+          onClick={handleCancel}
+        >
+          예매 취소하고 나가기
         </button>
       </div>
     </main>

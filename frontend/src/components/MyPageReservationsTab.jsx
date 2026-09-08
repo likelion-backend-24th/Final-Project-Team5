@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRightIcon, ArrowUpDownIcon, ImageIcon, QrCodeIcon, TicketIcon, XIcon } from 'lucide-react'
+import { ArrowRightIcon, ArrowUpDownIcon, CreditCardIcon, ImageIcon, QrCodeIcon, TicketIcon, XIcon } from 'lucide-react'
 import { fetchFestivalDetail, toAbsoluteImageUrl } from '../api/festivalApi'
-import { fetchMyReservations, fetchReservationQr } from '../api/reservationApi'
+import { cancelReservation, fetchMyReservations, fetchReservationQr } from '../api/reservationApi'
 
 const cardClass = 'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8'
 const primaryBtn =
@@ -36,6 +36,16 @@ function toStatusLabel(reservationStatus, festivalEndAt) {
     return festivalEndAt && new Date(festivalEndAt) < new Date() ? '완료' : '예정'
   }
   return '취소' // CANCELLED, REFUNDED, PARTIALLY_REFUNDED
+}
+
+//결제대기 남은 시간을 "MM:SS"로 표시한다. 만료 시각이 지났으면 곧 화면이 갱신되어
+//사라질 항목이므로 0으로 바닥을 둔다.
+function formatRemaining(expiresAt, now) {
+  const remainingMs = Math.max(0, new Date(expiresAt).getTime() - now)
+  const totalSeconds = Math.floor(remainingMs / 1000)
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
+  const seconds = String(totalSeconds % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
 }
 
 function QrModal({ reservationId, onClose }) {
@@ -88,6 +98,13 @@ function MyPageReservationsTab() {
   const [filter, setFilter] = useState('전체')
   const [sort, setSort] = useState('latest')
   const [qrReservationId, setQrReservationId] = useState(null)
+  const [now, setNow] = useState(Date.now())
+
+  //결제대기 카드의 남은 시간을 실시간으로 보여주기 위한 1초 틱.
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -140,6 +157,20 @@ function MyPageReservationsTab() {
       cancelled = true
     }
   }, [])
+
+  async function handleCancel(reservationId) {
+    if (!window.confirm('예매를 취소할까요? 재고가 다시 풀려요.')) return
+    try {
+      await cancelReservation(reservationId)
+      setReservations((prev) =>
+        prev.map((r) =>
+          r.id === reservationId ? { ...r, reservationStatus: 'CANCELLED', statusLabel: '취소' } : r,
+        ),
+      )
+    } catch {
+      alert('예매 취소에 실패했어요. 잠시 후 다시 시도해주세요.')
+    }
+  }
 
   const filterTabs = ['전체', '결제대기', '예정', '완료', '취소']
 
@@ -239,8 +270,15 @@ function MyPageReservationsTab() {
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_META[r.statusLabel]}`}>
-                    {r.statusLabel}
+                  <span className="flex items-center gap-2">
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${STATUS_META[r.statusLabel]}`}>
+                      {r.statusLabel}
+                    </span>
+                    {r.reservationStatus === 'PENDING' && (
+                      <span className="text-xs font-semibold text-yellow-700">
+                        {formatRemaining(r.expiresAt, now)} 남음
+                      </span>
+                    )}
                   </span>
                   {r.reservationStatus === 'CONFIRMED' && (
                     <button
@@ -250,6 +288,25 @@ function MyPageReservationsTab() {
                     >
                       <QrCodeIcon className="h-3.5 w-3.5" />
                       QR 보기
+                    </button>
+                  )}
+                  {r.reservationStatus === 'PENDING' && (
+                    <Link
+                      to={`/festivals/${r.festivalId}/reserve?ticketTypeId=${r.ticketTypeId}&quantity=${r.quantity}&reservationId=${r.id}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-bold text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                    >
+                      <CreditCardIcon className="h-3.5 w-3.5" />
+                      결제 이어하기
+                    </Link>
+                  )}
+                  {r.reservationStatus === 'PENDING' && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancel(r.id)}
+                      className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-bold text-gray-400 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <XIcon className="h-3.5 w-3.5" />
+                      예약 취소
                     </button>
                   )}
                 </div>

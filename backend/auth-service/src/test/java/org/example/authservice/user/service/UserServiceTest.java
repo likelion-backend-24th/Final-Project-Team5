@@ -1,5 +1,6 @@
 package org.example.authservice.user.service;
 
+import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.user.dto.UserResponse;
@@ -41,6 +42,9 @@ class UserServiceTest {
 
     @InjectMocks
     private UserService userService;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
     @Test
     @DisplayName("존재하는 userId로 조회하면 내 정보를 정확히 반환한다")

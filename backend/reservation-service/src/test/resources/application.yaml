@@ -1,0 +1,16 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:reservation_db;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+reservation:
+  max-quantity-per-ticket-type: 4
+
+internal:
+  auth-token: test-internal-token

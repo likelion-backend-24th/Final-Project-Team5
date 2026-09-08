@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:payment_db;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
+portone:
+  api-base-url: http://localhost
+  store-id: store-test
+  channel-key:
+    payment: channel-key-test
+    billing: channel-key-billing-test
+  api-secret: test-api-secret
+  webhook-secret: whsec_dGVzdC13ZWJob29rLXNlY3JldA==
+
+reservation-service:
+  base-url: http://localhost
+
+internal:
+  auth-token: test-internal-token
+
+payment:
+  id-prefix: BE24-T05-

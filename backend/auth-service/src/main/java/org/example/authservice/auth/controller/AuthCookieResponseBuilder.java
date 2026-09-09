@@ -4,6 +4,7 @@ import org.example.authservice.auth.dto.TokenResponse;
 import org.example.authservice.common.dto.ApiResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -46,5 +47,24 @@ public class AuthCookieResponseBuilder {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
                 .body(ApiResponse.success(message, null));
+    }
+
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
+    // 소셜 로그인 성공 시 RefreshToken은 쿠키로 실어주고, 프론트 홈페이지로 302 리다이렉트
+    public ResponseEntity<Void> buildRedirectWithCookie(TokenResponse response) {
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", response.getRefreshToken())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/")
+                .maxAge(Duration.ofMillis(refreshTokenExpiration))
+                .build();
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .header(HttpHeaders.LOCATION, frontendUrl)
+                .build();
     }
 }

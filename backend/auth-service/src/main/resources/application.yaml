@@ -76,3 +76,4 @@ helper:
 # 컨테이너 TZ 설정에 의존하지 않도록 명시한다 — 팀원 로컬·CI 등 TZ가 다른 환경에서도 같게 동작해야 한다.
 app:
   timezone: ${APP_TIMEZONE:Asia/Seoul}
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}

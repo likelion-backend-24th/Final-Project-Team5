@@ -32,7 +32,7 @@ public class AuthController {
     }
 
     //로그인
-    @Operation(summary = "로그인",description = "이메일(username)과 비밀번호로 로그인하고 JWT 토큰을 발급받습니다.")
+    @Operation(summary = "로그인",description = "이메일(username)과 비밀번호로 로그인하고 JWT 토큰을 발급받습니다, 기존 소셜 계정과 이메일이 같으면 자동 연동됩니다.")
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<TokenResponse>> login(@Valid @RequestBody LoginRequest loginRequest){
         TokenResponse response = authService.login(loginRequest);
@@ -57,6 +57,7 @@ public class AuthController {
         return authCookieResponseBuilder.buildWithCookieDeleted("로그아웃 성공");
     }
 
+    //비밀번호 재설정
     @Operation(summary = "비밀번호 재설정", description = "이메일 인증 완료 후 비밀번호를 재설정합니다. (로그인 없이 이메일 인증만으로 진행)")
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<Void>> resetPassword(
@@ -71,5 +72,13 @@ public class AuthController {
     public ResponseEntity<ApiResponse<TokenResponse>> kakaoLoginCallback(@RequestParam("code") String code) {
         TokenResponse response = authService.kakaoLogin(code);
         return authCookieResponseBuilder.buildWithCookie(response, "카카오 로그인 성공");
+    }
+
+    // Google 로그인 콜백
+    @Operation(summary = "구글 로그인 콜백", description = "구글이 발급한 인가 코드(code)를 받아 로그인 처리합니다. 최초 로그인 시 자동 회원가입되며, 기존 일반 가입 계정과 이메일이 같으면 자동 연동됩니다.")
+    @GetMapping("/google/callback")
+    public ResponseEntity<ApiResponse<TokenResponse>> googleLoginCallback(@RequestParam("code") String code) {
+        TokenResponse response = authService.googleLogin(code);
+        return authCookieResponseBuilder.buildWithCookie(response, "구글 로그인 성공");
     }
 }

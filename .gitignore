@@ -2,3 +2,4 @@ CLAUDE.md
 .idea/
 .env
 backend/festival-service/savedimage/
+.claude/

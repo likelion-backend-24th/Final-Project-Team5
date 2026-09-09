@@ -69,16 +69,16 @@ public class AuthController {
     // Kakao 로그인 콜백
     @Operation(summary = "카카오 로그인 콜백", description = "카카오가 발급한 인가 코드(code)를 받아 로그인 처리합니다. 최초 로그인 시 자동 회원가입됩니다.")
     @GetMapping("/kakao/callback")
-    public ResponseEntity<ApiResponse<TokenResponse>> kakaoLoginCallback(@RequestParam("code") String code) {
+    public ResponseEntity<Void> kakaoLoginCallback(@RequestParam("code") String code) {
         TokenResponse response = authService.kakaoLogin(code);
-        return authCookieResponseBuilder.buildWithCookie(response, "카카오 로그인 성공");
+        return authCookieResponseBuilder.buildRedirectWithCookie(response);
     }
 
     // Google 로그인 콜백
     @Operation(summary = "구글 로그인 콜백", description = "구글이 발급한 인가 코드(code)를 받아 로그인 처리합니다. 최초 로그인 시 자동 회원가입되며, 기존 일반 가입 계정과 이메일이 같으면 자동 연동됩니다.")
     @GetMapping("/google/callback")
-    public ResponseEntity<ApiResponse<TokenResponse>> googleLoginCallback(@RequestParam("code") String code) {
+    public ResponseEntity<Void> googleLoginCallback(@RequestParam("code") String code) {
         TokenResponse response = authService.googleLogin(code);
-        return authCookieResponseBuilder.buildWithCookie(response, "구글 로그인 성공");
+        return authCookieResponseBuilder.buildRedirectWithCookie(response);
     }
 }

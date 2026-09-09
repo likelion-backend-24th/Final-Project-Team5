@@ -4,6 +4,9 @@ services:
     container_name: core-db
     restart: unless-stopped
     environment:
+      # 다른 5개 서비스 컨테이너와 동일하게 KST로 맞춘다 — 이게 없으면 컨테이너 기본(UTC)을 따라가서
+      # SELECT NOW()가 실제 시각보다 9시간 느리게 나온다.
+      TZ: Asia/Seoul
       MYSQL_DATABASE: ${AUTH_DB_NAME:-auth_db}
       MYSQL_USER: ${AUTH_DB_USERNAME:-auth_user}
       MYSQL_PASSWORD: ${AUTH_DB_PASSWORD:-auth_password}

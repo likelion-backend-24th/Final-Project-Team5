@@ -53,6 +53,12 @@ public class Reservation {
     @Column(name = "cancel_reason", columnDefinition = "VARCHAR(20)")
     private CancelReason cancelReason;
 
+    //부분 환불(여러 장 중 일부)을 허용하므로, 환불된 장수를 누적해서 들고 있는다.
+    //quantity를 직접 깎지 않는 이유: 결제 금액·정산 근거가 되는 원래 구매 수량이 남아 있어야 한다.
+    //기존 행에도 안전하게 추가되도록 DEFAULT 0을 명시한다.
+    @Column(name = "refunded_quantity", columnDefinition = "INT NOT NULL DEFAULT 0")
+    private int refundedQuantity;
+
     //PENDING 상태가 결제 없이 이 시각을 넘기면 만료 배치가 CANCELLED(EXPIRED)로 전환하고 재고를 복구한다.
     //Payment-Service의 ReservationForPaymentResponse.expiresAt이 Instant(UTC, "...Z")를 기대하므로 반드시 Instant로 유지한다.
     @Column(name = "expires_at")
@@ -108,5 +114,25 @@ public class Reservation {
     //가상계좌 발급 시 PortOne이 내려준 입금 기한까지 재고 홀드를 연장
     public void extendHold(Instant expiresAt) {
         this.expiresAt = expiresAt;
+    }
+
+    //환불 확정(Payment-Service가 PortOne 취소에 성공한 뒤 호출). 전부 환불되면 REFUNDED,
+    //일부만 환불되면 PARTIALLY_REFUNDED로 두어 남은 장수는 계속 입장할 수 있게 한다.
+    public void refund(int quantity) {
+        this.refundedQuantity += quantity;
+        this.reservationStatus = this.refundedQuantity >= this.quantity
+                ? ReservationStatus.REFUNDED
+                : ReservationStatus.PARTIALLY_REFUNDED;
+    }
+
+    //아직 환불되지 않아 실제로 입장할 수 있는 장수.
+    public int remainingQuantity() {
+        return quantity - refundedQuantity;
+    }
+
+    //입장 검증을 통과시킬 수 있는 상태인지. 부분 환불된 예매도 남은 장수만큼은 입장할 수 있어야 한다.
+    public boolean isAdmittable() {
+        return reservationStatus == ReservationStatus.CONFIRMED
+                || reservationStatus == ReservationStatus.PARTIALLY_REFUNDED;
     }
 }

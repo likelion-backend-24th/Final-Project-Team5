@@ -87,19 +87,19 @@ class PaymentServiceTest {
     private PortOnePaymentResponse paidResponse(long total) {
         return new PortOnePaymentResponse(PAYMENT_ID, "PAID", "TX-1", "store-test", channel(),
                 new PortOnePaymentResponse.Method("PaymentMethodCard", null, null, null, null, null, null),
-                amount(total), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), Instant.now(), null, null, "pgtx-1");
+                amount(total), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), Instant.now(), null, null, "pgtx-1", null);
     }
 
     private PortOnePaymentResponse failedResponse() {
         return new PortOnePaymentResponse(PAYMENT_ID, "FAILED", "TX-2", "store-test", channel(), null,
                 amount(10_000L), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), null, Instant.now(),
-                new PortOnePaymentResponse.Failure("사용자가 결제를 취소하였습니다", "PAY_PROCESS_CANCELED", "사용자가 결제를 취소하였습니다"), "pgtx-2");
+                new PortOnePaymentResponse.Failure("사용자가 결제를 취소하였습니다", "PAY_PROCESS_CANCELED", "사용자가 결제를 취소하였습니다"), "pgtx-2", null);
     }
 
     private PortOnePaymentResponse virtualAccountIssuedResponse(Instant expiredAt) {
         return new PortOnePaymentResponse(PAYMENT_ID, "VIRTUAL_ACCOUNT_ISSUED", "TX-3", "store-test", channel(),
                 new PortOnePaymentResponse.Method("PaymentMethodVirtualAccount", "KOOKMIN", "X590901", "NORMAL", "조민규", expiredAt, Instant.now()),
-                amount(10_000L), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), null, null, null, "pgtx-3");
+                amount(10_000L), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), null, null, null, "pgtx-3", null);
     }
 
     // ===== prepare =====
@@ -245,7 +245,7 @@ class PaymentServiceTest {
         when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment(10L, PaymentStatus.READY)));
         PortOnePaymentResponse wrongChannel = new PortOnePaymentResponse(PAYMENT_ID, "PAID", "TX-9", "store-test",
                 new PortOnePaymentResponse.Channel("channel-id-9", "다른-채널-키", "TEST", "토스페이먼츠_일반", "TOSSPAYMENTS"),
-                null, amount(10_000L), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), Instant.now(), null, null, "pgtx-9");
+                null, amount(10_000L), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), Instant.now(), null, null, "pgtx-9", null);
         when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(wrongChannel);
 
         assertThatThrownBy(() -> paymentService.complete(10L, PAYMENT_ID))
@@ -296,7 +296,7 @@ class PaymentServiceTest {
     void 알_수_없는_상태는_거부된다() {
         when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment(10L, PaymentStatus.READY)));
         PortOnePaymentResponse unknown = new PortOnePaymentResponse(PAYMENT_ID, "SOME_NEW_STATUS", null, "store-test",
-                channel(), null, amount(10_000L), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), null, null, null, null);
+                channel(), null, amount(10_000L), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), null, null, null, null, null);
         when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(unknown);
 
         assertThatThrownBy(() -> paymentService.complete(10L, PAYMENT_ID))

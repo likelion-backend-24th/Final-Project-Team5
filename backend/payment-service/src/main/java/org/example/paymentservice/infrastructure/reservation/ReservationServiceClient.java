@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.example.paymentservice.infrastructure.reservation.dto.CancelReservationRequest;
 import org.example.paymentservice.infrastructure.reservation.dto.ConfirmReservationRequest;
 import org.example.paymentservice.infrastructure.reservation.dto.ExtendReservationHoldRequest;
+import org.example.paymentservice.infrastructure.reservation.dto.RefundReservationRequest;
 import org.example.paymentservice.infrastructure.reservation.dto.ReservationForPaymentResponse;
+import org.example.paymentservice.infrastructure.reservation.dto.ReservationRefundQuoteResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -41,6 +43,26 @@ public class ReservationServiceClient {
     public void extendReservationHold(Long reservationId, ExtendReservationHoldRequest request) {
         reservationServiceRestClient.patch()
                 .uri("/internal/v1/reservations/{id}/extend-hold", reservationId)
+                .body(request)
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    //환불 금액은 공연 일정을 아는 Reservation-Service가 계산한다. 여기서는 그 견적을 받아올 뿐이다.
+    public ReservationRefundQuoteResponse getRefundQuote(Long reservationId, Integer quantity) {
+        return reservationServiceRestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/internal/v1/reservations/{id}/refund-quote")
+                        .queryParamIfPresent("quantity", java.util.Optional.ofNullable(quantity))
+                        .build(reservationId))
+                .retrieve()
+                .body(ReservationRefundQuoteResponse.class);
+    }
+
+    //PortOne 취소가 성공한 뒤 예매 상태 확정 + 재고 복구를 요청한다.
+    public void refundReservation(Long reservationId, RefundReservationRequest request) {
+        reservationServiceRestClient.patch()
+                .uri("/internal/v1/reservations/{id}/refund", reservationId)
                 .body(request)
                 .retrieve()
                 .toBodilessEntity();

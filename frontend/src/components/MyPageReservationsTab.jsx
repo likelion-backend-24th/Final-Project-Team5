@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRightIcon, ArrowUpDownIcon, CreditCardIcon, ImageIcon, QrCodeIcon, TicketIcon, XIcon } from 'lucide-react'
+import { ArrowRightIcon, ArrowUpDownIcon, CreditCardIcon, ImageIcon, QrCodeIcon, RotateCcwIcon, TicketIcon, XIcon } from 'lucide-react'
 import { fetchFestivalDetail, toAbsoluteImageUrl } from '../api/festivalApi'
 import { cancelReservation, fetchMyReservations, fetchReservationQr } from '../api/reservationApi'
+import RefundModal from './RefundModal'
 
 const cardClass = 'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8'
 const primaryBtn =
@@ -12,6 +13,7 @@ const STATUS_META = {
   결제대기: 'bg-yellow-50 text-yellow-700',
   예정: 'bg-blue-50 text-blue-600',
   입장완료: 'bg-green-50 text-green-700',
+  환불: 'bg-orange-50 text-orange-700',
   완료: 'bg-gray-100 text-gray-600',
   취소: 'bg-red-50 text-red-600',
 }
@@ -34,11 +36,13 @@ function formatDateRange(startAt, endAt) {
 //이미 입장한 티켓을 계속 "예정"으로 보여주면 참가자가 티켓을 썼는지 알 수 없다.
 function toStatusLabel(reservationStatus, festivalEndAt, checkedInAt) {
   if (reservationStatus === 'PENDING') return '결제대기'
-  if (reservationStatus === 'CONFIRMED') {
+  //부분 환불된 예매는 남은 장수가 그대로 유효하므로 확정 예매와 같게 취급한다.
+  if (reservationStatus === 'CONFIRMED' || reservationStatus === 'PARTIALLY_REFUNDED') {
     if (checkedInAt) return '입장완료'
     return festivalEndAt && new Date(festivalEndAt) < new Date() ? '완료' : '예정'
   }
-  return '취소' // CANCELLED, REFUNDED, PARTIALLY_REFUNDED
+  if (reservationStatus === 'REFUNDED') return '환불'
+  return '취소' // CANCELLED
 }
 
 //결제대기 남은 시간을 "MM:SS"로 표시한다. 만료 시각이 지났으면 곧 화면이 갱신되어
@@ -130,6 +134,7 @@ function MyPageReservationsTab() {
   const [filter, setFilter] = useState('전체')
   const [sort, setSort] = useState('latest')
   const [qrReservationId, setQrReservationId] = useState(null)
+  const [refundTarget, setRefundTarget] = useState(null)
   const [now, setNow] = useState(Date.now())
 
   //결제대기 카드의 남은 시간을 실시간으로 보여주기 위한 1초 틱.
@@ -204,7 +209,25 @@ function MyPageReservationsTab() {
     }
   }
 
-  const filterTabs = ['전체', '결제대기', '예정', '입장완료', '완료', '취소']
+  //환불 성공 후 목록을 다시 부르지 않고 그 줄만 갱신한다(전액이면 '환불', 일부면 남은 장수 유지).
+  function handleRefunded(reservationId, refundedQuantity) {
+    setReservations((prev) =>
+      prev.map((r) => {
+        if (r.id !== reservationId) return r
+        const totalRefunded = (r.refundedQuantity ?? 0) + refundedQuantity
+        const nextStatus = totalRefunded >= r.quantity ? 'REFUNDED' : 'PARTIALLY_REFUNDED'
+        return {
+          ...r,
+          refundedQuantity: totalRefunded,
+          reservationStatus: nextStatus,
+          statusLabel: nextStatus === 'REFUNDED' ? '환불' : r.statusLabel,
+        }
+      }),
+    )
+    setRefundTarget(null)
+  }
+
+  const filterTabs = ['전체', '결제대기', '예정', '입장완료', '완료', '환불', '취소']
 
   const visible = reservations
     .filter((r) => filter === '전체' || r.statusLabel === filter)
@@ -299,6 +322,9 @@ function MyPageReservationsTab() {
                   <p className="mt-0.5 text-sm text-gray-500">{r.festivalDate}</p>
                   <p className="text-sm text-gray-400">
                     {r.ticketTypeName} · {r.quantity}장
+                    {r.refundedQuantity > 0 && (
+                      <span className="ml-1 font-semibold text-orange-600">({r.refundedQuantity}장 환불)</span>
+                    )}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
@@ -312,7 +338,7 @@ function MyPageReservationsTab() {
                       </span>
                     )}
                   </span>
-                  {r.reservationStatus === 'CONFIRMED' && (
+                  {(r.reservationStatus === 'CONFIRMED' || r.reservationStatus === 'PARTIALLY_REFUNDED') && (
                     <button
                       type="button"
                       onClick={() => setQrReservationId(r.id)}
@@ -320,6 +346,18 @@ function MyPageReservationsTab() {
                     >
                       <QrCodeIcon className="h-3.5 w-3.5" />
                       QR 보기
+                    </button>
+                  )}
+                  {/* 이미 입장한 티켓은 환불 대상이 아니라 버튼 자체를 숨긴다(눌러도 서버가 거절한다). */}
+                  {(r.reservationStatus === 'CONFIRMED' || r.reservationStatus === 'PARTIALLY_REFUNDED')
+                    && !r.checkedInAt && (
+                    <button
+                      type="button"
+                      onClick={() => setRefundTarget(r)}
+                      className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1 text-xs font-bold text-gray-400 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
+                    >
+                      <RotateCcwIcon className="h-3.5 w-3.5" />
+                      환불 요청
                     </button>
                   )}
                   {r.reservationStatus === 'PENDING' && (
@@ -349,6 +387,14 @@ function MyPageReservationsTab() {
       </div>
 
       {qrReservationId && <QrModal reservationId={qrReservationId} onClose={() => setQrReservationId(null)} />}
+
+      {refundTarget && (
+        <RefundModal
+          reservation={refundTarget}
+          onClose={() => setRefundTarget(null)}
+          onRefunded={handleRefunded}
+        />
+      )}
     </section>
   )
 }

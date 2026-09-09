@@ -16,4 +16,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     List<RefreshToken> findAllByUser_IdAndRevokedAtIsNull(Long userId);
     //사용할 일이 생길수도 있어서 만들어놓음
     Optional<RefreshToken> findByUser(User user);
+
+    //사용자 행을 삭제하기 전에 먼저 지워야 하는 토큰들.
+    //refresh_token.user_id가 users를 FK(NO ACTION)로 참조하고 있어, 남겨두면 삭제가 제약 위반으로 실패한다.
+    void deleteAllByUser_Id(Long userId);
 }

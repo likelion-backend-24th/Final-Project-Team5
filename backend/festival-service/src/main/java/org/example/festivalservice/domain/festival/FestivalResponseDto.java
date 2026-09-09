@@ -15,10 +15,21 @@ public record FestivalResponseDto(
         String location,
         FestivalCategory festivalCategory,
         FestivalStatus festivalStatus,
-        List<String> imageUrls,
+        String thumbnailImageUrl,
+        List<String> detailImageUrls,
         List<TicketTypeResponseDto> ticketTypes
 ) {
     public static FestivalResponseDto from(Festival festival, List<TicketType> ticketTypes, List<FestivalImage> images) {
+        String thumbnailImageUrl = images.stream()
+                .filter(image -> image.getImageType() == FestivalImageType.THUMBNAIL)
+                .map(FestivalImage::getImageUrl)
+                .findFirst()
+                .orElse(null);
+        List<String> detailImageUrls = images.stream()
+                .filter(image -> image.getImageType() == FestivalImageType.DETAIL)
+                .map(FestivalImage::getImageUrl)
+                .toList();
+
         return new FestivalResponseDto(
                 festival.getId(),
                 festival.getHostUserId(),
@@ -29,7 +40,8 @@ public record FestivalResponseDto(
                 festival.getLocation(),
                 festival.getFestivalCategory(),
                 festival.getFestivalStatus(),
-                images.stream().map(FestivalImage::getImageUrl).toList(),
+                thumbnailImageUrl,
+                detailImageUrls,
                 ticketTypes.stream().map(TicketTypeResponseDto::from).toList()
         );
     }

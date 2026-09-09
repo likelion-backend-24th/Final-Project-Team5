@@ -16,7 +16,8 @@ public enum FestivalErrorCode implements ErrorCode {
     INVALID_DECISION(HttpStatus.BAD_REQUEST, "공개 또는 반려만 결정할 수 있습니다."),
     ALREADY_REVIEWED(HttpStatus.CONFLICT, "이미 심사 처리된 페스티벌입니다."),
     INVALID_PERIOD(HttpStatus.BAD_REQUEST, "종료 일시는 시작 일시 이후여야 합니다."),
-    INVALID_IMAGE_COUNT(HttpStatus.BAD_REQUEST, "이미지는 최대 3개까지 등록할 수 있습니다."),
+    INVALID_IMAGE_COUNT(HttpStatus.BAD_REQUEST, "대표 이미지는 1개까지 등록할 수 있습니다."),
+    INVALID_DETAIL_IMAGE_COUNT(HttpStatus.BAD_REQUEST, "본문 이미지는 최대 2개까지 등록할 수 있습니다."),
     INVALID_IMAGE_SIZE(HttpStatus.BAD_REQUEST, "이미지 용량은 파일당 10MB를 초과할 수 없습니다."),
     INVALID_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "이미지 파일만 업로드할 수 있습니다."),
     IMAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이미지 업로드에 실패했습니다.");

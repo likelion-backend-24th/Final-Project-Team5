@@ -14,20 +14,28 @@ import { createFestival, uploadFestivalImages } from '../api/hostFestivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './HostFestivalNew.module.css'
 
-const MAX_IMAGE_COUNT = 3
+const MAX_DETAIL_IMAGE_COUNT = 2
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 
 const IMAGE_ERROR_MESSAGES = {
   FORBIDDEN_ROLE: '주최자 권한이 없습니다.',
-  INVALID_IMAGE_COUNT: '이미지는 최대 3개까지 업로드할 수 있어요.',
+  INVALID_IMAGE_COUNT: '대표 이미지는 1개까지 업로드할 수 있어요.',
+  INVALID_DETAIL_IMAGE_COUNT: '본문 이미지는 최대 2개까지 업로드할 수 있어요.',
   INVALID_IMAGE_SIZE: '이미지 용량은 파일당 10MB를 초과할 수 없어요.',
   INVALID_IMAGE_TYPE: '이미지 파일만 업로드할 수 있어요.',
   IMAGE_UPLOAD_FAILED: '이미지 업로드에 실패했어요. 잠시 후 다시 시도해주세요.',
 }
 
-function validateImages(files) {
-  if (files.length > MAX_IMAGE_COUNT) {
-    return '이미지는 최대 3개까지 선택할 수 있어요.'
+function validateThumbnail(file) {
+  if (file && file.size > MAX_IMAGE_SIZE_BYTES) {
+    return '이미지 용량은 10MB를 초과할 수 없어요.'
+  }
+  return ''
+}
+
+function validateDetailImages(files) {
+  if (files.length > MAX_DETAIL_IMAGE_COUNT) {
+    return '본문 이미지는 최대 2장까지 선택할 수 있어요.'
   }
   if (files.some((file) => file.size > MAX_IMAGE_SIZE_BYTES)) {
     return '이미지 용량은 파일당 10MB를 초과할 수 없어요.'
@@ -61,12 +69,16 @@ function validateTicketType(ticket) {
   return errors
 }
 
-function validate(form, images) {
+function validate(form, thumbnail, detailImages) {
   const fieldErrors = {}
 
-  const imageMessage = validateImages(images)
-  if (imageMessage) {
-    fieldErrors.images = imageMessage
+  const thumbnailMessage = validateThumbnail(thumbnail)
+  if (thumbnailMessage) {
+    fieldErrors.thumbnail = thumbnailMessage
+  }
+  const detailImagesMessage = validateDetailImages(detailImages)
+  if (detailImagesMessage) {
+    fieldErrors.detailImages = detailImagesMessage
   }
 
   if (!form.name.trim()) {
@@ -121,22 +133,36 @@ function HostFestivalNew() {
   }))
   const [errors, setErrors] = useState({})
   const [ticketErrors, setTicketErrors] = useState({})
-  const [images, setImages] = useState([])
+  const [thumbnail, setThumbnail] = useState(null)
+  const [detailImages, setDetailImages] = useState([])
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(null)
 
-  //선택할 때마다 이전 선택을 교체한다 (누적 선택은 지원하지 않음)
-  function handleImageSelect(event) {
-    const files = Array.from(event.target.files ?? [])
-    const message = validateImages(files)
-    setErrors((prev) => ({ ...prev, images: message || undefined }))
-    setImages(message ? [] : files)
+  //선택할 때마다 이전 선택을 교체한다 (1장만 허용)
+  function handleThumbnailSelect(event) {
+    const file = event.target.files?.[0] ?? null
+    const message = validateThumbnail(file)
+    setErrors((prev) => ({ ...prev, thumbnail: message || undefined }))
+    setThumbnail(message ? null : file)
     if (message) event.target.value = ''
   }
 
-  function handleRemoveImage(index) {
-    setImages((prev) => prev.filter((_, i) => i !== index))
+  function handleRemoveThumbnail() {
+    setThumbnail(null)
+  }
+
+  //선택할 때마다 이전 선택을 교체한다 (누적 선택은 지원하지 않음, 최대 2장)
+  function handleDetailImagesSelect(event) {
+    const files = Array.from(event.target.files ?? [])
+    const message = validateDetailImages(files)
+    setErrors((prev) => ({ ...prev, detailImages: message || undefined }))
+    setDetailImages(message ? [] : files)
+    if (message) event.target.value = ''
+  }
+
+  function handleRemoveDetailImage(index) {
+    setDetailImages((prev) => prev.filter((_, i) => i !== index))
   }
 
   function handleChange(field) {
@@ -195,7 +221,7 @@ function HostFestivalNew() {
   async function handleSubmit(event) {
     event.preventDefault()
 
-    const { fieldErrors, ticketErrors: nextTicketErrors } = validate(form, images)
+    const { fieldErrors, ticketErrors: nextTicketErrors } = validate(form, thumbnail, detailImages)
     setErrors(fieldErrors)
     setTicketErrors(nextTicketErrors)
     if (Object.keys(fieldErrors).length > 0) return
@@ -205,10 +231,12 @@ function HostFestivalNew() {
 
     try {
       //이미지가 있으면 먼저 업로드해 URL만 받고, 그 URL을 등록 요청 body에 그대로 실어 보낸다.
-      let imageUrls = []
-      if (images.length > 0) {
-        const uploadResponse = await uploadFestivalImages(images)
-        imageUrls = uploadResponse.data.data
+      let thumbnailImageUrl = null
+      let detailImageUrls = []
+      if (thumbnail || detailImages.length > 0) {
+        const uploadResponse = await uploadFestivalImages({ thumbnail, detailImages })
+        thumbnailImageUrl = uploadResponse.data.data.thumbnailImageUrl
+        detailImageUrls = uploadResponse.data.data.detailImageUrls
       }
 
       const response = await createFestival({
@@ -218,7 +246,8 @@ function HostFestivalNew() {
         endAt: form.endAt,
         location: form.location.trim(),
         festivalCategory: form.festivalCategory,
-        imageUrls,
+        thumbnailImageUrl,
+        detailImageUrls,
         ticketTypes: form.ticketTypes.map((ticket) => ({
           name: ticket.name.trim(),
           price: Number(ticket.price),
@@ -407,24 +436,54 @@ function HostFestivalNew() {
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="images" className={styles.label}>
-              대표 이미지 <span className={styles.optional}>(선택, 최대 3장·장당 10MB)</span>
+            <label htmlFor="thumbnail" className={styles.label}>
+              대표 이미지(썸네일) <span className={styles.optional}>(선택, 1장·10MB 이하)</span>
             </label>
             <input
-              id="images"
+              id="thumbnail"
+              type="file"
+              accept="image/*"
+              className={styles.input}
+              style={{ height: 'auto', padding: '12px 16px' }}
+              onChange={handleThumbnailSelect}
+              aria-invalid={Boolean(errors.thumbnail)}
+            />
+            {errors.thumbnail && <p className={styles.errorText}>{errors.thumbnail}</p>}
+
+            {thumbnail && (
+              <div className={styles.ticketList}>
+                <div className={styles.ticketRowHeader}>
+                  <span className={styles.ticketRowTitle}>
+                    {thumbnail.name} ({(thumbnail.size / (1024 * 1024)).toFixed(1)}MB)
+                  </span>
+                  <button type="button" className={styles.ticketRemove} onClick={handleRemoveThumbnail}>
+                    <Trash2Icon size={14} aria-hidden="true" />
+                    제거
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className={styles.field}>
+            <label htmlFor="detailImages" className={styles.label}>
+              본문 이미지 <span className={styles.optional}>(선택, 최대 2장·장당 10MB)</span>
+            </label>
+            <input
+              id="detailImages"
               type="file"
               accept="image/*"
               multiple
               className={styles.input}
               style={{ height: 'auto', padding: '12px 16px' }}
-              onChange={handleImageSelect}
-              aria-invalid={Boolean(errors.images)}
+              onChange={handleDetailImagesSelect}
+              aria-invalid={Boolean(errors.detailImages)}
             />
-            {errors.images && <p className={styles.errorText}>{errors.images}</p>}
+            {errors.detailImages && <p className={styles.errorText}>{errors.detailImages}</p>}
 
-            {images.length > 0 && (
+            {detailImages.length > 0 && (
               <div className={styles.ticketList}>
-                {images.map((file, index) => (
+                {detailImages.map((file, index) => (
                   <div className={styles.ticketRowHeader} key={`${file.name}-${index}`}>
                     <span className={styles.ticketRowTitle}>
                       {file.name} ({(file.size / (1024 * 1024)).toFixed(1)}MB)
@@ -432,7 +491,7 @@ function HostFestivalNew() {
                     <button
                       type="button"
                       className={styles.ticketRemove}
-                      onClick={() => handleRemoveImage(index)}
+                      onClick={() => handleRemoveDetailImage(index)}
                     >
                       <Trash2Icon size={14} aria-hidden="true" />
                       제거

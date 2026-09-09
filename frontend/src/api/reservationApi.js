@@ -24,3 +24,8 @@ export function fetchReservationQr(id) {
 export function cancelReservation(id) {
   return apiClient.patch(`/api/reservations/${id}/cancel`)
 }
+
+//환불 버튼을 누르기 전에 위약금·환급 예상액을 미리 확인한다 (GET /api/reservations/{id}/refund-quote)
+export function fetchRefundQuote(id, quantity) {
+  return apiClient.get(`/api/reservations/${id}/refund-quote`, { params: { quantity } })
+}

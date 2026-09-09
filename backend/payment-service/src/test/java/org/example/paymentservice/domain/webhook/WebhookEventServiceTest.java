@@ -4,6 +4,7 @@ import io.portone.sdk.server.webhook.Webhook;
 import io.portone.sdk.server.webhook.WebhookTransaction;
 import io.portone.sdk.server.webhook.WebhookTransactionData;
 import org.example.paymentservice.common.exception.ApiException;
+import org.example.paymentservice.domain.cancellation.PaymentCancellationService;
 import org.example.paymentservice.domain.payment.PaymentErrorCode;
 import org.example.paymentservice.domain.payment.PaymentService;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,11 +35,15 @@ class WebhookEventServiceTest {
     @Mock
     private PaymentService paymentService;
 
+    @Mock
+    private PaymentCancellationService paymentCancellationService;
+
     private WebhookEventService webhookEventService;
 
     @BeforeEach
     void setUp() {
-        webhookEventService = new WebhookEventService(webhookEventRepository, paymentService);
+        webhookEventService =
+                new WebhookEventService(webhookEventRepository, paymentService, paymentCancellationService);
     }
 
     private WebhookTransaction transactionWebhook(String paymentId) {

@@ -14,6 +14,8 @@ public record ReservationResponseDto(
         ReservationStatus reservationStatus,
         CancelReason cancelReason,
         Instant expiresAt,
+        //현장에서 입장 처리된 시각. 참가자 목록 화면이 "예정"과 "입장 완료"를 구분하는 데 쓴다.
+        Instant checkedInAt,
         LocalDateTime createdAt
 ) {
     public static ReservationResponseDto from(Reservation reservation) {
@@ -27,6 +29,7 @@ public record ReservationResponseDto(
                 reservation.getReservationStatus(),
                 reservation.getCancelReason(),
                 reservation.getExpiresAt(),
+                reservation.getCheckedInAt(),
                 reservation.getCreatedAt()
         );
     }

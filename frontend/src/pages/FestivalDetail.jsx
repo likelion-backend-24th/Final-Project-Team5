@@ -21,6 +21,9 @@ function FestivalDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  //도우미는 예매를 할 수 없는 계정이라(예매 API가 막혀 있다) 수량·예매 버튼을 보여주지 않는다.
+  //이 화면은 도우미에게 담당 행사 정보를 확인하는 용도로만 쓰인다.
+  const isHelper = user?.role === 'HELPER'
   const [festival, setFestival] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -188,7 +191,7 @@ function FestivalDetail() {
                       <p className={styles.ticketPrice}>
                         {ticketType.price <= 0 ? '무료' : `${ticketType.price.toLocaleString()}원`}
                       </p>
-                      {!soldOut && (
+                      {!soldOut && !isHelper && (
                         <>
                           <input
                             type="number"

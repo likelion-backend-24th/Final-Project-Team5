@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { CalendarIcon, ImageIcon, LockIcon, MapPinIcon, TicketIcon } from 'lucide-react'
+import { CalendarIcon, ImageIcon, LockIcon, MapPinIcon, ScanLineIcon, TicketIcon } from 'lucide-react'
 import { fetchMyFestivalDetail } from '../api/hostFestivalApi'
 import { FESTIVAL_CATEGORY_LABELS, toAbsoluteImageUrl } from '../api/festivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
+import HostHelperAccounts from '../components/HostHelperAccounts'
 import styles from './FestivalDetail.module.css'
 
 const STATUS_LABELS = {
@@ -195,6 +196,16 @@ function HostFestivalDetail() {
             </ul>
           )}
         </section>
+
+        <Link
+          to={`/host/festivals/${id}/check-in`}
+          className="mt-10 flex items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-[15px] font-bold text-white transition hover:bg-blue-700"
+        >
+          <ScanLineIcon className="h-5 w-5" />
+          현장 입장 검증 열기
+        </Link>
+
+        <HostHelperAccounts festivalId={id} />
       </div>
     </main>
   )

@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookmarkIcon, LogInIcon, LogOutIcon, SearchIcon } from 'lucide-react'
+import { BookmarkIcon, LogInIcon, LogOutIcon, ScanLineIcon, SearchIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function SiteHeader() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useAuth()
+  //도우미는 담당 행사 하나만 다루고 예매를 할 수 없어 검색·내 예약이 의미가 없다.
+  //대신 현장 검증 화면으로 가는 링크를 둔다(본인 정보 확인은 도우미도 가능해 그대로 남긴다).
+  const isHelper = user?.role === 'HELPER'
 
   function handleSubmit(event) {
     event.preventDefault()
@@ -31,6 +34,7 @@ function SiteHeader() {
         <form
           role="search"
           onSubmit={handleSubmit}
+          hidden={isHelper}
           className="relative max-w-[380px] flex-1 max-md:order-3 max-md:basis-full"
         >
           <input
@@ -94,11 +98,11 @@ function SiteHeader() {
           )}
 
           <Link
-            to="/reservations"
+            to={isHelper ? '/check-in' : '/reservations'}
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-50"
           >
-            <BookmarkIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">내 예약</span>
+            {isHelper ? <ScanLineIcon className="h-4 w-4" /> : <BookmarkIcon className="h-4 w-4" />}
+            <span className="hidden sm:inline">{isHelper ? '입장 검증' : '내 예약'}</span>
           </Link>
         </nav>
       </div>

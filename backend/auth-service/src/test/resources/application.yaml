@@ -23,3 +23,7 @@ jwt:
   secret: test-jwt-secret-key-for-acceptance-tests-must-be-at-least-256-bits-long
   access-token-expiration: 3600000
   refresh-token-expiration: 1209600000
+kakao:
+  client-id: ${KAKAO_CLIENT_ID:dummy-client-id}
+  client-secret: ${KAKAO_CLIENT_SECRET:dummy-client-secret}
+  redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/auth/kakao/callback}

@@ -72,7 +72,7 @@ public class PaymentCancellationService {
                 .status(CancellationStatus.REQUESTED)
                 .source(CancellationSource.API_REQUEST)
                 .amount(quote.refundAmount())
-                .quantity(quote.quantity())
+                .quantity(quote.refundQuantity())
                 .reason(reason)
                 .build());
 
@@ -97,7 +97,7 @@ public class PaymentCancellationService {
 
         //PortOne 취소가 확정된 뒤에야 예매·재고를 되돌린다. 순서가 반대면 취소 실패 시 재고만 풀린다.
         reservationServiceClient.refundReservation(payment.getReservationId(),
-                new RefundReservationRequest(paymentId, quote.quantity()));
+                new RefundReservationRequest(paymentId, quote.refundQuantity()));
 
         return toResponse(payment, cancellation);
     }

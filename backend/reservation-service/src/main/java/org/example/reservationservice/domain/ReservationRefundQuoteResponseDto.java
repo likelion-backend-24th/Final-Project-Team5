@@ -10,9 +10,14 @@ public record ReservationRefundQuoteResponseDto(
         Long reservationId,
         Long userId,
         String paymentId,
+        /** 원래 구매한 장수. */
         int quantity,
+        /** 이미 환불된 장수. */
         int refundedQuantity,
+        /** 지금 더 환불할 수 있는 장수. */
         int refundableQuantity,
+        /** 이번 견적의 환불 대상 장수. quantity(구매 수량)와 헷갈리기 쉬워 따로 둔다. */
+        int refundQuantity,
         boolean refundable,
         String rejectReason,
         int feePercent,
@@ -29,6 +34,7 @@ public record ReservationRefundQuoteResponseDto(
                 reservation.getQuantity(),
                 reservation.getRefundedQuantity(),
                 reservation.remainingQuantity(),
+                quote.quantity(),
                 quote.refundable(),
                 quote.rejectReason(),
                 quote.feePercent(),

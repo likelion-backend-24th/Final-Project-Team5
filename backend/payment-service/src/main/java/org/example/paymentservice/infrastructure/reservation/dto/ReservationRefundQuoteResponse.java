@@ -8,9 +8,12 @@ public record ReservationRefundQuoteResponse(
         Long reservationId,
         Long userId,
         String paymentId,
+        /** 원래 구매한 장수(정보용). 환불 대상 장수는 refundQuantity를 봐야 한다. */
         int quantity,
         int refundedQuantity,
         int refundableQuantity,
+        /** 이번 환불에서 실제로 취소할 장수. */
+        int refundQuantity,
         boolean refundable,
         String rejectReason,
         int feePercent,

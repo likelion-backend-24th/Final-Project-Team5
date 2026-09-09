@@ -78,8 +78,10 @@ class PaymentCancellationServiceTest {
     }
 
     private ReservationRefundQuoteResponse quote(boolean refundable, String rejectReason, int quantity, long refundAmount) {
-        //구매 수량은 3장, 그중 quantity장을 환불하는 견적
-        return new ReservationRefundQuoteResponse(1L, USER_ID, PAYMENT_ID, quantity, 0, 3,
+        //구매 수량은 3장으로 고정하고, 그중 quantity장만 환불하는 견적.
+        //구매 수량(quantity)과 환불 수량(refundQuantity)을 일부러 다르게 둬야
+        //둘을 혼동해 전량이 환불되는 버그를 테스트가 잡아낼 수 있다.
+        return new ReservationRefundQuoteResponse(1L, USER_ID, PAYMENT_ID, 3, 0, 3, quantity,
                 refundable, rejectReason, 10, 30_000L, 3_000L, refundAmount);
     }
 

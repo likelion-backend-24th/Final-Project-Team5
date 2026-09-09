@@ -20,6 +20,12 @@ export const FESTIVAL_CATEGORY_LABELS = Object.fromEntries(
   FESTIVAL_CATEGORIES.map((category) => [category.value, category.label]),
 )
 
+//방문자에게 노출되는 상태(PUBLISHED/CLOSED)의 배지 라벨. PENDING/REJECTED는 방문자 화면에 나타나지 않는다.
+export const FESTIVAL_VISIBLE_STATUS_LABELS = {
+  PUBLISHED: '진행중',
+  CLOSED: '종료됨',
+}
+
 function formatDate(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
@@ -53,6 +59,7 @@ export function mapFestivalToCard(festival) {
     location: festival.location,
     date: formatDateRange(festival.startAt, festival.endAt),
     price: formatPrice(festival.ticketTypes),
-    image: toAbsoluteImageUrl(festival.imageUrls?.[0]),
+    image: toAbsoluteImageUrl(festival.thumbnailImageUrl),
+    festivalStatus: festival.festivalStatus,
   }
 }

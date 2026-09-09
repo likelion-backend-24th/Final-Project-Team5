@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CalendarIcon, ImageIcon, MapPinIcon, TicketIcon } from 'lucide-react'
-import { FESTIVAL_CATEGORY_LABELS, fetchFestivalDetail, toAbsoluteImageUrl } from '../api/festivalApi'
+import {
+  FESTIVAL_CATEGORY_LABELS,
+  FESTIVAL_VISIBLE_STATUS_LABELS,
+  fetchFestivalDetail,
+  toAbsoluteImageUrl,
+} from '../api/festivalApi'
 import { fetchMyReservations } from '../api/reservationApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
@@ -133,9 +138,9 @@ function FestivalDetail() {
   return (
     <main className={styles.main}>
       <div className={styles.hero}>
-        {festival.imageUrls?.length > 0 ? (
+        {festival.thumbnailImageUrl ? (
           <img
-            src={toAbsoluteImageUrl(festival.imageUrls[0])}
+            src={toAbsoluteImageUrl(festival.thumbnailImageUrl)}
             alt={festival.name}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -147,9 +152,14 @@ function FestivalDetail() {
       </div>
 
       <div className={styles.content}>
-        <Badge variant="secondary">
-          {FESTIVAL_CATEGORY_LABELS[festival.festivalCategory] ?? festival.festivalCategory}
-        </Badge>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {festival.festivalStatus === 'CLOSED' && (
+            <Badge variant="secondary">{FESTIVAL_VISIBLE_STATUS_LABELS.CLOSED}</Badge>
+          )}
+          <Badge variant="secondary">
+            {FESTIVAL_CATEGORY_LABELS[festival.festivalCategory] ?? festival.festivalCategory}
+          </Badge>
+        </div>
         <h1 className={styles.title}>{festival.name}</h1>
 
         <div className={styles.metaList}>
@@ -165,6 +175,25 @@ function FestivalDetail() {
 
         {festival.description && <p className={styles.description}>{festival.description}</p>}
 
+        {festival.detailImageUrls?.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            {festival.detailImageUrls.map((url) => (
+              <img
+                key={url}
+                src={toAbsoluteImageUrl(url)}
+                alt=""
+                style={{ width: '100%', borderRadius: 12, objectFit: 'cover' }}
+              />
+            ))}
+          </div>
+        )}
+
+        {festival.festivalStatus === 'CLOSED' && (
+          <p className={styles.description} style={{ color: 'var(--fgColor-danger)' }}>
+            종료된 페스티벌이라 예매를 신청할 수 없어요.
+          </p>
+        )}
+
         <section className={styles.ticketSection}>
           <h2 className={styles.sectionTitle}>
             <TicketIcon size={18} aria-hidden="true" />
@@ -176,6 +205,7 @@ function FestivalDetail() {
           ) : (
             <ul className={styles.ticketList}>
               {festival.ticketTypes.map((ticketType) => {
+                const closed = festival.festivalStatus !== 'PUBLISHED'
                 const soldOut = ticketType.remainQuantity <= 0
                 const quantity = quantities[ticketType.id] ?? 1
                 const maxQuantity = Math.min(ticketType.remainQuantity, MAX_QUANTITY_PER_TICKET_TYPE)
@@ -191,7 +221,7 @@ function FestivalDetail() {
                       <p className={styles.ticketPrice}>
                         {ticketType.price <= 0 ? '무료' : `${ticketType.price.toLocaleString()}원`}
                       </p>
-                      {!soldOut && !isHelper && (
+                      {!soldOut && !closed && !isHelper && (
                         <>
                           <input
                             type="number"

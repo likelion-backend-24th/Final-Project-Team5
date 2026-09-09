@@ -3,6 +3,7 @@ package org.example.festivalservice.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.dto.ApiResponse;
+import org.example.festivalservice.domain.festival.FestivalImageUploadResponseDto;
 import org.example.festivalservice.domain.festival.FestivalImageUploadService;
 import org.example.festivalservice.domain.festival.FestivalRequestDto;
 import org.example.festivalservice.domain.festival.FestivalResponseDto;
@@ -21,14 +22,17 @@ public class HostController {
     private final FestivalService festivalService;
     private final FestivalImageUploadService festivalImageUploadService;
 
-    //승인된 주최자가 페스티벌 등록 전 이미지를 먼저 업로드하고 URL을 받는다 (최대 3장, 장당 10MB)
+    //승인된 주최자가 페스티벌 등록 전 이미지를 먼저 업로드하고 URL을 받는다.
+    //대표 이미지(썸네일, 0~1장)와 본문 이미지(0~2장)를 한 번에 받는다 — 장당 10MB.
     @PostMapping("/images")
-    public ResponseEntity<ApiResponse<List<String>>> uploadImages(
+    public ResponseEntity<ApiResponse<FestivalImageUploadResponseDto>> uploadImages(
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role,
-            @RequestParam("files") List<MultipartFile> files
+            @RequestParam(value = "thumbnail", required = false) MultipartFile thumbnail,
+            @RequestParam(value = "detailImages", required = false) List<MultipartFile> detailImages
     ) {
-        return ResponseEntity.ok(ApiResponse.success("이미지 업로드 성공", festivalImageUploadService.upload(role, files)));
+        return ResponseEntity.ok(ApiResponse.success("이미지 업로드 성공",
+                festivalImageUploadService.upload(role, thumbnail, detailImages)));
     }
 
     //승인된 주최자가 새 페스티벌(및 티켓 종류)을 등록한다

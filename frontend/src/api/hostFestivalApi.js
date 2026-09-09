@@ -4,10 +4,12 @@ export function createFestival(payload) {
   return apiClient.post('/api/host/festivals', payload)
 }
 
-//등록 전 이미지를 먼저 업로드하고 URL 목록을 받는다 (최대 3장, 장당 10MB — 백엔드 FestivalErrorCode 참고)
-export function uploadFestivalImages(files) {
+//등록 전 이미지를 먼저 업로드하고 URL을 받는다. thumbnail은 파일 1개(선택), detailImages는 최대 2개(선택) —
+//장당 10MB, 백엔드 FestivalErrorCode 참고. 응답: { thumbnailImageUrl, detailImageUrls }
+export function uploadFestivalImages({ thumbnail, detailImages }) {
   const formData = new FormData()
-  files.forEach((file) => formData.append('files', file))
+  if (thumbnail) formData.append('thumbnail', thumbnail)
+  ;(detailImages ?? []).forEach((file) => formData.append('detailImages', file))
   return apiClient.post('/api/host/festivals/images', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })

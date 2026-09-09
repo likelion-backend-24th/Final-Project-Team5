@@ -65,4 +65,11 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("비밀번호가 재설정되었습니다.", null));
     }
 
+    // Kakao 로그인 콜백
+    @Operation(summary = "카카오 로그인 콜백", description = "카카오가 발급한 인가 코드(code)를 받아 로그인 처리합니다. 최초 로그인 시 자동 회원가입됩니다.")
+    @GetMapping("/kakao/callback")
+    public ResponseEntity<ApiResponse<TokenResponse>> kakaoLoginCallback(@RequestParam("code") String code) {
+        TokenResponse response = authService.kakaoLogin(code);
+        return authCookieResponseBuilder.buildWithCookie(response, "카카오 로그인 성공");
+    }
 }

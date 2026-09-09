@@ -3,6 +3,7 @@ package org.example.authservice.auth.service;
 import org.example.authservice.auth.dto.LoginRequest;
 import org.example.authservice.auth.dto.SignupRequest;
 import org.example.authservice.auth.dto.TokenResponse;
+import org.example.authservice.auth.dto.oauth.GoogleUserInfoResponse;
 import org.example.authservice.auth.dto.oauth.KakaoUserInfoResponse;
 import org.example.authservice.auth.entity.OauthAccount;
 import org.example.authservice.auth.entity.RefreshToken;
@@ -63,14 +64,17 @@ class AuthServiceTest {
     @Mock
     private LoginAttemptService loginAttemptService;
 
-    @InjectMocks
-    private AuthService authService;
-
     @Mock
     private KakaoApiClient kakaoApiClient;
 
     @Mock
+    private GoogleApiClient googleApiClient;
+
+    @Mock
     private OauthAccountRepository oauthAccountRepository;
+
+    @InjectMocks
+    private AuthService authService;
 
     private SignupRequest createValidRequest() {
         return new SignupRequest(
@@ -78,16 +82,18 @@ class AuthServiceTest {
                 "test@naver.com",
                 "안양개발자",
                 "test1234",
-                true // termsAgreed
+                true
         );
     }
+
+    // ===== signup =====
 
     @Test
     @DisplayName("정상적인 요청이면 회원가입에 성공하고, 비밀번호는 암호화되어 저장되며 약관동의 시각이 기록된다")
     void signup_success() {
         // given
         SignupRequest request = createValidRequest();
-        given(userRepository.existsByUsername(request.getUsername())).willReturn(false);
+        given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.empty());
         given(userRepository.existsByNickname(request.getNickname())).willReturn(false);
         given(passwordEncoder.encode(request.getPassword())).willReturn("encoded-password");
 
@@ -109,11 +115,12 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("username이 이미 존재하면 DUPLICATE_USERNAME 예외가 발생하고, save는 호출되지 않는다")
+    @DisplayName("username이 이미 존재하고 비밀번호도 있으면 DUPLICATE_USERNAME 예외가 발생하고, save는 호출되지 않는다")
     void signup_fail_duplicateUsername() {
         // given
         SignupRequest request = createValidRequest();
-        given(userRepository.existsByUsername(request.getUsername())).willReturn(true);
+        User existingUser = createActiveUser();
+        given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.of(existingUser));
 
         // when & then
         assertThatThrownBy(() -> authService.signup(request))
@@ -130,7 +137,7 @@ class AuthServiceTest {
     void signup_fail_duplicateNickname() {
         // given
         SignupRequest request = createValidRequest();
-        given(userRepository.existsByUsername(request.getUsername())).willReturn(false);
+        given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.empty());
         given(userRepository.existsByNickname(request.getNickname())).willReturn(true);
 
         // when & then
@@ -146,14 +153,8 @@ class AuthServiceTest {
     @DisplayName("약관에 동의하지 않으면 TERMS_NOT_AGREED 예외가 발생하고, save는 호출되지 않는다")
     void signup_fail_termsNotAgreed() {
         // given
-        SignupRequest request = new SignupRequest(
-                "홍길동",
-                "test@naver.com",
-                "안양개발자",
-                "test1234",
-                false // termsAgreed = false
-        );
-        given(userRepository.existsByUsername(request.getUsername())).willReturn(false);
+        SignupRequest request = new SignupRequest("홍길동", "test@naver.com", "안양개발자", "test1234", false);
+        given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.empty());
         given(userRepository.existsByNickname(request.getNickname())).willReturn(false);
 
         // when & then
@@ -171,7 +172,7 @@ class AuthServiceTest {
     void signup_passwordIsEncoded() {
         // given
         SignupRequest request = createValidRequest();
-        given(userRepository.existsByUsername(request.getUsername())).willReturn(false);
+        given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.empty());
         given(userRepository.existsByNickname(request.getNickname())).willReturn(false);
         given(passwordEncoder.encode("test1234")).willReturn("encoded-password");
 
@@ -185,6 +186,34 @@ class AuthServiceTest {
         verify(userRepository).save(captor.capture());
         assertThat(captor.getValue().getPassword()).isNotEqualTo("test1234");
     }
+
+    @Test
+    @DisplayName("이미 소셜 계정이 있는 이메일로 일반 회원가입 시도하면 비밀번호만 추가되고 새 유저는 생성되지 않는다")
+    void signup_success_mergePasswordIntoExistingSocialUser() {
+        // given
+        User socialUser = createActiveUser();
+        socialUser.setPassword(null);
+        SignupRequest request = new SignupRequest(
+                "홍길동",
+                "test@naver.com",
+                "다른닉네임",
+                "newpassword1234",
+                true
+        );
+
+        given(userRepository.findByUsername("test@naver.com")).willReturn(Optional.of(socialUser));
+        given(userRepository.existsByNickname("다른닉네임")).willReturn(false);
+        given(passwordEncoder.encode("newpassword1234")).willReturn("encoded-password");
+
+        // when
+        authService.signup(request);
+
+        // then
+        assertThat(socialUser.getPassword()).isEqualTo("encoded-password");
+        verify(userRepository, times(1)).save(socialUser);
+    }
+
+    // ===== login =====
 
     @Test
     @DisplayName("정상적인 로그인 요청이면 Access/Refresh Token을 발급하고, 실패 카운트/잠금을 초기화한다")
@@ -341,6 +370,8 @@ class AuthServiceTest {
         return user;
     }
 
+    // ===== reissue =====
+
     @Test
     @DisplayName("정상적인 토큰이면 재발급에 성공하고, 기존 토큰은 폐기되며 새 토큰과 연결된다")
     void reissue_success() {
@@ -487,6 +518,8 @@ class AuthServiceTest {
         }
     }
 
+    // ===== logout =====
+
     @Test
     @DisplayName("정상적인 토큰으로 로그아웃하면 해당 토큰이 revoked 처리된다")
     void logout_success() {
@@ -529,6 +562,8 @@ class AuthServiceTest {
 
         verify(refreshTokenRepository, never()).save(any());
     }
+
+    // ===== resetPassword =====
 
     @Test
     @DisplayName("이메일 인증 완료 후 비밀번호 재설정에 성공하고, 기존 세션이 전부 무효화된다")
@@ -582,6 +617,8 @@ class AuthServiceTest {
         verify(refreshTokenRevocationService, never()).revokeAllTokens(any());
     }
 
+    // ===== kakaoLogin =====
+
     @Test
     @DisplayName("이미 연동된 카카오 계정으로 로그인하면 기존 유저로 로그인 처리된다")
     void kakaoLogin_success_existingUser() {
@@ -609,7 +646,7 @@ class AuthServiceTest {
         // then
         assertThat(response.getAccessToken()).isEqualTo("access-token");
         assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
-        verify(userRepository, never()).save(any()); // 기존 유저라 새로 가입 안 함
+        verify(userRepository, never()).save(any());
         verify(refreshTokenRepository, times(1)).save(any(RefreshToken.class));
     }
 
@@ -692,5 +729,122 @@ class AuthServiceTest {
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(AuthErrorCode.ACCOUNT_SUSPENDED));
+    }
+
+    // ===== googleLogin =====
+
+    @Test
+    @DisplayName("이미 연동된 구글 계정으로 로그인하면 기존 유저로 로그인 처리된다")
+    void googleLogin_success_existingLinkedUser() {
+        // given
+        User user = createActiveUser();
+        OauthAccount oauthAccount = new OauthAccount();
+        oauthAccount.setUser(user);
+        oauthAccount.setProvider("GOOGLE");
+        oauthAccount.setProviderId("google-id-123");
+
+        GoogleUserInfoResponse googleUserInfo = new GoogleUserInfoResponse();
+        googleUserInfo.setId("google-id-123");
+        googleUserInfo.setEmail("test@naver.com");
+
+        given(googleApiClient.getAccessToken("valid-code")).willReturn("google-access-token");
+        given(googleApiClient.getUserInfo("google-access-token")).willReturn(googleUserInfo);
+        given(oauthAccountRepository.findByProviderAndProviderId("GOOGLE", "google-id-123"))
+                .willReturn(Optional.of(oauthAccount));
+        given(jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId()))
+                .willReturn("access-token");
+        given(jwtTokenProvider.generateRefreshToken(user.getUsername())).willReturn("refresh-token");
+
+        // when
+        TokenResponse response = authService.googleLogin("valid-code");
+
+        // then
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        verify(userRepository, never()).save(any());
+        verify(oauthAccountRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("이메일이 같은 기존 일반 가입 유저가 있으면 새 유저를 만들지 않고 OauthAccount만 연결한다 (자동 연동)")
+    void googleLogin_success_autoLinkExistingUser() {
+        // given
+        User existingUser = createActiveUser();
+        GoogleUserInfoResponse googleUserInfo = new GoogleUserInfoResponse();
+        googleUserInfo.setId("google-id-999");
+        googleUserInfo.setEmail("test@naver.com");
+
+        given(googleApiClient.getAccessToken("code")).willReturn("token");
+        given(googleApiClient.getUserInfo("token")).willReturn(googleUserInfo);
+        given(oauthAccountRepository.findByProviderAndProviderId("GOOGLE", "google-id-999"))
+                .willReturn(Optional.empty());
+        given(userRepository.findByUsername("test@naver.com")).willReturn(Optional.of(existingUser));
+        given(jwtTokenProvider.generateAccessToken(any(), any(), any(), any())).willReturn("access-token");
+        given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
+
+        // when
+        TokenResponse response = authService.googleLogin("code");
+
+        // then
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        verify(userRepository, never()).save(any());
+
+        ArgumentCaptor<OauthAccount> oauthCaptor = ArgumentCaptor.forClass(OauthAccount.class);
+        verify(oauthAccountRepository, times(1)).save(oauthCaptor.capture());
+        assertThat(oauthCaptor.getValue().getUser()).isEqualTo(existingUser);
+        assertThat(oauthCaptor.getValue().getProvider()).isEqualTo("GOOGLE");
+        assertThat(oauthCaptor.getValue().getProviderId()).isEqualTo("google-id-999");
+    }
+
+    @Test
+    @DisplayName("같은 이메일의 기존 유저가 없으면 완전히 새로운 유저를 자동 생성한다")
+    void googleLogin_success_createNewUser() {
+        // given
+        GoogleUserInfoResponse googleUserInfo = new GoogleUserInfoResponse();
+        googleUserInfo.setId("google-id-777");
+        googleUserInfo.setEmail("newgoogle@gmail.com");
+        googleUserInfo.setName("구글신규유저");
+
+        given(googleApiClient.getAccessToken("code")).willReturn("token");
+        given(googleApiClient.getUserInfo("token")).willReturn(googleUserInfo);
+        given(oauthAccountRepository.findByProviderAndProviderId("GOOGLE", "google-id-777"))
+                .willReturn(Optional.empty());
+        given(userRepository.findByUsername("newgoogle@gmail.com")).willReturn(Optional.empty());
+        given(userRepository.existsByNickname(any())).willReturn(false);
+        given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(jwtTokenProvider.generateAccessToken(any(), any(), any(), any())).willReturn("access-token");
+        given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
+
+        // when
+        TokenResponse response = authService.googleLogin("code");
+
+        // then
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository, times(1)).save(userCaptor.capture());
+        User savedUser = userCaptor.getValue();
+        assertThat(savedUser.getUsername()).isEqualTo("newgoogle@gmail.com");
+        assertThat(savedUser.getPassword()).isNull();
+        assertThat(savedUser.getRole()).isEqualTo(Role.USER);
+
+        ArgumentCaptor<OauthAccount> oauthCaptor = ArgumentCaptor.forClass(OauthAccount.class);
+        verify(oauthAccountRepository, times(1)).save(oauthCaptor.capture());
+        assertThat(oauthCaptor.getValue().getProvider()).isEqualTo("GOOGLE");
+    }
+
+    @Test
+    @DisplayName("구글 토큰 교환이나 사용자 정보 조회가 실패하면 OAUTH_TOKEN_INVALID 예외가 발생한다")
+    void googleLogin_fail_invalidToken() {
+        // given
+        given(googleApiClient.getAccessToken("bad-code"))
+                .willThrow(HttpClientErrorException.create(HttpStatus.BAD_REQUEST, "Bad Request", null, null, null));
+
+        // when & then
+        assertThatThrownBy(() -> authService.googleLogin("bad-code"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.OAUTH_TOKEN_INVALID));
+
+        verify(userRepository, never()).save(any());
     }
 }

@@ -1,0 +1,89 @@
+# 카카오 - 브라우저에서 code 받기
+# 브라우저 주소창에 아래 URL의 {KAKAO_CLIENT_ID} 부분을 .env의 실제 값으로 바꿔서 입력하세요
+# https://kauth.kakao.com/oauth/authorize?client_id={KAKAO_CLIENT_ID}&redirect_uri=http://localhost:8080/api/auth/kakao/callback&response_type=code
+
+# 구글 - 브라우저에서 code 받기
+# 브라우저 주소창에 아래 URL의 {GOOGLE_CLIENT_ID} 부분을 .env의 실제 값으로 바꿔서 입력하세요
+# https://accounts.google.com/o/oauth2/v2/auth?client_id={GOOGLE_CLIENT_ID}&redirect_uri=http://localhost:8080/api/auth/google/callback&response_type=code&scope=email%20profile
+
+
+### === 시나리오 A: 일반 가입 → 구글 로그인 (자동 연동) ===
+
+### A-1. 이메일 인증 발송 (본인의 실제 구글 이메일로!)
+POST http://localhost:8081/api/auth/email/send
+Content-Type: application/json
+
+{
+  "email": "본인의실제구글이메일@gmail.com"
+}
+
+### A-2. 인증코드 검증 (메일로 받은 실제 코드로 교체)
+POST http://localhost:8081/api/auth/email/verify
+Content-Type: application/json
+
+{
+  "email": "본인의실제구글이메일@gmail.com",
+  "code": "실제받은코드"
+}
+
+### A-3. 일반 회원가입
+POST http://localhost:8081/api/auth/signup
+Content-Type: application/json
+
+{
+  "name": "홍길동",
+  "username": "본인의실제구글이메일@gmail.com",
+  "nickname": "연동테스트닉네임",
+  "password": "test1234",
+  "termsAgreed": true
+}
+
+### A-4. 일반 로그인으로 정상 가입 확인
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "본인의실제구글이메일@gmail.com",
+  "password": "test1234"
+}
+
+### === 시나리오 B: 구글 로그인(자동가입) → 나중에 일반 회원가입 (비밀번호 병합) ===
+### 사전 준비: 브라우저로 구글 로그인 먼저 해서 자동가입 완료 (새 이메일로, 아직 일반가입 안 한 이메일)
+
+### B-1. 이메일 인증 발송 (구글로 이미 가입된 그 이메일로)
+POST http://localhost:8081/api/auth/email/send
+Content-Type: application/json
+
+{
+  "email": "구글로먼저가입한이메일@gmail.com"
+}
+
+### B-2. 인증코드 검증
+POST http://localhost:8081/api/auth/email/verify
+Content-Type: application/json
+
+{
+  "email": "구글로먼저가입한이메일@gmail.com",
+  "code": "실제받은코드"
+}
+
+### B-3. 일반 회원가입 시도 (DUPLICATE_USERNAME 안 뜨고 성공해야 함)
+POST http://localhost:8081/api/auth/signup
+Content-Type: application/json
+
+{
+  "name": "홍길동",
+  "username": "구글로먼저가입한이메일@gmail.com",
+  "nickname": "아무닉네임",
+  "password": "newpassword1234",
+  "termsAgreed": true
+}
+
+### B-4. 방금 설정한 비밀번호로 일반 로그인 (성공해야 함)
+POST http://localhost:8081/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "구글로먼저가입한이메일@gmail.com",
+  "password": "newpassword1234"
+}

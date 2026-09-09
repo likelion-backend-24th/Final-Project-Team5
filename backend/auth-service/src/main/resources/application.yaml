@@ -56,6 +56,11 @@ kakao:
   client-secret: ${KAKAO_CLIENT_SECRET:dummy-client-secret}
   redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/auth/kakao/callback}
 
+google:
+  client-id: ${GOOGLE_CLIENT_ID:dummy-client-id}
+  client-secret: ${GOOGLE_CLIENT_SECRET:dummy-client-secret}
+  redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/auth/google/callback}
+
 # Festival-Service -> Auth-Service 내부 호출(PUT /internal/v1/roles, /internal/v1/helper-accounts) 인증 토큰.
 # festival-service의 INTERNAL_AUTH_TOKEN과 반드시 같은 값이어야 한다.
 internal:

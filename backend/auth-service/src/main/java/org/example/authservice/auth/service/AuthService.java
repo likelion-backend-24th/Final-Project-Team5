@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.authservice.auth.dto.LoginRequest;
 import org.example.authservice.auth.dto.SignupRequest;
 import org.example.authservice.auth.dto.TokenResponse;
+import org.example.authservice.auth.dto.oauth.GoogleUserInfoResponse;
 import org.example.authservice.auth.dto.oauth.KakaoUserInfoResponse;
 import org.example.authservice.auth.entity.OauthAccount;
 import org.example.authservice.auth.entity.RefreshToken;
@@ -43,6 +44,7 @@ public class AuthService {
     private final EmailVerificationService emailVerificationService;
     private final LoginAttemptService loginAttemptService;
     private final KakaoApiClient kakaoApiClient;
+    private final GoogleApiClient googleApiClient;
     private final OauthAccountRepository oauthAccountRepository;
 
     @Value("${jwt.refresh-token-expiration}")
@@ -51,17 +53,13 @@ public class AuthService {
     //회원가입
     @Transactional
     public void signup(SignupRequest signupRequest) {
-//
-//        Optional<User> existingUser = userRepository.findByUsername(signupRequest.getUsername());
-//
-//        // 유저가 존재하고 비밀번호도 갖고있으면 중복으로 회원가입 불가
-//        if(existingUser.isPresent() && existingUser.get().getPassword() != null){
-//            throw new ApiException(AuthErrorCode.DUPLICATE_USERNAME);
-//        }
-        // 이메일 중복 검증
-        if (userRepository.existsByUsername(signupRequest.getUsername())) {
+        Optional<User> existingUser = userRepository.findByUsername(signupRequest.getUsername());
+
+        // 유저가 존재하고 비밀번호도 갖고있으면 중복으로 회원가입 불가
+        if(existingUser.isPresent() && existingUser.get().getPassword() != null){
             throw new ApiException(AuthErrorCode.DUPLICATE_USERNAME);
         }
+
         //닉네임중복 검증
         if (userRepository.existsByNickname(signupRequest.getNickname())) {
             throw new ApiException(AuthErrorCode.DUPLICATE_NICKNAME);
@@ -73,13 +71,13 @@ public class AuthService {
         //이메일 인증이 완료 여부
         emailVerificationService.checkVerified(signupRequest.getUsername());
 
-//        // 기존 소셜 계정에 비밀번호만 연결
-//        if(existingUser.isPresent()){
-//            User user = existingUser.get();
-//            user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
-//            userRepository.save(user);
-//            return; //여기서 메서드 종료해야함 밑으로 가면 안됨.
-//        }
+        // 기존 소셜 계정에 비밀번호만 연결(계정 연동)
+        if(existingUser.isPresent()){
+            User user = existingUser.get();
+            user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
+            userRepository.save(user);
+            return; //여기서 메서드 종료해야함 밑으로 가면 안됨.
+        }
 
         User user = new User();
         user.setName(signupRequest.getName());
@@ -197,7 +195,7 @@ public class AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
 
-        //나중에 소셜 로그인은 변경 불가 로직
+        //소셜 로그인은 변경 불가 로직
         if(user.getPassword() == null){
             throw new ApiException(UserErrorCode.SOCIAL_USER_CANNOT_CHANGE_PASSWORD);
         }
@@ -282,6 +280,67 @@ public class AuthService {
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
 
         // DB에 RefreshToken 저장
+        RefreshToken newRefreshToken = new RefreshToken();
+        newRefreshToken.setUser(user);
+        newRefreshToken.setTokenHash(hashToken(refreshToken));
+        newRefreshToken.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpiration)));
+        refreshTokenRepository.save(newRefreshToken);
+
+        return new TokenResponse(accessToken, refreshToken);
+    }
+
+    // Google 최초 로그인 시 회원가입 또는 기존 계정 연결
+    private User registerGoogleUser(GoogleUserInfoResponse googleUserInfo,String providerId){
+        User user = userRepository.findByUsername(googleUserInfo.getEmail())
+                .orElseGet(() -> createNewGoogleUser(googleUserInfo));
+
+        OauthAccount oauthAccount = new OauthAccount();
+        oauthAccount.setUser(user);
+        oauthAccount.setProvider("GOOGLE");
+        oauthAccount.setProviderId(providerId);
+        oauthAccount.setLinkedAt(LocalDateTime.now());
+
+        oauthAccountRepository.save(oauthAccount);
+
+        return user;
+    }
+
+    // 완전히 새로운 구글 유저 생성
+    private User createNewGoogleUser(GoogleUserInfoResponse googleUserInfo) {
+        User user = new User();
+        user.setUsername(googleUserInfo.getEmail());
+        user.setName(googleUserInfo.getName());
+        user.setNickname(generateUniqueNickname(googleUserInfo.getName())); // 뒤에 랜덤 숫자 6자리 붙임
+        user.setPassword(null);
+        user.setRole(Role.USER);
+        user.setStatus(AccountStatus.ACTIVE);
+
+        return userRepository.save(user);
+    }
+
+    // Google 로그인
+    @Transactional
+    public TokenResponse googleLogin(String code) {
+        String googleAccessToken;
+        GoogleUserInfoResponse googleUserInfo;
+        try {
+            googleAccessToken = googleApiClient.getAccessToken(code);
+            googleUserInfo = googleApiClient.getUserInfo(googleAccessToken);
+        } catch (HttpClientErrorException e) {
+            throw new ApiException(AuthErrorCode.OAUTH_TOKEN_INVALID);
+        }
+
+        String providerId = googleUserInfo.getId();
+
+        User user = oauthAccountRepository.findByProviderAndProviderId("GOOGLE", providerId)
+                .map(oauthAccount -> oauthAccount.getUser())
+                .orElseGet(() -> registerGoogleUser(googleUserInfo, providerId));
+
+        checkAccountActive(user);
+
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
+
         RefreshToken newRefreshToken = new RefreshToken();
         newRefreshToken.setUser(user);
         newRefreshToken.setTokenHash(hashToken(refreshToken));

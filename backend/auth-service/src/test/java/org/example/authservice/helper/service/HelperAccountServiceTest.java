@@ -1,5 +1,6 @@
 package org.example.authservice.helper.service;
 
+import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.helper.dto.CreateHelperAccountRequest;
@@ -44,6 +45,9 @@ class HelperAccountServiceTest {
     @Mock
     private RefreshTokenRevocationService refreshTokenRevocationService;
 
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
     private HelperAccountService helperAccountService;
     private PasswordEncoder passwordEncoder;
 
@@ -51,7 +55,8 @@ class HelperAccountServiceTest {
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder();
         helperAccountService = new HelperAccountService(
-                userRepository, passwordEncoder, new HelperCredentialGenerator(), refreshTokenRevocationService);
+                userRepository, passwordEncoder, new HelperCredentialGenerator(),
+                refreshTokenRevocationService, refreshTokenRepository);
     }
 
     @Test
@@ -157,19 +162,48 @@ class HelperAccountServiceTest {
     }
 
     @Test
-    @DisplayName("페스티벌 종료 후 유예시간이 지난 계정은 탈퇴 처리되고 세션도 끊긴다")
-    void withdrawsExpiredHelperAccounts() {
+    @DisplayName("페스티벌 종료 후 유예시간이 지난 도우미 계정은 DB에서 삭제된다")
+    void deletesExpiredHelperAccounts() {
         User expired = helperAccount(1L, FESTIVAL_ID);
         LocalDateTime revokeThreshold = LocalDateTime.now().minusHours(24);
         given(userRepository.findByRoleAndStatusAndFestivalEndAtBefore(
                 Role.HELPER, AccountStatus.ACTIVE, revokeThreshold)).willReturn(List.of(expired));
 
-        int withdrawnCount = helperAccountService.withdrawExpiredHelperAccounts(revokeThreshold);
+        int deletedCount = helperAccountService.deleteExpiredHelperAccounts(revokeThreshold);
 
-        assertThat(withdrawnCount).isEqualTo(1);
-        assertThat(expired.getStatus()).isEqualTo(AccountStatus.WITHDRAWN);
-        assertThat(expired.getWithdrawnAt()).isNotNull();
-        verify(refreshTokenRevocationService).revokeAllTokens(expired);
+        assertThat(deletedCount).isEqualTo(1);
+        verify(userRepository).delete(expired);
+        //상태만 바꾸고 남겨두는 소프트 삭제로 되돌아가지 않았는지 함께 확인한다.
+        verify(userRepository, org.mockito.Mockito.never()).save(expired);
+    }
+
+    @Test
+    @DisplayName("계정을 지우기 전에 FK로 묶인 Refresh Token을 먼저 삭제한다")
+    void deletesRefreshTokensBeforeDeletingAccount() {
+        User expired = helperAccount(1L, FESTIVAL_ID);
+        LocalDateTime revokeThreshold = LocalDateTime.now().minusHours(24);
+        given(userRepository.findByRoleAndStatusAndFestivalEndAtBefore(
+                Role.HELPER, AccountStatus.ACTIVE, revokeThreshold)).willReturn(List.of(expired));
+
+        helperAccountService.deleteExpiredHelperAccounts(revokeThreshold);
+
+        //refresh_token.user_id가 users를 FK로 참조하므로 순서가 뒤바뀌면 제약 위반으로 삭제가 실패한다.
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(refreshTokenRepository, userRepository);
+        inOrder.verify(refreshTokenRepository).deleteAllByUser_Id(1L);
+        inOrder.verify(userRepository).delete(expired);
+    }
+
+    @Test
+    @DisplayName("삭제 대상은 도우미 역할의 활성 계정으로만 조회한다 — 다른 역할은 소프트 삭제를 유지한다")
+    void onlyHelperRoleIsHardDeleted() {
+        LocalDateTime revokeThreshold = LocalDateTime.now().minusHours(24);
+        given(userRepository.findByRoleAndStatusAndFestivalEndAtBefore(
+                Role.HELPER, AccountStatus.ACTIVE, revokeThreshold)).willReturn(List.of());
+
+        helperAccountService.deleteExpiredHelperAccounts(revokeThreshold);
+
+        verify(userRepository).findByRoleAndStatusAndFestivalEndAtBefore(
+                Role.HELPER, AccountStatus.ACTIVE, revokeThreshold);
     }
 
     @Test
@@ -179,7 +213,7 @@ class HelperAccountServiceTest {
         given(userRepository.findByRoleAndStatusAndFestivalEndAtBefore(
                 Role.HELPER, AccountStatus.ACTIVE, revokeThreshold)).willReturn(List.of());
 
-        assertThat(helperAccountService.withdrawExpiredHelperAccounts(revokeThreshold)).isZero();
+        assertThat(helperAccountService.deleteExpiredHelperAccounts(revokeThreshold)).isZero();
         verify(userRepository, org.mockito.Mockito.never()).save(any(User.class));
     }
 

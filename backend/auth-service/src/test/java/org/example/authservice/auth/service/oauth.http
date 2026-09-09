@@ -1,0 +1,7 @@
+
+#카카오- 브라우저에서 code 받기
+#브라우저 주소창에 아래 URL을 직접 입력해서 엽니다
+# https://kauth.kakao.com/oauth/authorize?client_id=90a3651da9751cd5e6df62eba8f73e1f&redirect_uri=http://localhost:8080/api/auth/kakao/callback&response_type=code
+
+
+

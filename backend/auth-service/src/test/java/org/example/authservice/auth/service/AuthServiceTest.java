@@ -3,9 +3,12 @@ package org.example.authservice.auth.service;
 import org.example.authservice.auth.dto.LoginRequest;
 import org.example.authservice.auth.dto.SignupRequest;
 import org.example.authservice.auth.dto.TokenResponse;
+import org.example.authservice.auth.dto.oauth.KakaoUserInfoResponse;
+import org.example.authservice.auth.entity.OauthAccount;
 import org.example.authservice.auth.entity.RefreshToken;
 import org.example.authservice.auth.exception.AuthErrorCode;
 import org.example.authservice.auth.exception.EmailVerificationErrorCode;
+import org.example.authservice.auth.repository.OauthAccountRepository;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.security.JwtTokenProvider;
 import org.example.authservice.common.exception.ApiException;
@@ -20,7 +23,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -60,6 +65,12 @@ class AuthServiceTest {
 
     @InjectMocks
     private AuthService authService;
+
+    @Mock
+    private KakaoApiClient kakaoApiClient;
+
+    @Mock
+    private OauthAccountRepository oauthAccountRepository;
 
     private SignupRequest createValidRequest() {
         return new SignupRequest(
@@ -569,5 +580,117 @@ class AuthServiceTest {
 
         verify(userRepository, never()).save(any());
         verify(refreshTokenRevocationService, never()).revokeAllTokens(any());
+    }
+
+    @Test
+    @DisplayName("이미 연동된 카카오 계정으로 로그인하면 기존 유저로 로그인 처리된다")
+    void kakaoLogin_success_existingUser() {
+        // given
+        User user = createActiveUser();
+        OauthAccount oauthAccount = new OauthAccount();
+        oauthAccount.setUser(user);
+        oauthAccount.setProvider("KAKAO");
+        oauthAccount.setProviderId("123456");
+
+        KakaoUserInfoResponse kakaoUserInfo = new KakaoUserInfoResponse();
+        kakaoUserInfo.setId(123456L);
+
+        given(kakaoApiClient.getAccessToken("valid-code")).willReturn("kakao-access-token");
+        given(kakaoApiClient.getUserInfo("kakao-access-token")).willReturn(kakaoUserInfo);
+        given(oauthAccountRepository.findByProviderAndProviderId("KAKAO", "123456"))
+                .willReturn(Optional.of(oauthAccount));
+        given(jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId()))
+                .willReturn("access-token");
+        given(jwtTokenProvider.generateRefreshToken(user.getUsername())).willReturn("refresh-token");
+
+        // when
+        TokenResponse response = authService.kakaoLogin("valid-code");
+
+        // then
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(response.getRefreshToken()).isEqualTo("refresh-token");
+        verify(userRepository, never()).save(any()); // 기존 유저라 새로 가입 안 함
+        verify(refreshTokenRepository, times(1)).save(any(RefreshToken.class));
+    }
+
+    @Test
+    @DisplayName("처음 로그인하는 카카오 계정이면 자동 회원가입 후 로그인 처리된다")
+    void kakaoLogin_success_newUser() {
+        // given
+        KakaoUserInfoResponse.Profile profile = new KakaoUserInfoResponse.Profile();
+        profile.setNickname("카카오유저");
+        KakaoUserInfoResponse.KakaoAccount kakaoAccount = new KakaoUserInfoResponse.KakaoAccount();
+        kakaoAccount.setProfile(profile);
+        KakaoUserInfoResponse kakaoUserInfo = new KakaoUserInfoResponse();
+        kakaoUserInfo.setId(999999L);
+        kakaoUserInfo.setKakao_account(kakaoAccount);
+
+        given(kakaoApiClient.getAccessToken("new-code")).willReturn("kakao-access-token");
+        given(kakaoApiClient.getUserInfo("kakao-access-token")).willReturn(kakaoUserInfo);
+        given(oauthAccountRepository.findByProviderAndProviderId("KAKAO", "999999"))
+                .willReturn(Optional.empty());
+        given(userRepository.existsByNickname(any())).willReturn(false);
+        given(jwtTokenProvider.generateAccessToken(any(), any(), any(), any()))
+                .willReturn("access-token");
+        given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
+
+        // when
+        TokenResponse response = authService.kakaoLogin("new-code");
+
+        // then
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository, times(1)).save(userCaptor.capture());
+        User savedUser = userCaptor.getValue();
+        assertThat(savedUser.getUsername()).isEqualTo("kakao_999999@kakao.local");
+        assertThat(savedUser.getPassword()).isNull();
+        assertThat(savedUser.getRole()).isEqualTo(Role.USER);
+        assertThat(savedUser.getNickname()).startsWith("카카오유저_");
+
+        ArgumentCaptor<OauthAccount> oauthCaptor = ArgumentCaptor.forClass(OauthAccount.class);
+        verify(oauthAccountRepository, times(1)).save(oauthCaptor.capture());
+        assertThat(oauthCaptor.getValue().getProvider()).isEqualTo("KAKAO");
+        assertThat(oauthCaptor.getValue().getProviderId()).isEqualTo("999999");
+    }
+
+    @Test
+    @DisplayName("카카오 토큰 교환이나 사용자 정보 조회가 실패하면 OAUTH_TOKEN_INVALID 예외가 발생한다")
+    void kakaoLogin_fail_invalidToken() {
+        // given
+        given(kakaoApiClient.getAccessToken("bad-code"))
+                .willThrow(HttpClientErrorException.create(HttpStatus.BAD_REQUEST, "Bad Request", null, null, null));
+
+        // when & then
+        assertThatThrownBy(() -> authService.kakaoLogin("bad-code"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.OAUTH_TOKEN_INVALID));
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("정지된 계정의 카카오 로그인이면 ACCOUNT_SUSPENDED 예외가 발생한다")
+    void kakaoLogin_fail_accountSuspended() {
+        // given
+        User user = createActiveUser();
+        user.setStatus(AccountStatus.SUSPENDED);
+        OauthAccount oauthAccount = new OauthAccount();
+        oauthAccount.setUser(user);
+
+        KakaoUserInfoResponse kakaoUserInfo = new KakaoUserInfoResponse();
+        kakaoUserInfo.setId(123456L);
+
+        given(kakaoApiClient.getAccessToken("code")).willReturn("token");
+        given(kakaoApiClient.getUserInfo("token")).willReturn(kakaoUserInfo);
+        given(oauthAccountRepository.findByProviderAndProviderId("KAKAO", "123456"))
+                .willReturn(Optional.of(oauthAccount));
+
+        // when & then
+        assertThatThrownBy(() -> authService.kakaoLogin("code"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.ACCOUNT_SUSPENDED));
     }
 }

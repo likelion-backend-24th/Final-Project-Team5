@@ -11,12 +11,14 @@ const STATUS_LABELS = {
   PENDING: '심사 대기',
   PUBLISHED: '공개됨',
   REJECTED: '반려됨',
+  CLOSED: '종료됨',
 }
 
 const STATUS_VARIANTS = {
   PENDING: 'secondary',
   PUBLISHED: 'accent',
   REJECTED: 'danger',
+  CLOSED: 'secondary',
 }
 
 function formatDateRange(startAt, endAt) {

@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CalendarIcon, ImageIcon, MapPinIcon, TicketIcon } from 'lucide-react'
-import { FESTIVAL_CATEGORY_LABELS, fetchFestivalDetail, toAbsoluteImageUrl } from '../api/festivalApi'
+import {
+  FESTIVAL_CATEGORY_LABELS,
+  FESTIVAL_VISIBLE_STATUS_LABELS,
+  fetchFestivalDetail,
+  toAbsoluteImageUrl,
+} from '../api/festivalApi'
+import { fetchMyReservations } from '../api/reservationApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
 import styles from './FestivalDetail.module.css'
@@ -20,6 +26,9 @@ function FestivalDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  //도우미는 예매를 할 수 없는 계정이라(예매 API가 막혀 있다) 수량·예매 버튼을 보여주지 않는다.
+  //이 화면은 도우미에게 담당 행사 정보를 확인하는 용도로만 쓰인다.
+  const isHelper = user?.role === 'HELPER'
   const [festival, setFestival] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -32,12 +41,38 @@ function FestivalDetail() {
     setQuantities((prev) => ({ ...prev, [ticketType.id]: next }))
   }
 
-  function handleReserve(ticketType) {
+  async function handleReserve(ticketType) {
     if (!user) {
       navigate('/login')
       return
     }
     const quantity = quantities[ticketType.id] ?? 1
+
+    // 이미 결제 대기 중인 예매가 있으면 새로 만들지 않고 그 결제로 이어갈 수 있게 안내한다
+    // (안 그러면 재고가 중복으로 묶이고 결제대기 건도 계속 쌓인다).
+    try {
+      const { data } = await fetchMyReservations()
+      // 다른 페스티벌의 결제대기 건까지 여기서 붙잡으면(동시에 여러 페스티벌 예매를 원하는 게
+      // 자연스러운 경우도 있어) 오히려 불편하다 — 지금 보고 있는 이 페스티벌과 같을 때만 안내한다.
+      const pending = data.data.find(
+        (r) =>
+          r.reservationStatus === 'PENDING' &&
+          new Date(r.expiresAt).getTime() > Date.now() &&
+          String(r.festivalId) === String(id),
+      )
+      if (pending) {
+        const goToPending = window.confirm('결제 진행중인 예매 건이 있습니다. 이동할까요?')
+        if (goToPending) {
+          navigate(
+            `/festivals/${pending.festivalId}/reserve?ticketTypeId=${pending.ticketTypeId}&quantity=${pending.quantity}&reservationId=${pending.id}`,
+          )
+          return
+        }
+      }
+    } catch {
+      // 조회 실패는 이 안내 기능만 건너뛰고 평소처럼 새 예매를 진행한다.
+    }
+
     navigate(`/festivals/${id}/reserve?ticketTypeId=${ticketType.id}&quantity=${quantity}`)
   }
 
@@ -103,9 +138,9 @@ function FestivalDetail() {
   return (
     <main className={styles.main}>
       <div className={styles.hero}>
-        {festival.imageUrls?.length > 0 ? (
+        {festival.thumbnailImageUrl ? (
           <img
-            src={toAbsoluteImageUrl(festival.imageUrls[0])}
+            src={toAbsoluteImageUrl(festival.thumbnailImageUrl)}
             alt={festival.name}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -117,9 +152,14 @@ function FestivalDetail() {
       </div>
 
       <div className={styles.content}>
-        <Badge variant="secondary">
-          {FESTIVAL_CATEGORY_LABELS[festival.festivalCategory] ?? festival.festivalCategory}
-        </Badge>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {festival.festivalStatus === 'CLOSED' && (
+            <Badge variant="secondary">{FESTIVAL_VISIBLE_STATUS_LABELS.CLOSED}</Badge>
+          )}
+          <Badge variant="secondary">
+            {FESTIVAL_CATEGORY_LABELS[festival.festivalCategory] ?? festival.festivalCategory}
+          </Badge>
+        </div>
         <h1 className={styles.title}>{festival.name}</h1>
 
         <div className={styles.metaList}>
@@ -135,6 +175,25 @@ function FestivalDetail() {
 
         {festival.description && <p className={styles.description}>{festival.description}</p>}
 
+        {festival.detailImageUrls?.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            {festival.detailImageUrls.map((url) => (
+              <img
+                key={url}
+                src={toAbsoluteImageUrl(url)}
+                alt=""
+                style={{ width: '100%', borderRadius: 12, objectFit: 'cover' }}
+              />
+            ))}
+          </div>
+        )}
+
+        {festival.festivalStatus === 'CLOSED' && (
+          <p className={styles.description} style={{ color: 'var(--fgColor-danger)' }}>
+            종료된 페스티벌이라 예매를 신청할 수 없어요.
+          </p>
+        )}
+
         <section className={styles.ticketSection}>
           <h2 className={styles.sectionTitle}>
             <TicketIcon size={18} aria-hidden="true" />
@@ -146,6 +205,7 @@ function FestivalDetail() {
           ) : (
             <ul className={styles.ticketList}>
               {festival.ticketTypes.map((ticketType) => {
+                const closed = festival.festivalStatus !== 'PUBLISHED'
                 const soldOut = ticketType.remainQuantity <= 0
                 const quantity = quantities[ticketType.id] ?? 1
                 const maxQuantity = Math.min(ticketType.remainQuantity, MAX_QUANTITY_PER_TICKET_TYPE)
@@ -161,7 +221,7 @@ function FestivalDetail() {
                       <p className={styles.ticketPrice}>
                         {ticketType.price <= 0 ? '무료' : `${ticketType.price.toLocaleString()}원`}
                       </p>
-                      {!soldOut && (
+                      {!soldOut && !closed && !isHelper && (
                         <>
                           <input
                             type="number"

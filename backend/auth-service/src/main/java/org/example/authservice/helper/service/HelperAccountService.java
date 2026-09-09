@@ -1,6 +1,7 @@
 package org.example.authservice.helper.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.helper.dto.CreateHelperAccountRequest;
@@ -33,7 +34,10 @@ public class HelperAccountService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final HelperCredentialGenerator credentialGenerator;
+    //비밀번호 재발급 시 기존 세션을 끊는 용도(계정은 그대로 살아있다).
     private final RefreshTokenRevocationService refreshTokenRevocationService;
+    //만료 계정을 지우기 전에 FK로 묶인 토큰 행을 먼저 제거하는 용도.
+    private final RefreshTokenRepository refreshTokenRepository;
 
     //호출할 때마다 새 계정을 하나씩 발급한다(멱등하지 않음 — 호스트가 필요한 만큼 반복 호출한다).
     //평문 비밀번호는 이 응답에서만 노출되고 DB에는 해시만 남는다.
@@ -82,17 +86,26 @@ public class HelperAccountService {
         return new HelperAccountSummaryResponse(helpers.size(), helpers);
     }
 
-    //페스티벌 종료 후 유예시간이 지난 도우미 계정을 일괄 탈퇴 처리한다. 배치가 호출한다.
+    /**
+     * 페스티벌 종료 후 유예시간이 지난 도우미 계정을 일괄 삭제한다. 배치가 호출한다.
+     *
+     * 도우미는 행사 하나를 위해 잠깐 쓰고 버리는 임시 계정이라, 만료된 뒤 상태만 바꿔 남겨두면
+     * 개인정보를 이유 없이 계속 보관하게 된다. 그래서 상태 변경(탈퇴 처리)이 아니라 행 자체를 지운다.
+     *
+     * 삭제해도 잃는 이력이 없는지 확인한 근거:
+     * - 호스트의 도우미 목록은 원래 ACTIVE만 조회하므로 만료 계정은 이미 보이지 않았다.
+     * - 입장 검증 기록(reservations.checked_in_at)은 검증자를 저장하지 않아 이 계정을 참조하지 않는다.
+     * - users를 참조하는 FK는 refresh_token 하나뿐이라, 그것만 먼저 지우면 된다.
+     */
     @Transactional
-    public int withdrawExpiredHelperAccounts(LocalDateTime revokeThreshold) {
+    public int deleteExpiredHelperAccounts(LocalDateTime revokeThreshold) {
         List<User> expiredHelpers = userRepository.findByRoleAndStatusAndFestivalEndAtBefore(
                 Role.HELPER, AccountStatus.ACTIVE, revokeThreshold);
 
         for (User helper : expiredHelpers) {
-            helper.setStatus(AccountStatus.WITHDRAWN);
-            helper.setWithdrawnAt(LocalDateTime.now());
-            userRepository.save(helper);
-            refreshTokenRevocationService.revokeAllTokens(helper);
+            //FK(refresh_token.user_id → users.id, NO ACTION) 때문에 토큰을 먼저 지워야 계정 삭제가 성공한다.
+            refreshTokenRepository.deleteAllByUser_Id(helper.getId());
+            userRepository.delete(helper);
         }
 
         return expiredHelpers.size();

@@ -93,6 +93,7 @@ function SignUp() {
         username: form.username.trim(),
         nickname: form.nickname.trim(),
         password: form.password,
+        termsAgreed: agreed,
       })
       navigate('/login')
     } catch (error) {

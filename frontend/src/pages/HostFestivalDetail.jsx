@@ -1,22 +1,25 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { CalendarIcon, ImageIcon, LockIcon, MapPinIcon, TicketIcon } from 'lucide-react'
+import { CalendarIcon, ImageIcon, LockIcon, MapPinIcon, ScanLineIcon, TicketIcon } from 'lucide-react'
 import { fetchMyFestivalDetail } from '../api/hostFestivalApi'
 import { FESTIVAL_CATEGORY_LABELS, toAbsoluteImageUrl } from '../api/festivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
+import HostHelperAccounts from '../components/HostHelperAccounts'
 import styles from './FestivalDetail.module.css'
 
 const STATUS_LABELS = {
   PENDING: '심사 대기',
   PUBLISHED: '공개됨',
   REJECTED: '반려됨',
+  CLOSED: '종료됨',
 }
 
 const STATUS_VARIANTS = {
   PENDING: 'secondary',
   PUBLISHED: 'accent',
   REJECTED: 'danger',
+  CLOSED: 'secondary',
 }
 
 function formatDateTime(value) {
@@ -126,9 +129,9 @@ function HostFestivalDetail() {
   return (
     <main className={styles.main}>
       <div className={styles.hero}>
-        {festival.imageUrls?.length > 0 ? (
+        {festival.thumbnailImageUrl ? (
           <img
-            src={toAbsoluteImageUrl(festival.imageUrls[0])}
+            src={toAbsoluteImageUrl(festival.thumbnailImageUrl)}
             alt={festival.name}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -169,6 +172,19 @@ function HostFestivalDetail() {
 
         {festival.description && <p className={styles.description}>{festival.description}</p>}
 
+        {festival.detailImageUrls?.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            {festival.detailImageUrls.map((url) => (
+              <img
+                key={url}
+                src={toAbsoluteImageUrl(url)}
+                alt=""
+                style={{ width: '100%', borderRadius: 12, objectFit: 'cover' }}
+              />
+            ))}
+          </div>
+        )}
+
         <section className={styles.ticketSection}>
           <h2 className={styles.sectionTitle}>
             <TicketIcon size={18} aria-hidden="true" />
@@ -195,6 +211,16 @@ function HostFestivalDetail() {
             </ul>
           )}
         </section>
+
+        <Link
+          to={`/host/festivals/${id}/check-in`}
+          className="mt-10 flex items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-[15px] font-bold text-white transition hover:bg-blue-700"
+        >
+          <ScanLineIcon className="h-5 w-5" />
+          현장 입장 검증 열기
+        </Link>
+
+        <HostHelperAccounts festivalId={id} />
       </div>
     </main>
   )

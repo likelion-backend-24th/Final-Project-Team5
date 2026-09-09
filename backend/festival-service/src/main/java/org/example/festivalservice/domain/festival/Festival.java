@@ -46,7 +46,7 @@ public class Festival {
     private FestivalCategory festivalCategory;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "festival_status")
+    @Column(name = "festival_status", columnDefinition = "VARCHAR(20)")
     private FestivalStatus festivalStatus;
 
     @CreationTimestamp
@@ -68,5 +68,10 @@ public class Festival {
     //운영자 심사: 반려
     public void reject() {
         this.festivalStatus = FestivalStatus.REJECTED;
+    }
+
+    //종료 배치: 개최 기간이 끝난 공개 페스티벌을 종료 처리한다
+    public void close() {
+        this.festivalStatus = FestivalStatus.CLOSED;
     }
 }

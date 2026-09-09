@@ -28,6 +28,12 @@ public class FestivalImage {
     @Column(name = "image_url")
     private String imageUrl;
 
+    //columnDefinition을 명시하지 않으면 Hibernate가 MySQL 네이티브 ENUM(...) 컬럼을 생성해,
+    //Java enum에 값을 추가해도 ddl-auto: update가 DB의 허용값 목록을 넓혀주지 않는다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "image_type", columnDefinition = "VARCHAR(20)")
+    private FestivalImageType imageType;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

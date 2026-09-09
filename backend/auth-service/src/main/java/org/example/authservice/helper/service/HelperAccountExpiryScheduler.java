@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 /**
- * 페스티벌이 끝나고 유예시간이 지난 도우미 계정을 자동으로 탈퇴 처리한다.
+ * 페스티벌이 끝나고 유예시간이 지난 도우미 계정을 자동으로 삭제한다.
  * 계정 발급 시 저장해둔 festivalEndAt 스냅샷만 보고 판단하므로 festival-service를 호출하지 않는다.
  */
 @Component
@@ -33,14 +33,15 @@ public class HelperAccountExpiryScheduler {
 
     //회수는 하루 단위 작업이라 분 단위 정밀도가 필요 없다 — 10분마다 확인한다.
     @Scheduled(fixedDelay = 600_000)
-    public void withdrawExpiredHelperAccounts() {
+    public void deleteExpiredHelperAccounts() {
         LocalDateTime revokeThreshold =
                 LocalDateTime.now(ZoneId.of(appTimezone)).minusHours(revokeAfterHours);
-        int withdrawnCount = helperAccountService.withdrawExpiredHelperAccounts(revokeThreshold);
+        int deletedCount = helperAccountService.deleteExpiredHelperAccounts(revokeThreshold);
 
-        if (withdrawnCount > 0) {
-            log.info("페스티벌 종료 후 {}시간이 지난 도우미 계정 {}개를 자동 탈퇴 처리했습니다.",
-                    revokeAfterHours, withdrawnCount);
+        //삭제는 되돌릴 수 없으니 몇 개를 지웠는지는 항상 남긴다.
+        if (deletedCount > 0) {
+            log.info("페스티벌 종료 후 {}시간이 지난 도우미 계정 {}개를 삭제했습니다.",
+                    revokeAfterHours, deletedCount);
         }
     }
 }

@@ -9,6 +9,8 @@ import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.exception.ApiException;
+import org.example.reservationservice.domain.refund.RefundPolicy;
+import org.example.reservationservice.domain.refund.RefundQuote;
 import org.example.reservationservice.infrastructure.festival.FestivalServiceClient;
 import org.example.reservationservice.infrastructure.festival.dto.FestivalDetailResponseDto;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,9 +30,14 @@ public class ReservationService {
     //취소되지 않은 것으로 보고 구매 제한에 합산할 상태들 (만료·취소 건은 다시 살 수 있어야 하므로 제외)
     private static final List<ReservationStatus> HELD_STATUSES = List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED);
 
+    //입장 검증·현황 집계에 포함할 상태들. 부분 환불된 예매도 남은 장수만큼은 입장할 수 있어야 한다.
+    private static final List<ReservationStatus> ADMITTABLE_STATUSES =
+            List.of(ReservationStatus.CONFIRMED, ReservationStatus.PARTIALLY_REFUNDED);
+
     private final ReservationRepository reservationRepository;
     private final FestivalServiceClient festivalServiceClient;
     private final CheckInCodeGenerator checkInCodeGenerator;
+    private final RefundPolicy refundPolicy;
 
     //사이트 전체 기본 1인당 구매 제한(계정 기준, 티켓 종류당). 주최자가 티켓 종류별로 더 낮게 설정하는 기능은 아직 없다(festival-service TicketType에 필드 추가 필요 — 후속 작업).
     @Value("${reservation.max-quantity-per-ticket-type:4}")
@@ -132,13 +139,14 @@ public class ReservationService {
                                                    Long scannerFestivalId) {
         verifyFestivalAccess(festivalId, scannerUserId, scannerRole, scannerFestivalId);
 
-        List<Reservation> confirmedReservations =
-                reservationRepository.findByFestivalIdAndReservationStatus(festivalId, ReservationStatus.CONFIRMED);
+        //환불된 장수는 현장에 오지 않으므로 총 티켓 수에서 빼야 한다 — 남은 장수(remainingQuantity)로 집계한다.
+        List<Reservation> admittableReservations =
+                reservationRepository.findByFestivalIdAndReservationStatusIn(festivalId, ADMITTABLE_STATUSES);
 
-        int totalTickets = confirmedReservations.stream().mapToInt(Reservation::getQuantity).sum();
-        int checkedInTickets = confirmedReservations.stream()
+        int totalTickets = admittableReservations.stream().mapToInt(Reservation::remainingQuantity).sum();
+        int checkedInTickets = admittableReservations.stream()
                 .filter(reservation -> reservation.getCheckedInAt() != null)
-                .mapToInt(Reservation::getQuantity)
+                .mapToInt(Reservation::remainingQuantity)
                 .sum();
 
         return new CheckInStatsResponseDto(festivalId, totalTickets, checkedInTickets);
@@ -147,7 +155,8 @@ public class ReservationService {
     //입장 검증 공통 로직(내부 메서드) — QR이든 입장 코드든 확인 순서와 거절 사유는 같아야 한다.
     private ReservationVerifyResponseDto checkIn(Reservation reservation, Long scannerUserId, String scannerRole,
                                                  Long scannerFestivalId) {
-        if (reservation.getReservationStatus() != ReservationStatus.CONFIRMED) {
+        //부분 환불된 예매도 남은 장수만큼은 입장시켜야 하므로 CONFIRMED만 보지 않는다.
+        if (!reservation.isAdmittable()) {
             throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CONFIRMED);
         }
 
@@ -249,6 +258,77 @@ public class ReservationService {
         }
 
         reservation.extendHold(request.expiresAt());
+    }
+
+    //Payment-Service → Reservation-Service 내부 호출: 환불 견적 조회.
+    //공연 일정과 구매 수량을 아는 쪽이 여기라서, "얼마를 돌려줄 수 있는지"는 이 서비스가 판정한다.
+    public ReservationRefundQuoteResponseDto getRefundQuote(Long id, Integer requestedQuantity) {
+        Reservation reservation = reservationRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
+        return quoteFor(reservation, requestedQuantity);
+    }
+
+    //참가자가 환불 버튼을 누르기 전에 "얼마를 돌려받는지"를 미리 보여주기 위한 본인 조회.
+    //위약금을 모르고 환불을 확정하게 두면 안 되므로 화면에서 먼저 이 견적을 띄운다.
+    public ReservationRefundQuoteResponseDto getMyRefundQuote(Long id, Long userId, Integer requestedQuantity) {
+        return quoteFor(getOwnedReservation(id, userId), requestedQuantity);
+    }
+
+    private ReservationRefundQuoteResponseDto quoteFor(Reservation reservation, Integer requestedQuantity) {
+        //수량을 안 보내면 남은 전량 환불로 본다(가이드 9.3 "전체 취소는 금액 생략"과 같은 맥락).
+        int quantity = requestedQuantity != null ? requestedQuantity : reservation.remainingQuantity();
+
+        RefundQuote quote = evaluateRefund(reservation, quantity);
+        return ReservationRefundQuoteResponseDto.of(reservation, quote);
+    }
+
+    //Payment-Service → Reservation-Service 내부 호출: PortOne 취소 성공 후 환불 확정 + 재고 복구.
+    @Transactional
+    public void applyRefund(Long id, ReservationRefundRequestDto request) {
+        Reservation reservation = reservationRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
+
+        //이미 같은 수량까지 반영된 재호출은 재고를 다시 복구하지 않고 멱등하게 무시한다.
+        //(PortOne 취소 웹훅과 API 응답이 같은 취소를 두 번 알려줄 수 있다 — 가이드 9.4)
+        if (reservation.getRefundedQuantity() >= reservation.getQuantity()) {
+            return;
+        }
+        if (request.quantity() > reservation.remainingQuantity()) {
+            throw new ApiException(ReservationErrorCode.REFUND_QUANTITY_EXCEEDED);
+        }
+
+        reservation.refund(request.quantity());
+        festivalServiceClient.restoreStock(reservation.getTicketTypeId(), request.quantity());
+    }
+
+    //환불 가능 여부 판정(내부 메서드) — 상태·입장 여부처럼 막는 조건을 먼저 보고, 마지막에 금액을 계산한다.
+    private RefundQuote evaluateRefund(Reservation reservation, int quantity) {
+        if (!reservation.isAdmittable()) {
+            //결제가 확정되지 않았거나 이미 전액 환불·취소된 예매
+            return RefundQuote.rejected(ReservationErrorCode.RESERVATION_NOT_REFUNDABLE.name(), quantity);
+        }
+        if (reservation.getCheckedInAt() != null) {
+            return RefundQuote.rejected(ReservationErrorCode.ALREADY_CHECKED_IN_NOT_REFUNDABLE.name(), quantity);
+        }
+        if (quantity < 1 || quantity > reservation.remainingQuantity()) {
+            return RefundQuote.rejected(ReservationErrorCode.REFUND_QUANTITY_EXCEEDED.name(), quantity);
+        }
+
+        //공연 시작 시각은 타임존 없는 벽시계라, checkIn()과 같은 기준 타임존으로 현재 시각을 뽑아 비교한다.
+        LocalDateTime now = LocalDateTime.now(ZoneId.of(appTimezone));
+        LocalDateTime startAt = getFestivalOrThrow(reservation.getFestivalId()).startAt();
+        return refundPolicy.quote(startAt, now, quantity, reservation.getPrice());
+    }
+
+    //참가자 본인이 결제대기 중인 예매를 직접 취소한다
+    @Transactional
+    public void cancelMyReservation(Long id, Long userId) {
+        Reservation reservation = getOwnedReservation(id, userId);
+        if (reservation.getReservationStatus() != ReservationStatus.PENDING) {
+            throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CANCELLABLE);
+        }
+        reservation.cancel(CancelReason.USER_CANCELLED);
+        festivalServiceClient.restoreStock(reservation.getTicketTypeId(), reservation.getQuantity());
     }
 
     //Payment-Service → Reservation-Service 내부 호출: 결제 실패·취소·만료 시 예매 취소 + 재고 복구

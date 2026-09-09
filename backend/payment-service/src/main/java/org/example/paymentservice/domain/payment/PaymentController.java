@@ -2,7 +2,11 @@ package org.example.paymentservice.domain.payment;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import java.util.UUID;
 import org.example.paymentservice.common.dto.ApiResponse;
+import org.example.paymentservice.domain.cancellation.PaymentCancellationService;
+import org.example.paymentservice.domain.cancellation.dto.PaymentCancellationRequest;
+import org.example.paymentservice.domain.cancellation.dto.PaymentCancellationResponse;
 import org.example.paymentservice.domain.payment.dto.PaymentCompleteResponse;
 import org.example.paymentservice.domain.payment.dto.PaymentPrepareRequest;
 import org.example.paymentservice.domain.payment.dto.PaymentPrepareResponse;
@@ -19,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final PaymentCancellationService paymentCancellationService;
 
     @PostMapping("/api/payments/prepare")
     public ResponseEntity<ApiResponse<PaymentPrepareResponse>> prepare(
@@ -36,5 +41,23 @@ public class PaymentController {
             @PathVariable String paymentId) {
         PaymentCompleteResponse response = paymentService.complete(userId, paymentId);
         return ResponseEntity.ok(ApiResponse.success("결제 확인 완료", response));
+    }
+
+    // 전체·부분 환불(Story 9). 실전 가이드 5.4의 경로·헤더 계약을 그대로 따른다.
+    // 환불 금액을 본문으로 받지 않는 이유는 결제 완료와 같다 — 위약금 계산은 서버만 신뢰한다.
+    @PostMapping("/api/payments/{paymentId}/cancellations")
+    public ResponseEntity<ApiResponse<PaymentCancellationResponse>> cancel(
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable String paymentId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody(required = false) PaymentCancellationRequest request) {
+        PaymentCancellationRequest body =
+                request != null ? request : new PaymentCancellationRequest(null, null);
+        // 클라이언트가 키를 안 보내면 재시도 보호를 포기하는 대신 요청을 막지는 않는다.
+        String key = idempotencyKey != null ? idempotencyKey : UUID.randomUUID().toString();
+
+        PaymentCancellationResponse response =
+                paymentCancellationService.cancel(userId, paymentId, body.quantity(), body.reason(), key);
+        return ResponseEntity.ok(ApiResponse.success("환불 요청 완료", response));
     }
 }

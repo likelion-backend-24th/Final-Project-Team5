@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.dto.ApiResponse;
 import org.example.reservationservice.domain.ReservationCreateRequestDto;
 import org.example.reservationservice.domain.ReservationQrResponseDto;
+import org.example.reservationservice.domain.ReservationRefundQuoteResponseDto;
 import org.example.reservationservice.domain.ReservationResponseDto;
 import org.example.reservationservice.domain.ReservationService;
 import org.springframework.http.HttpStatus;
@@ -53,5 +54,26 @@ public class ReservationController {
             @RequestHeader("X-User-Id") Long userId
     ) {
         return ResponseEntity.ok(ApiResponse.success("QR 발급 성공", reservationService.getQrForReservation(id, userId)));
+    }
+
+    //참가자가 환불 버튼을 누르기 전에 위약금·환급액을 미리 확인한다
+    @GetMapping("/{id}/refund-quote")
+    public ResponseEntity<ApiResponse<ReservationRefundQuoteResponseDto>> getRefundQuote(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer quantity,
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("환불 견적 조회",
+                reservationService.getMyRefundQuote(id, userId, quantity)));
+    }
+
+    //참가자 본인이 결제대기 중인 예매를 직접 취소한다
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<ApiResponse<Void>> cancelMyReservation(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        reservationService.cancelMyReservation(id, userId);
+        return ResponseEntity.ok(ApiResponse.success("예매 취소 성공", null));
     }
 }

@@ -8,6 +8,8 @@ import org.example.reservationservice.domain.ReservationConfirmRequestDto;
 import org.example.reservationservice.domain.ReservationErrorCode;
 import org.example.reservationservice.domain.ReservationExtendHoldRequestDto;
 import org.example.reservationservice.domain.ReservationForPaymentResponseDto;
+import org.example.reservationservice.domain.ReservationRefundQuoteResponseDto;
+import org.example.reservationservice.domain.ReservationRefundRequestDto;
 import org.example.reservationservice.domain.ReservationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -74,6 +76,29 @@ public class InternalReservationController {
     ) {
         verifyInternalToken(authorization);
         reservationService.extendReservationHold(id, request);
+        return ResponseEntity.ok().build();
+    }
+
+    //Payment-Service → Reservation-Service: 환불 견적 조회(공연 일정 기준 위약금 계산은 이쪽 책임)
+    @GetMapping("/{id}/refund-quote")
+    public ResponseEntity<ReservationRefundQuoteResponseDto> getRefundQuote(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer quantity,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization
+    ) {
+        verifyInternalToken(authorization);
+        return ResponseEntity.ok(reservationService.getRefundQuote(id, quantity));
+    }
+
+    //Payment-Service → Reservation-Service: PortOne 취소 성공 후 환불 확정 + 재고 복구
+    @PatchMapping("/{id}/refund")
+    public ResponseEntity<Void> refund(
+            @PathVariable Long id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @Valid @RequestBody ReservationRefundRequestDto request
+    ) {
+        verifyInternalToken(authorization);
+        reservationService.applyRefund(id, request);
         return ResponseEntity.ok().build();
     }
 

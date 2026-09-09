@@ -1,5 +1,6 @@
 package org.example.festivalservice.domain.festival;
 
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.exception.ApiException;
@@ -19,7 +20,7 @@ public class FestivalService {
     private static final String HOST_ROLE = "HOST";
     private static final String ADMIN_ROLE = "ADMIN";
 
-    private static final int MAX_IMAGE_COUNT = 3;
+    private static final int MAX_DETAIL_IMAGE_COUNT = 2;
 
     private final FestivalRepository festivalRepository;
     private final TicketTypeRepository ticketTypeRepository;
@@ -34,9 +35,10 @@ public class FestivalService {
         if (!request.endAt().isAfter(request.startAt())) {
             throw new ApiException(FestivalErrorCode.INVALID_PERIOD);
         }
-        List<String> imageUrls = request.imageUrls() == null ? List.of() : request.imageUrls();
-        if (imageUrls.size() > MAX_IMAGE_COUNT) {
-            throw new ApiException(FestivalErrorCode.INVALID_IMAGE_COUNT);
+        String thumbnailImageUrl = request.thumbnailImageUrl();
+        List<String> detailImageUrls = request.detailImageUrls() == null ? List.of() : request.detailImageUrls();
+        if (detailImageUrls.size() > MAX_DETAIL_IMAGE_COUNT) {
+            throw new ApiException(FestivalErrorCode.INVALID_DETAIL_IMAGE_COUNT);
         }
 
         Festival festival = Festival.builder()
@@ -56,9 +58,13 @@ public class FestivalService {
                 .toList();
         ticketTypeRepository.saveAll(ticketTypes);
 
-        List<FestivalImage> images = imageUrls.stream()
-                .map(imageUrl -> FestivalImage.builder().festival(saved).imageUrl(imageUrl).build())
-                .toList();
+        List<FestivalImage> images = new ArrayList<>();
+        if (thumbnailImageUrl != null) {
+            images.add(FestivalImage.builder().festival(saved).imageUrl(thumbnailImageUrl)
+                    .imageType(FestivalImageType.THUMBNAIL).build());
+        }
+        detailImageUrls.forEach(imageUrl -> images.add(FestivalImage.builder().festival(saved).imageUrl(imageUrl)
+                .imageType(FestivalImageType.DETAIL).build()));
         festivalImageRepository.saveAll(images);
 
         return FestivalResponseDto.from(saved, ticketTypes, images);
@@ -106,15 +112,18 @@ public class FestivalService {
                 .build();
     }
 
-    //페스티벌 목록 조회(페이징), 인증 불필요 — 공개(PUBLISHED) 상태만 노출
+    //방문자에게 노출 가능한 상태 — 진행중(PUBLISHED)뿐 아니라 종료(CLOSED)된 것도 "종료됨" 배지로 계속 보여준다
+    private static final List<FestivalStatus> VISIBLE_STATUSES = List.of(FestivalStatus.PUBLISHED, FestivalStatus.CLOSED);
+
+    //페스티벌 목록 조회(페이징), 인증 불필요 — 공개(PUBLISHED)·종료(CLOSED) 상태만 노출
     public Page<FestivalResponseDto> listFestivals(Pageable pageable) {
-        return festivalRepository.findByFestivalStatus(FestivalStatus.PUBLISHED, pageable)
+        return festivalRepository.findByFestivalStatusIn(VISIBLE_STATUSES, pageable)
                 .map(this::toResponseDto);
     }
 
-    //페스티벌 상세 조회, 인증 불필요 — 공개(PUBLISHED) 상태가 아니면 404(미승인·반려 페스티벌은 존재 자체를 숨김)
+    //페스티벌 상세 조회, 인증 불필요 — 공개·종료 상태가 아니면 404(미승인·반려 페스티벌은 존재 자체를 숨김)
     public FestivalResponseDto getFestivalDetail(Long id) {
-        Festival festival = festivalRepository.findByIdAndFestivalStatus(id, FestivalStatus.PUBLISHED)
+        Festival festival = festivalRepository.findByIdAndFestivalStatusIn(id, VISIBLE_STATUSES)
                 .orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND));
         return toResponseDto(festival);
     }

@@ -19,3 +19,13 @@ export function fetchReservationDetail(id) {
 export function fetchReservationQr(id) {
   return apiClient.get(`/api/reservations/${id}/qr`)
 }
+
+//참가자 본인이 결제대기 중인 예매를 직접 취소한다 (PATCH /api/reservations/{id}/cancel)
+export function cancelReservation(id) {
+  return apiClient.patch(`/api/reservations/${id}/cancel`)
+}
+
+//환불 버튼을 누르기 전에 위약금·환급 예상액을 미리 확인한다 (GET /api/reservations/{id}/refund-quote)
+export function fetchRefundQuote(id, quantity) {
+  return apiClient.get(`/api/reservations/${id}/refund-quote`, { params: { quantity } })
+}

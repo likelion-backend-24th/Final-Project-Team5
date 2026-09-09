@@ -60,6 +60,7 @@ function Login() {
 
     try {
       await login(form.username.trim(), form.password)
+      //역할별로 갈 화면이 다르지만(도우미는 전용 메인) 라우팅이 알아서 갈라주므로 여기서는 항상 홈으로 보낸다.
       navigate('/')
     } catch (error) {
       if (error.response?.status === 401) {

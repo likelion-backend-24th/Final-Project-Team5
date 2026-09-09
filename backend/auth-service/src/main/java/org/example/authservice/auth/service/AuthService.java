@@ -4,9 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.example.authservice.auth.dto.LoginRequest;
 import org.example.authservice.auth.dto.SignupRequest;
 import org.example.authservice.auth.dto.TokenResponse;
-import org.example.authservice.auth.dto.emailverification.ResetPasswordRequest;
+import org.example.authservice.auth.dto.oauth.KakaoUserInfoResponse;
+import org.example.authservice.auth.entity.OauthAccount;
 import org.example.authservice.auth.entity.RefreshToken;
 import org.example.authservice.auth.exception.AuthErrorCode;
+import org.example.authservice.auth.repository.OauthAccountRepository;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.security.JwtTokenProvider;
 import org.example.authservice.common.exception.ApiException;
@@ -19,6 +21,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -26,6 +29,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +42,8 @@ public class AuthService {
     private final RefreshTokenRevocationService refreshTokenRevocationService;
     private final EmailVerificationService emailVerificationService;
     private final LoginAttemptService loginAttemptService;
+    private final KakaoApiClient kakaoApiClient;
+    private final OauthAccountRepository oauthAccountRepository;
 
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
@@ -45,6 +51,13 @@ public class AuthService {
     //회원가입
     @Transactional
     public void signup(SignupRequest signupRequest) {
+//
+//        Optional<User> existingUser = userRepository.findByUsername(signupRequest.getUsername());
+//
+//        // 유저가 존재하고 비밀번호도 갖고있으면 중복으로 회원가입 불가
+//        if(existingUser.isPresent() && existingUser.get().getPassword() != null){
+//            throw new ApiException(AuthErrorCode.DUPLICATE_USERNAME);
+//        }
         // 이메일 중복 검증
         if (userRepository.existsByUsername(signupRequest.getUsername())) {
             throw new ApiException(AuthErrorCode.DUPLICATE_USERNAME);
@@ -60,6 +73,13 @@ public class AuthService {
         //이메일 인증이 완료 여부
         emailVerificationService.checkVerified(signupRequest.getUsername());
 
+//        // 기존 소셜 계정에 비밀번호만 연결
+//        if(existingUser.isPresent()){
+//            User user = existingUser.get();
+//            user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
+//            userRepository.save(user);
+//            return; //여기서 메서드 종료해야함 밑으로 가면 안됨.
+//        }
 
         User user = new User();
         user.setName(signupRequest.getName());
@@ -177,7 +197,10 @@ public class AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
 
-        //나중에 소셜 로그인은 변경 불가 로직 추가
+        //나중에 소셜 로그인은 변경 불가 로직
+        if(user.getPassword() == null){
+            throw new ApiException(UserErrorCode.SOCIAL_USER_CANNOT_CHANGE_PASSWORD);
+        }
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
@@ -209,5 +232,75 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 알고리즘을 사용할 수 없습니다.", e);
         }
+    }
+
+    // Kakao 최초 로그인 시 회원가입
+    private User registerKakaoUser(KakaoUserInfoResponse kakaoUserInfo, String providerId){
+        User user = new User();
+        user.setUsername("kakao_" + providerId + "@kakao.local");
+        user.setName(kakaoUserInfo.getKakao_account().getProfile().getNickname());
+        user.setNickname(generateUniqueNickname(kakaoUserInfo.getKakao_account().getProfile().getNickname())); //뒤에 랜덤 숫자4자리 붙임
+        user.setPassword(null);                                   //카카오에서 실명을 주지 않아서 일단 닉네임으로 채우고 나중에 마이페이지에서 닉네임 수정 유도
+        user.setRole(Role.USER);
+        user.setStatus(AccountStatus.ACTIVE);
+
+        userRepository.save(user);
+
+        OauthAccount oauthAccount = new OauthAccount();
+        oauthAccount.setUser(user);
+        oauthAccount.setProvider("KAKAO");
+        oauthAccount.setProviderId(providerId);
+        oauthAccount.setLinkedAt(LocalDateTime.now());
+
+        oauthAccountRepository.save(oauthAccount);
+
+        return user;
+    }
+
+    // Kakao 로그인
+    @Transactional
+    public TokenResponse kakaoLogin(String code) {
+        String kakaoAccessToken;
+        KakaoUserInfoResponse kakaoUserInfo;
+        try {
+            kakaoAccessToken = kakaoApiClient.getAccessToken(code);
+            kakaoUserInfo = kakaoApiClient.getUserInfo(kakaoAccessToken); //엑세스토큰으로 카카오 사용자 정보 조회
+        } catch (HttpClientErrorException e) {
+            throw new ApiException(AuthErrorCode.OAUTH_TOKEN_INVALID);
+        }
+
+        String providerId = String.valueOf(kakaoUserInfo.getId());
+
+        User user = oauthAccountRepository.findByProviderAndProviderId("KAKAO", providerId)
+                .map(oauthAccount -> oauthAccount.getUser()) //이미 카카오 회원가입 한상태
+                .orElseGet(() -> registerKakaoUser(kakaoUserInfo, providerId)); //처음 회원가입
+
+        // 회원 탈퇴/정지 계정인지 체크
+        checkAccountActive(user);
+
+        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
+
+        // DB에 RefreshToken 저장
+        RefreshToken newRefreshToken = new RefreshToken();
+        newRefreshToken.setUser(user);
+        newRefreshToken.setTokenHash(hashToken(refreshToken));
+        newRefreshToken.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpiration)));
+        refreshTokenRepository.save(newRefreshToken);
+
+        return new TokenResponse(accessToken, refreshToken);
+    }
+
+    // 이름 뒤에 랜덤6자리 숫자 붙여서 닉네임 생성 메서드
+    private String generateUniqueNickname(String name) {
+        Random random = new Random();
+        String nickname;
+
+        do {
+            int randomNumber = random.nextInt(1000000); // 0 ~ 999999
+            nickname = name + "_" + String.format("%06d", randomNumber); // 항상 6자리로 고정 (부족하면 앞에 0 채움)
+        } while (userRepository.existsByNickname(nickname));
+
+        return nickname;
     }
 }

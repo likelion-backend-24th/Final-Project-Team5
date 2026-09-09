@@ -57,9 +57,9 @@ public class AuthService {
             throw new ApiException(AuthErrorCode.TERMS_NOT_AGREED);
         }
 
-        //이메일 인증이 완료 여부
-        emailVerificationService.checkVerified(signupRequest.getUsername());
-
+        //이메일 인증이 완료 여부 — 프론트 "인증코드 받기"가 아직 준비 중이라 임시로 비활성화.
+        //TODO: 이메일 인증 프론트 구현되면 이 줄을 다시 활성화할 것.
+        //emailVerificationService.checkVerified(signupRequest.getUsername());
 
         User user = new User();
         user.setName(signupRequest.getName());

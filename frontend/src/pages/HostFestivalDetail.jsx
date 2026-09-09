@@ -12,12 +12,14 @@ const STATUS_LABELS = {
   PENDING: '심사 대기',
   PUBLISHED: '공개됨',
   REJECTED: '반려됨',
+  CLOSED: '종료됨',
 }
 
 const STATUS_VARIANTS = {
   PENDING: 'secondary',
   PUBLISHED: 'accent',
   REJECTED: 'danger',
+  CLOSED: 'secondary',
 }
 
 function formatDateTime(value) {
@@ -127,9 +129,9 @@ function HostFestivalDetail() {
   return (
     <main className={styles.main}>
       <div className={styles.hero}>
-        {festival.imageUrls?.length > 0 ? (
+        {festival.thumbnailImageUrl ? (
           <img
-            src={toAbsoluteImageUrl(festival.imageUrls[0])}
+            src={toAbsoluteImageUrl(festival.thumbnailImageUrl)}
             alt={festival.name}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -169,6 +171,19 @@ function HostFestivalDetail() {
         </div>
 
         {festival.description && <p className={styles.description}>{festival.description}</p>}
+
+        {festival.detailImageUrls?.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            {festival.detailImageUrls.map((url) => (
+              <img
+                key={url}
+                src={toAbsoluteImageUrl(url)}
+                alt=""
+                style={{ width: '100%', borderRadius: 12, objectFit: 'cover' }}
+              />
+            ))}
+          </div>
+        )}
 
         <section className={styles.ticketSection}>
           <h2 className={styles.sectionTitle}>

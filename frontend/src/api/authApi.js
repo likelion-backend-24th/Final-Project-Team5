@@ -1,7 +1,7 @@
 import apiClient from './client'
 
-export function signup({ name, username, nickname, password }) {
-  return apiClient.post('/api/auth/signup', { name, username, nickname, password })
+export function signup({ name, username, nickname, password, termsAgreed }) {
+  return apiClient.post('/api/auth/signup', { name, username, nickname, password, termsAgreed })
 }
 
 export function login({ username, password }) {

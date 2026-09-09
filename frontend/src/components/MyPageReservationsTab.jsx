@@ -168,7 +168,7 @@ function MyPageReservationsTab() {
             return {
               ...reservation,
               festivalName: festival?.name ?? '알 수 없는 페스티벌',
-              festivalImage: toAbsoluteImageUrl(festival?.imageUrls?.[0]),
+              festivalImage: toAbsoluteImageUrl(festival?.thumbnailImageUrl),
               festivalDate: festival ? formatDateRange(festival.startAt, festival.endAt) : '',
               ticketTypeName: ticketType?.name ?? '',
               statusLabel: toStatusLabel(reservation.reservationStatus, festival?.endAt, reservation.checkedInAt),

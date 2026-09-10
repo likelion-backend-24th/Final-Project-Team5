@@ -7,6 +7,11 @@ import { getGoogleLoginUrl, getKakaoLoginUrl } from '../api/oauthUrls'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+const LOGIN_ERROR_MESSAGES = {
+  USER_NOT_FOUND: '존재하지 않는 계정이에요.',
+  INVALID_PASSWORD: '이메일 또는 비밀번호가 올바르지 않아요.',
+}
+
 // 위에서부터 순서대로 검사하다 처음 걸리는 에러 하나만 반환한다(early return).
 // 그 아래 필드는 아직 검사하지 않은 것으로 간주해 에러를 만들지 않는다.
 function validate(form) {
@@ -65,11 +70,8 @@ function Login() {
       //역할별로 갈 화면이 다르지만(도우미는 전용 메인) 라우팅이 알아서 갈라주므로 여기서는 항상 홈으로 보낸다.
       navigate('/')
     } catch (error) {
-      if (error.response?.status === 401) {
-        setSubmitError('이메일 또는 비밀번호가 올바르지 않아요.')
-      } else {
-        setSubmitError('로그인에 실패했어요. 잠시 후 다시 시도해주세요.')
-      }
+      const errorCode = error.response?.data?.errorCode
+      setSubmitError(LOGIN_ERROR_MESSAGES[errorCode] ?? '로그인에 실패했어요. 잠시 후 다시 시도해주세요.')
     } finally {
       setSubmitting(false)
     }

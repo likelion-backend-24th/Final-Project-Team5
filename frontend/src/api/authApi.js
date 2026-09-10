@@ -23,3 +23,7 @@ export function verifyEmailVerificationCode({ email, code }) {
 export function logout() {
   return apiClient.post('/api/auth/logout')
 }
+
+export function resetPassword({ username, newPassword }) {
+  return apiClient.post('/api/auth/reset-password', { username, newPassword })
+}

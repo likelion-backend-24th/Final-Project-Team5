@@ -1,0 +1,13 @@
+{
+  "name": "FevalGo — 페스티벌·행사 예약 플랫폼",
+  "short_name": "FevalGo",
+  "description": "음악, 공연/전시, 푸드까지. 지금 뜨는 페스티벌을 한눈에 보고 간편하게 예매하세요.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    { "src": "/brand/pwa-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/brand/pwa-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

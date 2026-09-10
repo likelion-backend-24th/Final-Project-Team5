@@ -27,8 +27,8 @@ function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-4 px-6 py-4">
-        <Link to="/" className="text-2xl font-extrabold tracking-tight text-blue-600" aria-label="FevalGo 홈">
-          FevalGo
+        <Link to="/" className="shrink-0" aria-label="FevalGo 홈">
+          <img src="/brand/logo-horizontal.webp" alt="FevalGo" className="h-11 w-auto" />
         </Link>
 
         <form

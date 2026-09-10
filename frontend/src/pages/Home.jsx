@@ -1,3 +1,4 @@
+import AdminHomeBanner from '../components/AdminHomeBanner'
 import ClosingSoon from '../components/ClosingSoon'
 import FestivalBrowser from '../components/FestivalBrowser'
 import HeroCarousel from '../components/HeroCarousel'
@@ -10,6 +11,7 @@ function Home() {
 
   return (
     <main className="pb-4">
+      <AdminHomeBanner />
       {/* HOST는 등록/조회 진입이 자주 쓰는 동작이라 배너를 맨 위로 올려 바로 보이게 한다. */}
       {isHost && <OrganizerCta isFirst />}
       <HeroCarousel />

@@ -13,7 +13,8 @@ public record ReservationVerifyResponseDto(
         return new ReservationVerifyResponseDto(
                 reservation.getId(),
                 reservation.getTicketTypeId(),
-                reservation.getQuantity(),
+                //환불된 장수를 뺀, 실제로 입장시킬 인원
+                reservation.remainingQuantity(),
                 reservation.getCheckedInAt()
         );
     }

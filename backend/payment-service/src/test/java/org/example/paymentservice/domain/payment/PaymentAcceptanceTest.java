@@ -93,13 +93,13 @@ class PaymentAcceptanceTest {
     private PortOnePaymentResponse paidResponse(String paymentId, String transactionId, long total) {
         return new PortOnePaymentResponse(paymentId, "PAID", transactionId, "store-test", channel(),
                 new PortOnePaymentResponse.Method("PaymentMethodCard", null, null, null, null, null, null),
-                amount(total), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), Instant.now(), null, null, "pgtx-1");
+                amount(total), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), Instant.now(), null, null, "pgtx-1", null);
     }
 
     private PortOnePaymentResponse failedResponse(String paymentId) {
         return new PortOnePaymentResponse(paymentId, "FAILED", "TX-FAILED", "store-test", channel(), null,
                 amount(10_000L), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), null, Instant.now(),
-                new PortOnePaymentResponse.Failure("사용자가 결제를 취소하였습니다", "PAY_PROCESS_CANCELED", "사용자가 결제를 취소하였습니다"), "pgtx-2");
+                new PortOnePaymentResponse.Failure("사용자가 결제를 취소하였습니다", "PAY_PROCESS_CANCELED", "사용자가 결제를 취소하였습니다"), "pgtx-2", null);
     }
 
     private String sign(String id, long timestamp, String body) throws Exception {

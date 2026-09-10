@@ -31,7 +31,12 @@ public enum ReservationErrorCode implements ErrorCode {
     FORBIDDEN_NOT_ORGANIZER(HttpStatus.FORBIDDEN, "본인이 주최한 페스티벌의 예매만 검증할 수 있습니다."),
     //도우미 계정인데 담당 페스티벌 정보(X-Festival-Id)가 없는 비정상 토큰으로 들어온 경우
     HELPER_FESTIVAL_NOT_ASSIGNED(HttpStatus.FORBIDDEN, "담당 페스티벌이 지정되지 않은 도우미 계정입니다."),
-    CHECK_IN_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "입장 코드 발급에 실패했습니다.");
+    CHECK_IN_CODE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "입장 코드 발급에 실패했습니다."),
+    //환불(Story 9)
+    RESERVATION_NOT_REFUNDABLE(HttpStatus.CONFLICT, "환불할 수 없는 예매 상태입니다."),
+    REFUND_WINDOW_CLOSED(HttpStatus.CONFLICT, "공연 시작이 임박해 환불할 수 없습니다."),
+    ALREADY_CHECKED_IN_NOT_REFUNDABLE(HttpStatus.CONFLICT, "이미 입장한 예매는 환불할 수 없습니다."),
+    REFUND_QUANTITY_EXCEEDED(HttpStatus.CONFLICT, "환불 가능한 수량을 초과했습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

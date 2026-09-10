@@ -3,23 +3,25 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { GoogleIcon, KakaoIcon } from '../components/SocialIcons'
+import { getGoogleLoginUrl, getKakaoLoginUrl } from '../api/oauthUrls'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// 위에서부터 순서대로 검사하다 처음 걸리는 에러 하나만 반환한다(early return).
+// 그 아래 필드는 아직 검사하지 않은 것으로 간주해 에러를 만들지 않는다.
 function validate(form) {
-  const errors = {}
-
   if (!form.username.trim()) {
-    errors.username = '이메일을 입력해주세요.'
-  } else if (!EMAIL_PATTERN.test(form.username.trim())) {
-    errors.username = '올바른 이메일 형식이 아니에요.'
+    return { username: '이메일을 입력해주세요.' }
+  }
+  if (!EMAIL_PATTERN.test(form.username.trim())) {
+    return { username: '올바른 이메일 형식이 아니에요.' }
   }
 
   if (!form.password) {
-    errors.password = '비밀번호를 입력해주세요.'
+    return { password: '비밀번호를 입력해주세요.' }
   }
 
-  return errors
+  return {}
 }
 
 const inputBaseClass =
@@ -131,7 +133,7 @@ function Login() {
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
                 aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
               </button>
@@ -142,7 +144,7 @@ function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-[15px] font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-[15px] font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
           >
             {submitting ? '로그인 중…' : '로그인'}
             <ArrowRightIcon className="h-4 w-4" />
@@ -158,19 +160,21 @@ function Login() {
         <div className="flex items-center justify-center gap-5">
           <button
             type="button"
-            disabled
-            title="준비 중인 기능이에요"
+            onClick={() => {
+              window.location.href = getKakaoLoginUrl()
+            }}
             aria-label="카카오 로그인"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FEE500] transition"
+            className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-[#FEE500] transition"
           >
             <KakaoIcon size={28} />
           </button>
           <button
             type="button"
-            disabled
-            title="준비 중인 기능이에요"
+            onClick={() => {
+              window.location.href = getGoogleLoginUrl()
+            }}
             aria-label="Google 로그인"
-            className="flex h-14 w-14 items-center justify-center rounded-full border border-gray-200 bg-white transition"
+            className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white transition"
           >
             <GoogleIcon size={28} />
           </button>

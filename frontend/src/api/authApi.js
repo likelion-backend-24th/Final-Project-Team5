@@ -11,3 +11,15 @@ export function login({ username, password }) {
 export function fetchMyInfo(config) {
   return apiClient.get('/api/users/me', config)
 }
+
+export function sendEmailVerificationCode(email) {
+  return apiClient.post('/api/auth/email/send', { email })
+}
+
+export function verifyEmailVerificationCode({ email, code }) {
+  return apiClient.post('/api/auth/email/verify', { email, code })
+}
+
+export function logout() {
+  return apiClient.post('/api/auth/logout')
+}

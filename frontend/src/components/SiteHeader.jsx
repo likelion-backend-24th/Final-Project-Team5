@@ -19,8 +19,8 @@ function SiteHeader() {
     setQuery('')
   }
 
-  function handleLogout() {
-    logout()
+  async function handleLogout() {
+    await logout()
     navigate('/')
   }
 
@@ -75,7 +75,10 @@ function SiteHeader() {
 
           {isAuthenticated ? (
             <>
-              <Link to="/mypage" className="text-sm font-semibold text-gray-700 hover:underline">
+              <Link
+                to="/mypage"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-100"
+              >
                 {user.nickname}님
               </Link>
               <button

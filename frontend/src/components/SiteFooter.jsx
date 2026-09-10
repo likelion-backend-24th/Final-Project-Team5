@@ -6,7 +6,7 @@ function SiteFooter() {
     <footer className="mt-16 border-t border-gray-200 bg-white">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-8 px-6 py-10 md:flex-row md:items-start md:justify-between">
         <div className="max-w-sm">
-          <p className="text-xl font-extrabold tracking-tight text-blue-600">FevalGo</p>
+          <img src="/brand/logo-horizontal.webp" alt="FevalGo" className="h-7 w-auto" />
           <p className="mt-3 text-sm leading-relaxed text-gray-500">
             음악, 공연·전시, 푸드까지. 전국의 페스티벌과 행사를 한 곳에서 찾고 간편하게 예매하는 티켓 플랫폼입니다.
           </p>

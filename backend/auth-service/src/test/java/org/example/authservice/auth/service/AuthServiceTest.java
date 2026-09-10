@@ -455,6 +455,65 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("폐기된 지 얼마 안 된 토큰(유예 구간 이내)이 재사용되면, 최신 후속 토큰을 찾아 자연스럽게 재발급된다")
+    void reissue_success_withinGracePeriod_healsFromLatestDescendant() {
+        // given: 새로고침 연타 등으로 이미 로테이션된 옛 토큰이 살짝 늦게(유예 구간 이내) 다시 들어온 상황.
+        User user = createActiveUser();
+
+        RefreshToken staleToken = createSavedRefreshToken(user);
+        staleToken.setId(1L);
+        staleToken.setRevokedAt(LocalDateTime.now().minusSeconds(2)); // 5초 유예 구간 이내
+        staleToken.setReplacedByTokenId(2L);
+
+        RefreshToken currentLiveToken = createSavedRefreshToken(user); // 그 사이 정상적으로 로테이션된 최신 토큰
+        currentLiveToken.setId(2L);
+
+        String rawRefreshToken = "stale-but-recent-token";
+        given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
+        given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
+                .willReturn(Optional.of(staleToken));
+        given(refreshTokenRepository.findById(2L)).willReturn(Optional.of(currentLiveToken));
+        given(jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId()))
+                .willReturn("healed-access-token");
+        given(jwtTokenProvider.generateRefreshToken(user.getUsername()))
+                .willReturn("healed-refresh-token");
+
+        // when
+        TokenResponse response = authService.reissue(rawRefreshToken);
+
+        // then: 전체 로그아웃 대신, 최신 살아있는 토큰(currentLiveToken) 쪽에서 정상 로테이션이 일어난다.
+        assertThat(response.getAccessToken()).isEqualTo("healed-access-token");
+        assertThat(response.getRefreshToken()).isEqualTo("healed-refresh-token");
+        assertThat(currentLiveToken.getRevokedAt()).isNotNull();
+        verify(refreshTokenRevocationService, never()).revokeAllTokens(any());
+    }
+
+    @Test
+    @DisplayName("유예 구간을 벗어난 재사용은 후속 토큰 체인이 있어도 진짜 재사용으로 간주해 전체 로그아웃시킨다")
+    void reissue_fail_tokenReused_outsideGracePeriod_evenWithReplacementChain() {
+        // given
+        User user = createActiveUser();
+        RefreshToken staleToken = createSavedRefreshToken(user);
+        staleToken.setId(1L);
+        staleToken.setRevokedAt(LocalDateTime.now().minusSeconds(30)); // 유예 구간(5초) 초과
+        staleToken.setReplacedByTokenId(2L);
+
+        String rawRefreshToken = "old-stale-token";
+        given(jwtTokenProvider.validateToken(rawRefreshToken)).willReturn(true);
+        given(refreshTokenRepository.findByTokenHash(hashToken(rawRefreshToken)))
+                .willReturn(Optional.of(staleToken));
+
+        // when & then
+        assertThatThrownBy(() -> authService.reissue(rawRefreshToken))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.REFRESH_TOKEN_REUSED));
+
+        verify(refreshTokenRepository, never()).findById(any());
+        verify(refreshTokenRevocationService, times(1)).revokeAllTokens(user);
+    }
+
+    @Test
     @DisplayName("DB 상 만료된 토큰이면 INVALID_REFRESH_TOKEN 예외가 발생한다")
     void reissue_fail_expiredInDb() {
         // given

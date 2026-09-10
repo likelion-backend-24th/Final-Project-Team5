@@ -41,7 +41,7 @@ function MyPage({ initialTab = 'info' }) {
         <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-blue-600 text-2xl font-extrabold text-white">
-              {user.nickname?.charAt(0)}
+              {user.nickname?.charAt(0).toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-2">

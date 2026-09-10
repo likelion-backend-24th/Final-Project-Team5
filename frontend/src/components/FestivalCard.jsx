@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { CalendarIcon, ImageIcon, MapPinIcon } from 'lucide-react'
 import { CATEGORY_LABELS } from '../data/festivals'
-import Badge from './Badge'
+import Badge, { badgeVariantForLabel } from './Badge'
 
 /**
  * badge를 넘기면 썸네일 좌상단 배지를 그것으로 덮어쓴다(마감임박 D-day 등).
@@ -9,7 +9,8 @@ import Badge from './Badge'
  * festival.image가 없으면 회색 플레이스홀더 아이콘을 대신 보여준다.
  */
 function FestivalCard({ festival, badge, categoryLabel }) {
-  const thumbBadge = badge ?? (festival.badge ? <Badge>{festival.badge}</Badge> : null)
+  const thumbBadge =
+    badge ?? (festival.badge ? <Badge variant={badgeVariantForLabel(festival.badge)}>{festival.badge}</Badge> : null)
 
   return (
     <Link

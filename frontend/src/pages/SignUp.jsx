@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
-import { signup } from '../api/authApi'
+import { sendEmailVerificationCode, signup, verifyEmailVerificationCode } from '../api/authApi'
+import { getGoogleLoginUrl, getKakaoLoginUrl } from '../api/oauthUrls'
 import { GoogleIcon, KakaoIcon } from '../components/SocialIcons'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -15,38 +16,52 @@ const initialForm = {
   passwordConfirm: '',
 }
 
-function validate(form) {
-  const errors = {}
-
+// 위에서부터 순서대로 검사하다 처음 걸리는 에러 하나만 반환한다(early return).
+// 그 아래 필드는 아직 검사하지 않은 것으로 간주해 에러를 만들지 않는다.
+function validate(form, { agreed, emailVerified }) {
   if (!form.name.trim()) {
-    errors.name = '이름을 입력해주세요.'
+    return { name: '이름을 입력해주세요.' }
   }
 
   if (!form.username.trim()) {
-    errors.username = '이메일을 입력해주세요.'
-  } else if (!EMAIL_PATTERN.test(form.username.trim())) {
-    errors.username = '올바른 이메일 형식이 아니에요.'
+    return { username: '이메일을 입력해주세요.' }
+  }
+  if (!EMAIL_PATTERN.test(form.username.trim())) {
+    return { username: '이메일 형식이 올바르지 않습니다.' }
+  }
+  if (!emailVerified) {
+    return { emailVerification: '이메일 인증을 완료해주세요.' }
   }
 
   if (!form.nickname.trim()) {
-    errors.nickname = '닉네임을 입력해주세요.'
-  } else if (form.nickname.trim().length < 2 || form.nickname.trim().length > 12) {
-    errors.nickname = '닉네임은 2~12자로 입력해주세요.'
+    return { nickname: '닉네임을 입력해주세요.' }
+  }
+  if (form.nickname.trim().length < 2 || form.nickname.trim().length > 12) {
+    return { nickname: '닉네임은 2~12자로 입력해주세요.' }
   }
 
   if (!form.password) {
-    errors.password = '비밀번호를 입력해주세요.'
-  } else if (!PASSWORD_PATTERN.test(form.password)) {
-    errors.password = '영문, 숫자를 포함해 8자 이상 입력해주세요.'
+    return { password: '비밀번호를 입력해주세요.' }
+  }
+  if (form.password.length < 8) {
+    return { password: '비밀번호는 최소 8자 이상이어야 합니다.' }
+  }
+  if (!PASSWORD_PATTERN.test(form.password)) {
+    return { password: '영문, 숫자를 포함해 8자 이상 입력해주세요.' }
   }
 
   if (!form.passwordConfirm) {
-    errors.passwordConfirm = '비밀번호를 한 번 더 입력해주세요.'
-  } else if (form.password !== form.passwordConfirm) {
-    errors.passwordConfirm = '비밀번호가 일치하지 않아요.'
+    return { passwordConfirm: '비밀번호를 한 번 더 입력해주세요.' }
+  }
+  if (form.password !== form.passwordConfirm) {
+    return { passwordConfirm: '비밀번호가 일치하지 않습니다.' }
   }
 
-  return errors
+  if (!agreed) {
+    return { agreed: '약관에 동의해주세요.' }
+  }
+
+  return {}
 }
 
 const inputBaseClass =
@@ -67,20 +82,86 @@ function SignUp() {
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  const [emailCode, setEmailCode] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
+  const [emailVerified, setEmailVerified] = useState(false)
+  const [sendingCode, setSendingCode] = useState(false)
+  const [verifyingCode, setVerifyingCode] = useState(false)
+  const [sendCodeError, setSendCodeError] = useState('')
+  const [sendCodeMessage, setSendCodeMessage] = useState('')
+  const [verifyCodeError, setVerifyCodeError] = useState('')
+
   function handleChange(field) {
     return (event) => {
       const { value } = event.target
       setForm((prev) => ({ ...prev, [field]: value }))
       setErrors((prev) => ({ ...prev, [field]: undefined }))
       setSubmitError('')
+
+      if (field === 'username') {
+        setCodeSent(false)
+        setEmailVerified(false)
+        setEmailCode('')
+        setSendCodeError('')
+        setSendCodeMessage('')
+        setVerifyCodeError('')
+        setErrors((prev) => ({ ...prev, emailVerification: undefined }))
+      }
+    }
+  }
+
+  async function handleSendCode() {
+    const email = form.username.trim()
+    if (!email || !EMAIL_PATTERN.test(email)) {
+      setErrors((prev) => ({ ...prev, username: '올바른 이메일을 입력해주세요.' }))
+      return
+    }
+
+    setSendingCode(true)
+    setSendCodeError('')
+    setSendCodeMessage('')
+
+    try {
+      await sendEmailVerificationCode(email)
+      setCodeSent(true)
+      setEmailVerified(false)
+      setEmailCode('')
+      setSendCodeMessage('인증코드를 보냈어요. 이메일을 확인해주세요.')
+    } catch (error) {
+      setSendCodeError(
+        error.response?.data?.message || '인증코드 발송에 실패했어요. 잠시 후 다시 시도해주세요.',
+      )
+    } finally {
+      setSendingCode(false)
+    }
+  }
+
+  async function handleVerifyCode() {
+    const code = emailCode.trim()
+    if (!code) {
+      setVerifyCodeError('인증코드를 입력해주세요.')
+      return
+    }
+
+    setVerifyingCode(true)
+    setVerifyCodeError('')
+
+    try {
+      await verifyEmailVerificationCode({ email: form.username.trim(), code })
+      setEmailVerified(true)
+      setErrors((prev) => ({ ...prev, emailVerification: undefined }))
+    } catch (error) {
+      setEmailVerified(false)
+      setVerifyCodeError(error.response?.data?.message || '인증코드가 올바르지 않아요.')
+    } finally {
+      setVerifyingCode(false)
     }
   }
 
   async function handleSubmit(event) {
     event.preventDefault()
-    if (!agreed) return
 
-    const nextErrors = validate(form)
+    const nextErrors = validate(form, { agreed, emailVerified })
     setErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) return
 
@@ -97,13 +178,24 @@ function SignUp() {
       })
       navigate('/login')
     } catch (error) {
-      if (error.response?.status === 409) {
+      const data = error.response?.data
+      const errorCode = data?.errorCode
+
+      if (errorCode === 'DUPLICATE_USERNAME') {
         setErrors((prev) => ({
           ...prev,
-          username: '이미 가입된 이메일이에요. 다른 이메일을 사용해주세요.',
+          username: data?.message || '이미 가입된 이메일이에요. 다른 이메일을 사용해주세요.',
         }))
+      } else if (errorCode === 'DUPLICATE_NICKNAME') {
+        setErrors((prev) => ({
+          ...prev,
+          nickname: data?.message || '이미 사용 중인 닉네임이에요.',
+        }))
+      } else if (errorCode === 'EMAIL_NOT_VERIFIED') {
+        setEmailVerified(false)
+        setErrors((prev) => ({ ...prev, emailVerification: data?.message || '이메일 인증을 완료해주세요.' }))
       } else {
-        setSubmitError('회원가입에 실패했어요. 잠시 후 다시 시도해주세요.')
+        setSubmitError(data?.message || '회원가입에 실패했어요. 잠시 후 다시 시도해주세요.')
       }
     } finally {
       setSubmitting(false)
@@ -166,11 +258,11 @@ function SignUp() {
               />
               <button
                 type="button"
-                disabled
-                title="준비 중인 기능이에요"
-                className="shrink-0 whitespace-nowrap rounded-2xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-400 transition disabled:cursor-not-allowed sm:py-0"
+                onClick={handleSendCode}
+                disabled={sendingCode}
+                className="shrink-0 cursor-pointer whitespace-nowrap rounded-2xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400 sm:py-0"
               >
-                인증코드 받기
+                {sendingCode ? '발송 중…' : codeSent ? '인증코드 재전송' : '인증코드 받기'}
               </button>
             </div>
             {errors.username ? (
@@ -179,6 +271,44 @@ function SignUp() {
               <p className="text-xs text-gray-400">
                 로그인에 사용할 이메일이에요. 인증 후 가입할 수 있어요.
               </p>
+            )}
+            {sendCodeError && <p className="text-xs font-semibold text-red-500">{sendCodeError}</p>}
+            {sendCodeMessage && !emailVerified && (
+              <p className="text-xs font-semibold text-blue-600">{sendCodeMessage}</p>
+            )}
+
+            {codeSent && !emailVerified && (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  id="emailCode"
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="인증코드 6자리"
+                  value={emailCode}
+                  onChange={(event) => {
+                    setEmailCode(event.target.value)
+                    setVerifyCodeError('')
+                  }}
+                  aria-invalid={Boolean(verifyCodeError)}
+                  className={inputClass(verifyCodeError)}
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyCode}
+                  disabled={verifyingCode}
+                  className="shrink-0 cursor-pointer whitespace-nowrap rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:py-0"
+                >
+                  {verifyingCode ? '확인 중…' : '인증하기'}
+                </button>
+              </div>
+            )}
+            {verifyCodeError && <p className="text-xs font-semibold text-red-500">{verifyCodeError}</p>}
+            {emailVerified && (
+              <p className="text-xs font-semibold text-green-600">이메일 인증이 완료됐어요.</p>
+            )}
+            {errors.emailVerification && !codeSent && (
+              <p className="text-xs font-semibold text-red-500">{errors.emailVerification}</p>
             )}
           </div>
 
@@ -222,7 +352,7 @@ function SignUp() {
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
                 aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
               </button>
@@ -253,7 +383,7 @@ function SignUp() {
                 type="button"
                 onClick={() => setShowPasswordConfirm((value) => !value)}
                 aria-label={showPasswordConfirm ? '비밀번호 숨기기' : '비밀번호 표시'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-600"
               >
                 {showPasswordConfirm ? (
                   <EyeOffIcon className="h-5 w-5" />
@@ -267,29 +397,35 @@ function SignUp() {
             )}
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={agreed}
-              onChange={(event) => setAgreed(event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span>
-              <Link to="/terms" className="font-bold text-blue-600 hover:underline">
-                이용약관
-              </Link>{' '}
-              및{' '}
-              <Link to="/privacy" className="font-bold text-blue-600 hover:underline">
-                개인정보처리방침
-              </Link>
-              에 동의합니다. <span className="text-gray-500">(필수)</span>
-            </span>
-          </label>
+          <div className="space-y-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(event) => {
+                  setAgreed(event.target.checked)
+                  setErrors((prev) => ({ ...prev, agreed: undefined }))
+                }}
+                className="h-4 w-4 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>
+                <Link to="/terms" className="font-bold text-blue-600 hover:underline">
+                  이용약관
+                </Link>{' '}
+                및{' '}
+                <Link to="/privacy" className="font-bold text-blue-600 hover:underline">
+                  개인정보처리방침
+                </Link>
+                에 동의합니다. <span className="text-gray-500">(필수)</span>
+              </span>
+            </label>
+            {errors.agreed && <p className="text-xs font-semibold text-red-500">{errors.agreed}</p>}
+          </div>
 
           <button
             type="submit"
-            disabled={!agreed || submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-[15px] font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
+            disabled={submitting}
+            className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-[15px] font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
           >
             {submitting ? '가입 중…' : '가입하기'}
             <ArrowRightIcon className="h-4 w-4" />
@@ -305,19 +441,21 @@ function SignUp() {
         <div className="flex items-center justify-center gap-5">
           <button
             type="button"
-            disabled
-            title="준비 중인 기능이에요"
+            onClick={() => {
+              window.location.href = getKakaoLoginUrl()
+            }}
             aria-label="카카오로 가입하기"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FEE500] transition"
+            className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-[#FEE500] transition"
           >
             <KakaoIcon size={28} />
           </button>
           <button
             type="button"
-            disabled
-            title="준비 중인 기능이에요"
+            onClick={() => {
+              window.location.href = getGoogleLoginUrl()
+            }}
             aria-label="Google로 가입하기"
-            className="flex h-14 w-14 items-center justify-center rounded-full border border-gray-200 bg-white transition"
+            className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white transition"
           >
             <GoogleIcon size={28} />
           </button>

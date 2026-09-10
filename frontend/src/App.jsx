@@ -17,6 +17,7 @@ import HostFestivals from './pages/HostFestivals'
 import Login from './pages/Login'
 import MyPage from './pages/Mypage'
 import Placeholder from './pages/Placeholder'
+import RequireAuth from './components/RequireAuth'
 import ReservationCheckout from './pages/ReservationCheckout'
 import SignUp from './pages/SignUp'
 
@@ -59,8 +60,22 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<Placeholder title="비밀번호 재설정" />} />
-        <Route path="/mypage" element={<MyPage />} />
-        <Route path="/reservations" element={<MyPage initialTab="reservations" />} />
+        <Route
+          path="/mypage"
+          element={
+            <RequireAuth>
+              <MyPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/reservations"
+          element={
+            <RequireAuth>
+              <MyPage initialTab="reservations" />
+            </RequireAuth>
+          }
+        />
         <Route path="/host-application" element={<HostApplication />} />
         {/* SiteFooter/OrganizerCta는 여전히 /organizers/apply로 링크하므로 같은 화면을 연결해둔다. */}
         <Route path="/organizers/apply" element={<HostApplication />} />

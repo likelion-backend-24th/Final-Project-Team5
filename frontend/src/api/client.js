@@ -19,7 +19,7 @@ apiClient.interceptors.request.use((config) => {
 // 401을 받은 요청들이 동시에 재발급을 호출하지 않도록 진행 중인 재발급 Promise를 공유한다.
 let refreshPromise = null
 
-function requestReissue() {
+export function requestReissue() {
   return axios
     .post(`${API_BASE_URL}/api/auth/reissue`, null, { withCredentials: true })
     .then((response) => response.data.data.accessToken)

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtTokenProvider {
@@ -57,6 +58,7 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .subject(username)
+                .id(UUID.randomUUID().toString()) // jti - 매번 고유한 값이라 같은 초에 발급돼도 토큰이 달라짐
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(key)

@@ -129,6 +129,11 @@ public class AuthService {
         return new TokenResponse(accessToken, refreshToken);
     }
 
+    // 재사용 탐지 시, 폐기된 지 이 시간 안이면 "짧은 시간 내 반복 새로고침으로 인한 경합"으로 보고
+    // 전체 로그아웃 대신 최신 후속 토큰으로 자연스럽게 재발급해준다. 이 구간을 벗어난 재사용은
+    // 여전히 진짜 탈취로 간주한다 — 공격자가 로테이션 순간을 실시간으로 가로채지 않는 한 우회 불가.
+    private static final Duration REUSE_GRACE_PERIOD = Duration.ofSeconds(5);
+
     // reissue(재발급)
     @Transactional
     public TokenResponse reissue(String refreshToken){
@@ -141,16 +146,51 @@ public class AuthService {
         RefreshToken savedRefreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new ApiException(AuthErrorCode.INVALID_REFRESH_TOKEN));
 
-        // 이미 페기된 토큰이 재사용되었는지 확인
+        // 이미 폐기된 토큰이 재사용됐는지 확인
         if (savedRefreshToken.getRevokedAt() != null){
-            refreshTokenRevocationService.revokeAllTokens(savedRefreshToken.getUser());
-            throw new ApiException(AuthErrorCode.REFRESH_TOKEN_REUSED);
+            RefreshToken healedToken = resolveGraceHealedToken(savedRefreshToken);
+            if (healedToken == null) {
+                refreshTokenRevocationService.revokeAllTokens(savedRefreshToken.getUser());
+                throw new ApiException(AuthErrorCode.REFRESH_TOKEN_REUSED);
+            }
+            return rotate(healedToken);
         }
         // DB에서도 만료 여부 확인-> 이중체크
         if (savedRefreshToken.getExpiresAt().isBefore(LocalDateTime.now())){
             throw new ApiException(AuthErrorCode.INVALID_REFRESH_TOKEN);
         }
 
+        return rotate(savedRefreshToken);
+    }
+
+    // 폐기된 지 REUSE_GRACE_PERIOD 이내라면 replacedByTokenId 체인을 따라가 현재 유효한 최신 토큰을
+    // 찾아 반환한다. 유예 구간을 벗어났거나(오래된 재사용) 체인이 끊겼으면(revokeAllTokens로 통째로
+    // 폐기된 경우 등) null을 반환해 호출부가 진짜 재사용(탈취)으로 처리하게 한다.
+    private RefreshToken resolveGraceHealedToken(RefreshToken revokedToken) {
+        if (Duration.between(revokedToken.getRevokedAt(), LocalDateTime.now()).compareTo(REUSE_GRACE_PERIOD) > 0) {
+            return null;
+        }
+
+        RefreshToken current = revokedToken;
+        while (current.getRevokedAt() != null) {
+            Long nextId = current.getReplacedByTokenId();
+            if (nextId == null) {
+                return null;
+            }
+            current = refreshTokenRepository.findById(nextId).orElse(null);
+            if (current == null) {
+                return null;
+            }
+        }
+
+        if (current.getExpiresAt().isBefore(LocalDateTime.now())) {
+            return null;
+        }
+        return current;
+    }
+
+    // 검증이 끝난 리프레시 토큰을 실제로 로테이션한다 (신규 발급 + 기존 토큰 폐기).
+    private TokenResponse rotate(RefreshToken savedRefreshToken) {
         User user = savedRefreshToken.getUser();
         //회탈/정지 검증
         checkAccountActive(user);

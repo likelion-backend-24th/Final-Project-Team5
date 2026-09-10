@@ -1,4 +1,15 @@
 @import "tailwindcss";
+
+/* FevalGo CI 팔레트(브랜드 가이드 기준) — bg-brand-*, text-brand-* 등 유틸리티로 사용한다.
+   브랜드 강조색은 blue를 기본으로 하되, 카테고리·배지 등 장식적인 요소에는 magenta/coral도
+   섞어써 전체가 파란색 하나로만 단조로워지지 않게 한다. */
+@theme {
+  --color-brand-blue: #2563eb;
+  --color-brand-magenta: #c033a0;
+  --color-brand-coral: #fc4c21;
+  --color-brand-navy: #101a44;
+}
+
 /* FevalGo 디자인 토큰.
    v0 시안이 쓰던 Primer(GitHub 디자인 시스템) 토큰을 값으로 옮겨 적은 것.
    Primer 패키지 의존 없이 순수 CSS 커스텀 프로퍼티로만 유지한다. */

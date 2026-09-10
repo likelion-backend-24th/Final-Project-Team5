@@ -14,3 +14,10 @@ createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+// PWA 설치 조건(manifest + 등록된 서비스워커) 충족용 — public/sw.js는 아무것도 캐싱하지 않는다.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {})
+  })
+}

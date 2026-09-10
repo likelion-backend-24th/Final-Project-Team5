@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { FEATURED_FESTIVALS } from '../data/festivals'
-import Badge from './Badge'
+import Badge, { badgeVariantForLabel } from './Badge'
 
 function HeroCarousel({ slides = FEATURED_FESTIVALS }) {
   const [index, setIndex] = useState(0)
@@ -35,7 +35,9 @@ function HeroCarousel({ slides = FEATURED_FESTIVALS }) {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
               <div className="absolute bottom-0 left-0 p-6 md:p-10">
-                {festival.badge ? <Badge>{festival.badge}</Badge> : null}
+                {festival.badge ? (
+                  <Badge variant={badgeVariantForLabel(festival.badge)}>{festival.badge}</Badge>
+                ) : null}
                 <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-white text-balance md:text-4xl">
                   {festival.title}
                 </h2>

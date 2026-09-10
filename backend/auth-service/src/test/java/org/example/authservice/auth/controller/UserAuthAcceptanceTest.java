@@ -176,7 +176,29 @@ class UserAuthAcceptanceTest {
     }
 
     @Test
-    void reusingRotatedRefreshTokenRevokesAllSessions() throws Exception {
+    void reusingRotatedRefreshTokenWithinGracePeriodHealsSession() throws Exception {
+        signup("reuse-grace@test.com", "reusegraceuser");
+        MvcResult loginResult = login("reuse-grace@test.com", PASSWORD)
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie originalRefreshTokenCookie = loginResult.getResponse().getCookie("refreshToken");
+        Thread.sleep(1000);
+
+        // 정상적인 1차 재발급 — 이 시점에 원래 토큰은 Rotation으로 폐기(revoke)된다.
+        mockMvc.perform(post(REISSUE_ENDPOINT).cookie(originalRefreshTokenCookie))
+                .andExpect(status().isOk());
+
+        // 짧은 시간 안에 새로고침을 연달아 할 때처럼, 폐기 직후(유예 구간 이내) 같은 옛 토큰이 다시
+        // 들어와도 탈취로 보지 않고 최신 토큰 기준으로 정상 재발급된다(세션 유지).
+        mockMvc.perform(post(REISSUE_ENDPOINT).cookie(originalRefreshTokenCookie))
+                .andExpect(status().isOk());
+
+        User user = userRepository.findByUsername("reuse-grace@test.com").orElseThrow();
+        assertThat(refreshTokenRepository.findAllByUser_IdAndRevokedAtIsNull(user.getId())).isNotEmpty();
+    }
+
+    @Test
+    void reusingRotatedRefreshTokenAfterGracePeriodRevokesAllSessions() throws Exception {
         signup("reuse@test.com", "reuseuser");
         MvcResult loginResult = login("reuse@test.com", PASSWORD)
                 .andExpect(status().isOk())
@@ -188,7 +210,9 @@ class UserAuthAcceptanceTest {
         mockMvc.perform(post(REISSUE_ENDPOINT).cookie(originalRefreshTokenCookie))
                 .andExpect(status().isOk());
 
-        // 이미 폐기된 예전 토큰을 다시 사용 — 탈취로 간주해 401 + 전체 세션 강제 로그아웃.
+        // 유예 구간(5초)을 넘긴 뒤에 재사용 — 새로고침 경합이라 보기 어려운, 진짜 탈취 시나리오이므로
+        // 여전히 401 + 전체 세션 강제 로그아웃이어야 한다.
+        Thread.sleep(6000);
         mockMvc.perform(post(REISSUE_ENDPOINT).cookie(originalRefreshTokenCookie))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.errorCode", is("REFRESH_TOKEN_REUSED")));

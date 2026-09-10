@@ -19,6 +19,7 @@ import MyPage from './pages/Mypage'
 import Placeholder from './pages/Placeholder'
 import RequireAuth from './components/RequireAuth'
 import ReservationCheckout from './pages/ReservationCheckout'
+import ResetPassword from './pages/ResetPassword'
 import SignUp from './pages/SignUp'
 
 /** 상단바·푸터는 모든 화면에 고정, 가운데만 라우팅으로 갈아끼운다. */
@@ -59,7 +60,7 @@ function App() {
         <Route path="/festivals/:id/reserve" element={<ReservationCheckout />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
-        <Route path="/reset-password" element={<Placeholder title="비밀번호 재설정" />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/mypage"
           element={

@@ -14,7 +14,6 @@ const VARIANTS = {
 const LABEL_VARIANTS = {
   HOT: 'coral',
   마감임박: 'magenta',
-  지역행사: 'amber',
   접수중: 'teal',
 }
 

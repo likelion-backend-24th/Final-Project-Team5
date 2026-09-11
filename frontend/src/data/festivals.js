@@ -122,7 +122,6 @@ export const FESTIVALS = [
     date: '2026.10.09 – 10.11',
     price: '12,000원~',
     image: '/festivals/card-art.webp',
-    badge: '지역행사',
   },
   {
     id: 'lantern-festival',

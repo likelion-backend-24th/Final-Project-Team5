@@ -32,7 +32,7 @@ public class EmailService {
         message.setTo(toEmail);
         message.setSubject("[FevalGo] 이메일 인증코드입니다.");
 
-        message.setText("FevalGo 회원가입을 위한 이메일 인증코드입니다.\n" +
+        message.setText("FevalGo 회원가입 및 비밀번호 재설정을 위한 이메일 인증코드입니다.\n" +
                 "인증 화면에 아래의 코드를 입력해 주시기 바랍니다.\n" +
                 "인증코드: " + code + "\n\n" +
                 "-인증코드 유효기간 안내\n" +

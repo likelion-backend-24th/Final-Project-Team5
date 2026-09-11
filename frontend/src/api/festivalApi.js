@@ -50,6 +50,12 @@ export function toAbsoluteImageUrl(imageUrl) {
   return imageUrl ? `${API_BASE_URL}${imageUrl}` : null
 }
 
+function daysUntil(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return Math.ceil((date.setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / (1000 * 60 * 60 * 24))
+}
+
 /** FestivalResponseDto(백엔드)를 기존 FestivalCard/mock 데이터 형태로 변환한다. */
 export function mapFestivalToCard(festival) {
   return {
@@ -61,5 +67,6 @@ export function mapFestivalToCard(festival) {
     price: formatPrice(festival.ticketTypes),
     image: toAbsoluteImageUrl(festival.thumbnailImageUrl),
     festivalStatus: festival.festivalStatus,
+    dday: daysUntil(festival.startAt),
   }
 }

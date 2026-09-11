@@ -29,7 +29,8 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const { config, response } = error
-    if (!response || response.status !== 401 || !config || config._retry) {
+    const isLoginRequest = config?.url?.includes('/api/auth/login')
+    if (!response || response.status !== 401 || !config || config._retry || isLoginRequest) {
       return Promise.reject(error)
     }
     config._retry = true

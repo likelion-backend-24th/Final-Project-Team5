@@ -56,23 +56,6 @@ function SiteHeader() {
         </form>
 
         <nav className="ml-auto flex items-center gap-2">
-          {isAuthenticated && user.role === 'ADMIN' && (
-            <>
-              <Link
-                to="/admin/host-applications"
-                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
-              >
-                주최자 심사
-              </Link>
-              <Link
-                to="/admin/festivals"
-                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
-              >
-                페스티벌 심사
-              </Link>
-            </>
-          )}
-
           {isAuthenticated ? (
             <>
               <Link

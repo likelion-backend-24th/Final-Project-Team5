@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 import { AlarmClockIcon } from 'lucide-react'
-import { CLOSING_SOON_FESTIVALS } from '../data/festivals'
+import { FESTIVAL_CATEGORY_LABELS } from '../api/festivalApi'
 import Badge from './Badge'
 import FestivalCard from './FestivalCard'
 
-function ClosingSoon({ festivals = CLOSING_SOON_FESTIVALS }) {
+function ClosingSoon({ festivals = [] }) {
   if (festivals.length === 0) return null
 
   return (
@@ -25,7 +25,11 @@ function ClosingSoon({ festivals = CLOSING_SOON_FESTIVALS }) {
       <div className="mt-5 flex snap-x gap-6 overflow-x-auto pb-4">
   {festivals.map((festival) => (
     <div key={festival.id} className="w-[280px] shrink-0 snap-start">
-            <FestivalCard festival={festival} badge={<Badge variant="danger">D-{festival.dday}</Badge>} />
+            <FestivalCard
+              festival={festival}
+              categoryLabel={FESTIVAL_CATEGORY_LABELS[festival.category] ?? festival.category}
+              badge={<Badge variant="danger">D-{festival.dday}</Badge>}
+            />
           </div>
         ))}
       </div>

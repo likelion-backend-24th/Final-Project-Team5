@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
-import { FEATURED_FESTIVALS } from '../data/festivals'
 import Badge, { badgeVariantForLabel } from './Badge'
 
-function HeroCarousel({ slides = FEATURED_FESTIVALS }) {
+function HeroCarousel({ slides = [] }) {
   const [index, setIndex] = useState(0)
   const count = slides.length
 

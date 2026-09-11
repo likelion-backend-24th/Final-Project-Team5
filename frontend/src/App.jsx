@@ -3,8 +3,7 @@ import ScrollToTop from './components/ScrollToTop'
 import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
 import { useAuth } from './context/AuthContext.jsx'
-import AdminFestivals from './pages/AdminFestivals'
-import AdminHostApplications from './pages/AdminHostApplications'
+import AdminDashboard from './pages/AdminDashboard'
 import CheckIn from './pages/CheckIn'
 import FestivalDetail from './pages/FestivalDetail'
 import HelperHome from './pages/HelperHome'
@@ -88,8 +87,7 @@ function App() {
         {/* 현장 입장 검증 — 주최자는 페스티벌을 지정해서, 도우미는 배정된 페스티벌로 /check-in에서 들어온다. */}
         <Route path="/host/festivals/:id/check-in" element={<CheckIn />} />
         <Route path="/check-in" element={<CheckIn />} />
-        <Route path="/admin/host-applications" element={<AdminHostApplications />} />
-        <Route path="/admin/festivals" element={<AdminFestivals />} />
+        <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/terms" element={<Placeholder title="이용약관" />} />
         <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
         <Route

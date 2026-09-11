@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { sendEmailVerificationCode, signup, verifyEmailVerificationCode } from '../api/authApi'
@@ -7,6 +7,7 @@ import { GoogleIcon, KakaoIcon } from '../components/SocialIcons'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PASSWORD_PATTERN = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/
+const RESEND_COOLDOWN_SECONDS = 30
 
 const initialForm = {
   name: '',
@@ -90,6 +91,17 @@ function SignUp() {
   const [sendCodeError, setSendCodeError] = useState('')
   const [sendCodeMessage, setSendCodeMessage] = useState('')
   const [verifyCodeError, setVerifyCodeError] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+
+    const timer = setInterval(() => {
+      setResendCooldown((value) => Math.max(0, value - 1))
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [resendCooldown])
 
   function handleChange(field) {
     return (event) => {
@@ -105,17 +117,22 @@ function SignUp() {
         setSendCodeError('')
         setSendCodeMessage('')
         setVerifyCodeError('')
+        setResendCooldown(0)
         setErrors((prev) => ({ ...prev, emailVerification: undefined }))
       }
     }
   }
 
   async function handleSendCode() {
+    if (resendCooldown > 0) return
+
     const email = form.username.trim()
     if (!email || !EMAIL_PATTERN.test(email)) {
       setErrors((prev) => ({ ...prev, username: '올바른 이메일을 입력해주세요.' }))
       return
     }
+
+    const isResend = codeSent
 
     setSendingCode(true)
     setSendCodeError('')
@@ -126,7 +143,12 @@ function SignUp() {
       setCodeSent(true)
       setEmailVerified(false)
       setEmailCode('')
-      setSendCodeMessage('인증코드를 보냈어요. 이메일을 확인해주세요.')
+      setSendCodeMessage(
+        isResend
+          ? '인증코드를 재전송했어요. 이메일을 확인해주세요. (유효시간 5분)'
+          : '인증코드를 전송했어요. 이메일을 확인해주세요. (유효시간 5분)',
+      )
+      setResendCooldown(RESEND_COOLDOWN_SECONDS)
     } catch (error) {
       setSendCodeError(
         error.response?.data?.message || '인증코드 발송에 실패했어요. 잠시 후 다시 시도해주세요.',
@@ -259,10 +281,16 @@ function SignUp() {
               <button
                 type="button"
                 onClick={handleSendCode}
-                disabled={sendingCode}
+                disabled={sendingCode || resendCooldown > 0}
                 className="shrink-0 cursor-pointer whitespace-nowrap rounded-2xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-400 sm:py-0"
               >
-                {sendingCode ? '발송 중…' : codeSent ? '인증코드 재전송' : '인증코드 받기'}
+                {sendingCode
+                  ? '발송 중…'
+                  : resendCooldown > 0
+                    ? `재전송 (${resendCooldown}초)`
+                    : codeSent
+                      ? '인증코드 재전송'
+                      : '인증코드 받기'}
               </button>
             </div>
             {errors.username ? (
@@ -273,35 +301,40 @@ function SignUp() {
               </p>
             )}
             {sendCodeError && <p className="text-xs font-semibold text-red-500">{sendCodeError}</p>}
-            {sendCodeMessage && !emailVerified && (
-              <p className="text-xs font-semibold text-blue-600">{sendCodeMessage}</p>
-            )}
 
             {codeSent && !emailVerified && (
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <input
-                  id="emailCode"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="인증코드 6자리"
-                  value={emailCode}
-                  onChange={(event) => {
-                    setEmailCode(event.target.value)
-                    setVerifyCodeError('')
-                  }}
-                  aria-invalid={Boolean(verifyCodeError)}
-                  className={inputClass(verifyCodeError)}
-                />
-                <button
-                  type="button"
-                  onClick={handleVerifyCode}
-                  disabled={verifyingCode}
-                  className="shrink-0 cursor-pointer whitespace-nowrap rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:py-0"
-                >
-                  {verifyingCode ? '확인 중…' : '인증하기'}
-                </button>
+              <div className="space-y-2">
+                <label htmlFor="emailCode" className="block text-sm font-bold text-gray-900">
+                  인증코드
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="emailCode"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="인증코드 6자리"
+                    value={emailCode}
+                    onChange={(event) => {
+                      setEmailCode(event.target.value)
+                      setVerifyCodeError('')
+                    }}
+                    aria-invalid={Boolean(verifyCodeError)}
+                    className={inputClass(verifyCodeError)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyCode}
+                    disabled={verifyingCode}
+                    className="shrink-0 cursor-pointer whitespace-nowrap rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400 sm:py-0"
+                  >
+                    {verifyingCode ? '확인 중…' : '인증하기'}
+                  </button>
+                </div>
               </div>
+            )}
+            {sendCodeMessage && !emailVerified && (
+              <p className="text-xs font-semibold text-blue-600">{sendCodeMessage}</p>
             )}
             {verifyCodeError && <p className="text-xs font-semibold text-red-500">{verifyCodeError}</p>}
             {emailVerified && (

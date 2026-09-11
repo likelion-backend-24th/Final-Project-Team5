@@ -50,7 +50,7 @@ function formatDateRange(startAt, endAt) {
 /* ---------- 주최자 신청 승인 (실제 API 연동) ---------- */
 
 const HOST_APPLICATION_ERROR_MESSAGES = {
-  FORBIDDEN_ROLE: '운영자 권한이 없습니다.',
+  FORBIDDEN_ADMIN_ROLE: '운영자 권한이 없습니다.',
   APPLICATION_NOT_FOUND: '존재하지 않는 신청입니다. 목록을 새로고침해주세요.',
   ALREADY_REVIEWED: '이미 처리되었거나 Role 부여 처리 중인 신청입니다. 목록을 새로고침해주세요.',
   REJECT_REASON_REQUIRED: '반려 사유를 입력해주세요.',
@@ -94,7 +94,7 @@ export async function reviewOrganizerApplication(id, { status, rejectReason }) {
 /* ---------- 페스티벌 등록 승인 (실제 API 연동) ---------- */
 
 const FESTIVAL_REVIEW_ERROR_MESSAGES = {
-  FORBIDDEN_ROLE: '운영자 권한이 없습니다.',
+  FORBIDDEN_ADMIN_ROLE: '운영자 권한이 없습니다.',
   FESTIVAL_NOT_FOUND: '존재하지 않는 페스티벌입니다. 목록을 새로고침해주세요.',
   ALREADY_REVIEWED: '이미 심사 처리된 페스티벌입니다. 목록을 새로고침해주세요.',
   INVALID_DECISION: '공개 또는 반려만 결정할 수 있어요.',

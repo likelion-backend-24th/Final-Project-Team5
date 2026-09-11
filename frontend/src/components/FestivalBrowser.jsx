@@ -1,21 +1,28 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { filterByCategory } from '../data/festivals'
+import { FESTIVAL_CATEGORY_LABELS } from '../api/festivalApi'
 import CategoryChips from './CategoryChips'
 import FestivalCard from './FestivalCard'
 
+const CATEGORY_CHIPS = [
+  { id: 'all', label: '전체' },
+  ...Object.entries(FESTIVAL_CATEGORY_LABELS).map(([id, label]) => ({ id, label })),
+]
 
 const HOME_PREVIEW_LIMIT = 8
 
-function FestivalBrowser() {
+function FestivalBrowser({ festivals: allFestivals = [] }) {
   const [category, setCategory] = useState('all')
-  const festivals = useMemo(() => filterByCategory(category), [category])
+  const festivals = useMemo(
+    () => (category === 'all' ? allFestivals : allFestivals.filter((f) => f.category === category)),
+    [allFestivals, category],
+  )
   const previewFestivals = festivals.slice(0, HOME_PREVIEW_LIMIT)
 
   return (
     <div className="mx-auto max-w-[1440px] px-6">
       <div className="py-6">
-        <CategoryChips value={category} onChange={setCategory} />
+        <CategoryChips value={category} onChange={setCategory} categories={CATEGORY_CHIPS} />
       </div>
 
       <section aria-label="인기 페스티벌">
@@ -36,7 +43,11 @@ function FestivalBrowser() {
         ) : (
           <div className="mt-5 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
             {previewFestivals.map((festival) => (
-              <FestivalCard key={festival.id} festival={festival} />
+              <FestivalCard
+                key={festival.id}
+                festival={festival}
+                categoryLabel={FESTIVAL_CATEGORY_LABELS[festival.category] ?? festival.category}
+              />
             ))}
           </div>
         )}

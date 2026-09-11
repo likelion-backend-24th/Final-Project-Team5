@@ -29,10 +29,11 @@ function Home() {
   }, [])
 
   const heroSlides = useMemo(() => festivals.slice(0, HERO_SLIDE_LIMIT), [festivals])
+  // 마감임박 기준: 공연 시작까지 D-3일 이내
   const closingSoon = useMemo(
     () =>
       festivals
-        .filter((f) => typeof f.dday === 'number' && f.dday >= 0)
+        .filter((f) => typeof f.dday === 'number' && f.dday >= 0 && f.dday <= 3)
         .sort((a, b) => a.dday - b.dday)
         .slice(0, CLOSING_SOON_LIMIT),
     [festivals],

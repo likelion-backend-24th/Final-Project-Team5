@@ -385,6 +385,7 @@ function SignUp() {
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
                 aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                tabIndex={-1}
                 className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
@@ -416,6 +417,7 @@ function SignUp() {
                 type="button"
                 onClick={() => setShowPasswordConfirm((value) => !value)}
                 aria-label={showPasswordConfirm ? '비밀번호 숨기기' : '비밀번호 표시'}
+                tabIndex={-1}
                 className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-600"
               >
                 {showPasswordConfirm ? (

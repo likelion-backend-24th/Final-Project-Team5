@@ -7,8 +7,8 @@ function AdminHomeBanner() {
   const { user } = useAuth()
   if (user?.role !== 'ADMIN') return null
 
+  //헤더 바로 아래에 딱 붙어 보인다는 QA 피드백 — 위쪽 여백(mt)을 둔다.
   return (
-    {/* 헤더 바로 아래에 딱 붙어 보인다는 QA 피드백 — 위쪽 여백을 둔다. */}
     <section className="mx-auto mt-4 mb-4 max-w-[1440px] px-6 sm:mt-6">
       <div className="flex flex-col items-start gap-4 rounded-3xl border border-blue-100 bg-blue-50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">

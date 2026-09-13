@@ -196,8 +196,16 @@ function HostApplication() {
         {wasRejected && (
           <p className={styles.rejectNotice}>
             <CircleAlertIcon size={16} aria-hidden="true" />
-            지난 신청이 반려되었어요{application.rejectReason ? `: ${application.rejectReason}` : '.'}{' '}
-            내용을 보완해 다시 신청해주세요.
+            {/* 부모가 flex라 텍스트 조각이 각각 가로로 나열되며 줄바꿈이 안 되던 문제 — 한 span으로 묶고 사유는 별도 줄에 둔다. */}
+            <span>
+              지난 신청이 반려되었어요. 내용을 보완해 다시 신청해주세요.
+              {application.rejectReason && (
+                <>
+                  <br />
+                  <span className={styles.rejectReason}>반려 사유: {application.rejectReason}</span>
+                </>
+              )}
+            </span>
           </p>
         )}
 

@@ -1,6 +1,7 @@
 package org.example.festivalservice.controller;
 
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.dto.ApiResponse;
 import org.example.festivalservice.domain.hostapplication.HostApplicationResponseDto;
@@ -40,5 +41,13 @@ public class HostApplicationController {
     ) {
         HostApplicationResponseDto response = hostApplicationService.getMy(userId);
         return ResponseEntity.ok(ApiResponse.success("주최자 신청 상태·반려사유 조회",response));
+    }
+
+    //본인의 주최 신청 이력 전체(반려됐다가 재신청한 것까지)를 최신순으로 조회한다
+    @GetMapping("/me/history")
+    public ResponseEntity<ApiResponse<List<HostApplicationResponseDto>>> getMyHistory(
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("주최자 신청 이력 조회", hostApplicationService.getMyHistory(userId)));
     }
 }

@@ -19,7 +19,8 @@ public enum AuthErrorCode implements ErrorCode {
     REFRESH_TOKEN_REUSED(HttpStatus.UNAUTHORIZED, "재사용이 감지되어 모든 세션이 로그아웃되었습니다."),
     ACCOUNT_LOCKED(HttpStatus.FORBIDDEN, "로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
     TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "이용약관 및 개인정보처리방침에 동의해야 합니다."),
-    OAUTH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "소셜 로그인 토큰이 유효하지 않습니다.");
+    OAUTH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "소셜 로그인 토큰이 유효하지 않습니다."),
+    PASSWORD_CHANGED_RELOGIN_REQUIRED(HttpStatus.UNAUTHORIZED, "비밀번호가 변경되어 다시 로그인해야 합니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

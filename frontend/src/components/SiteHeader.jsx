@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 function SiteHeader() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated, isLoading, logout } = useAuth()
   //도우미는 담당 행사 하나만 다루고 예매를 할 수 없어 검색·내 예약이 의미가 없다.
   //대신 현장 검증 화면으로 가는 링크를 둔다(본인 정보 확인은 도우미도 가능해 그대로 남긴다).
   const isHelper = user?.role === 'HELPER'
@@ -56,7 +56,10 @@ function SiteHeader() {
         </form>
 
         <nav className="ml-auto flex items-center gap-2">
-          {isAuthenticated ? (
+          {/* 세션 복원 중에는 "로그인·회원가입"이 잠깐 비쳤다 닉네임으로 바뀌며 깜빡였다. 그 사이엔 빈 자리만 잡아둔다. */}
+          {isLoading ? (
+            <span aria-hidden="true" className="h-9 w-9 animate-pulse rounded-lg bg-gray-100 sm:w-28" />
+          ) : isAuthenticated ? (
             <>
               <Link
                 to="/mypage"

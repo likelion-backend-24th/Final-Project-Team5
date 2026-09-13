@@ -14,6 +14,11 @@ function MyPageSettingsTab({ user }) {
   const navigate = useNavigate()
   const { refreshUser, logout } = useAuth()
 
+  //카카오·구글 계정은 비밀번호가 없거나 소셜 로그인이 기준이라 백엔드가 변경을 거부한다. 폼 대신 안내만 보여준다.
+  const socialProviders = user.socialProviders ?? []
+  const isSocialAccount = socialProviders.length > 0
+  const socialProviderLabel = socialProviders.map((p) => ({ KAKAO: '카카오', GOOGLE: '구글' })[p] ?? p).join('·')
+
   // 닉네임
   const [nickname, setNickname] = useState(user.nickname)
   const [nicknameError, setNicknameError] = useState('')
@@ -150,6 +155,14 @@ function MyPageSettingsTab({ user }) {
         </div>
       </form>
 
+      {isSocialAccount ? (
+        <section className={cardClass}>
+          <h2 className="text-lg font-extrabold text-gray-900">비밀번호 변경</h2>
+          <p className="mt-3 text-sm leading-relaxed text-gray-500">
+            {socialProviderLabel} 계정으로 로그인하는 회원은 비밀번호를 사용하지 않아 변경할 수 없어요.
+          </p>
+        </section>
+      ) : (
       <form className={cardClass} onSubmit={handlePasswordSubmit}>
         <h2 className="text-lg font-extrabold text-gray-900">비밀번호 변경</h2>
         <div className="mt-5 space-y-4">
@@ -214,6 +227,7 @@ function MyPageSettingsTab({ user }) {
           </button>
         </div>
       </form>
+      )}
 
       <form
         className="rounded-3xl border border-red-200 bg-red-50/50 p-6 md:p-8"

@@ -105,21 +105,28 @@ const FESTIVAL_REVIEW_ERROR_MESSAGES = {
   FESTIVAL_NOT_FOUND: '존재하지 않는 페스티벌입니다. 목록을 새로고침해주세요.',
   ALREADY_REVIEWED: '이미 심사 처리된 페스티벌입니다. 목록을 새로고침해주세요.',
   INVALID_DECISION: '공개 또는 반려만 결정할 수 있어요.',
+  REJECT_REASON_REQUIRED: '반려 사유를 입력해주세요.',
 }
 
+//백엔드 페스티벌 상태를 심사 화면의 3단계(대기/승인/반려)로 접는다. CLOSED(기간 종료)는 공개됐던 것이라 승인으로 본다.
+const FESTIVAL_UI_STATUS = { PENDING: 'PENDING', PUBLISHED: 'APPROVED', CLOSED: 'APPROVED', REJECTED: 'REJECTED' }
+
 /** GET /api/admin/festivals 응답을 페스티벌 등록 승인 화면이 기대하는 형태로 매핑한다.
- * 이 API도 심사 대기 목록만 내려주고, 주최자 닉네임 필드를 별도로 제공하지 않는다. */
+ * 이제 공개·반려·종료된 페스티벌도 이력으로 함께 내려오고, 주최자 닉네임은 festival-service가
+ * auth-service에서 조회해 채워준다(조회 실패 시 null → 안내 문구). */
 function mapFestivalSubmission(raw) {
   return {
     id: String(raw.id),
     name: raw.name,
-    host: raw.hostNickname ?? raw.organizerNickname ?? raw.host ?? '주최자 정보 없음',
+    host: raw.hostNickname ?? '주최자 정보 없음',
     image: toAbsoluteImageUrl(raw.thumbnailImageUrl) ?? '/placeholder.svg',
     date: formatDateRange(raw.startAt, raw.endAt),
     location: raw.location,
     category: FESTIVAL_CATEGORY_LABELS[raw.festivalCategory] ?? raw.festivalCategory,
     appliedAt: formatDate(raw.createdAt ?? raw.startAt),
-    status: 'PENDING',
+    status: FESTIVAL_UI_STATUS[raw.festivalStatus] ?? 'PENDING',
+    rawStatus: raw.festivalStatus,
+    rejectReason: raw.rejectReason ?? '',
     description: raw.description ?? '',
     tickets: (raw.ticketTypes ?? []).map((t) => ({
       name: t.name,
@@ -133,10 +140,10 @@ export async function fetchFestivalSubmissions() {
   return response.data.data.map(mapFestivalSubmission)
 }
 
-/** PATCH /api/admin/festivals/:id 를 호출한다. decision은 'PUBLISHED' | 'REJECTED'. */
-export async function reviewFestivalSubmission(id, decision) {
+/** PATCH /api/admin/festivals/:id 를 호출한다. decision은 'PUBLISHED' | 'REJECTED'. 반려 시 rejectReason이 필수다. */
+export async function reviewFestivalSubmission(id, decision, rejectReason) {
   try {
-    await reviewFestival(id, { decision })
+    await reviewFestival(id, { decision, rejectReason })
   } catch (error) {
     const errorCode = error.response?.data?.errorCode
     throw new Error(

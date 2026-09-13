@@ -156,6 +156,12 @@ function HostFestivalDetail() {
         {festival.festivalStatus === 'REJECTED' && (
           <p className={styles.description} style={{ color: 'var(--fgColor-danger)' }}>
             운영자 심사에서 반려되었어요. 내용을 보완해 다시 등록해주세요.
+            {festival.rejectReason && (
+              <>
+                <br />
+                <strong>반려 사유:</strong> {festival.rejectReason}
+              </>
+            )}
           </p>
         )}
 

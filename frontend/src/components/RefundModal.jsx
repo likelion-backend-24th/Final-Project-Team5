@@ -119,6 +119,8 @@ function RefundModal({ reservation, onClose, onRefunded }) {
                 <dt className="font-bold text-gray-900">환불 예정 금액</dt>
                 <dd className="text-lg font-extrabold text-blue-600">{quote.refundAmount.toLocaleString()}원</dd>
               </div>
+              {/* 환불된 좌석은 리셀 방지를 위해 바로 풀리지 않고 매일 오후 7시에 일괄로 다시 판매된다(서버 정책과 동일). */}
+              <p className="pt-1 text-xs text-gray-500">환불한 티켓은 매일 오후 7시에 다시 판매돼요. (오후 7시 이후 환불분은 다음 날 오후 7시)</p>
             </dl>
           )}
 

@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { fetchFestivals, mapFestivalToCard, FESTIVAL_CATEGORY_LABELS, FESTIVAL_VISIBLE_STATUS_LABELS } from '../api/festivalApi'
+import {
+  fetchFestivals,
+  isClosingSoon,
+  mapFestivalToCard,
+  CLOSING_SOON_MAX_DDAY,
+  FESTIVAL_CATEGORY_LABELS,
+  FESTIVAL_VISIBLE_STATUS_LABELS,
+} from '../api/festivalApi'
 import Badge from '../components/Badge'
 import CategoryChips from '../components/CategoryChips'
 import FestivalCard from '../components/FestivalCard'
@@ -20,6 +27,8 @@ function Festivals() {
   const [searchParams, setSearchParams] = useSearchParams()
   const query = searchParams.get('q')?.trim() ?? ''
   const sort = searchParams.get('sort')
+  //홈의 마감임박 "전체 보기"에서 들어온 경우. 정렬만 바꾸는 게 아니라 실제 마감임박(D-3 이내)인 것만 보여준다.
+  const closingSoonOnly = sort === 'deadline'
   const category = searchParams.get('category') ?? 'all'
   const requestedPage = Math.max(1, Number.parseInt(searchParams.get('page') ?? '1', 10) || 1)
 
@@ -57,7 +66,8 @@ function Festivals() {
       list = list.filter((festival) => festival.title.toLowerCase().includes(keyword))
     }
 
-    if (sort === 'deadline') {
+    if (closingSoonOnly) {
+      list = list.filter(isClosingSoon)
       list = [...list].sort((a, b) => {
         if (typeof a.dday !== 'number') return 1
         if (typeof b.dday !== 'number') return -1
@@ -66,7 +76,7 @@ function Festivals() {
     }
 
     return list
-  }, [festivals, category, query, sort])
+  }, [festivals, category, query, closingSoonOnly])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const page = Math.min(requestedPage, totalPages)
@@ -101,10 +111,11 @@ function Festivals() {
     <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-6 pt-5 pb-14 sm:gap-6 sm:pt-7 sm:pb-[60px]">
       <div className="flex flex-col gap-1">
         <h1 className="text-[22px] font-extrabold tracking-tight text-gray-900 sm:text-[28px]">
-          {query ? `"${query}" 검색 결과` : '전체 페스티벌'}
+          {query ? `"${query}" 검색 결과` : closingSoonOnly ? '마감임박 페스티벌' : '전체 페스티벌'}
         </h1>
         <p className="text-sm text-gray-500">
           총 {filtered.length}건
+          {closingSoonOnly && ` · 공연 시작까지 D-${CLOSING_SOON_MAX_DDAY} 이내`}
           {query && (
             <>
               {' · '}
@@ -124,7 +135,11 @@ function Festivals() {
 
       {!loading && !loadError && filtered.length === 0 && (
         <p className="py-10 text-sm text-gray-500">
-          {query ? '검색 결과가 없습니다.' : '해당 카테고리에 등록된 페스티벌이 없습니다.'}
+          {query
+            ? '검색 결과가 없습니다.'
+            : closingSoonOnly
+              ? '지금 마감임박인 페스티벌이 없습니다.'
+              : '해당 카테고리에 등록된 페스티벌이 없습니다.'}
         </p>
       )}
 

@@ -1,8 +1,14 @@
 package org.example.festivalservice.domain.hostapplication;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.example.festivalservice.common.UserLookupClient;
+import org.example.festivalservice.common.UserLookupClient.UserSummary;
 import org.example.festivalservice.common.exception.ApiException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -17,9 +23,11 @@ public class HostApplicationService {
 
     private static final String HOST_ROLE = "HOST";
     private static final String ADMIN_ROLE = "ADMIN";
+    private static final Logger log = LoggerFactory.getLogger(HostApplicationService.class);
 
     private final HostApplicationRepository hostApplicationRepository;
     private final RestClient authServiceRestClient;
+    private final UserLookupClient userLookupClient;
 
     @Value("${internal.auth-service.token:CHANGE_ME_IN_ENV}")
     private String internalAuthToken;
@@ -51,13 +59,24 @@ public class HostApplicationService {
         return HostApplicationResponseDto.from(application);
     }
 
-    //운영자가 심사 대기 중인 주최 신청 목록을 조회
+    //본인의 주최 신청 이력 전체(반려→재신청 등)를 최신순으로 조회할 때
+    public List<HostApplicationResponseDto> getMyHistory(Long userId) {
+        return hostApplicationRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(HostApplicationResponseDto::from)
+                .toList();
+    }
+
+    //운영자가 주최 신청 목록을 조회 — 심사 대기뿐 아니라 승인·반려된 것도 이력으로 함께 내려준다.
+    //신청자 이름·이메일은 auth-service에서 한 번에 조회해 붙인다(실패하면 null로 내려가고 목록은 유지).
     public List<HostApplicationResponseDto> getListHostApplications(String role) {
         if (!ADMIN_ROLE.equals(role)) {
             throw new ApiException(HostApplicationErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
-        return hostApplicationRepository.findByStatus(HostApplicationStatus.PENDING).stream()
-                .map(HostApplicationResponseDto::from)
+        List<HostApplication> applications = hostApplicationRepository.findAllByOrderByCreatedAtDesc();
+        Map<Long, UserSummary> applicants = userLookupClient.findByIds(
+                applications.stream().map(HostApplication::getUserId).toList());
+        return applications.stream()
+                .map(application -> HostApplicationResponseDto.from(application, applicants.get(application.getUserId())))
                 .toList();
     }
 
@@ -88,7 +107,10 @@ public class HostApplicationService {
                 application.markApproved();
                 hostApplicationRepository.save(application);
             } catch (RestClientException e) {
-                // auth-service 응답 유실·Timeout — APPROVAL_PENDING 상태로 안전하게 남겨두고, 같은 신청을 다시 승인 요청하면 재시도된다
+                // auth-service 응답 유실·Timeout — APPROVAL_PENDING 상태로 안전하게 남겨두고, 같은 신청을 다시 승인 요청하거나
+                // retryPendingApprovals() 배치가 자동으로 재시도한다. 라이브에서 role은 부여됐는데 응답이 2초를 넘겨 여기서
+                // 조용히 멈춘 사례가 있어(신청 #6) 반드시 로그를 남긴다.
+                log.warn("주최자 Role 부여 응답을 받지 못해 신청 {}을 APPROVAL_PENDING으로 둔다(자동 재시도 예정)", application.getId(), e);
             }
         } else if (request.getStatus() == HostApplicationStatus.REJECTED) {
             //Role 부여 절차 중(APPROVAL_PENDING)인 신청은 반려할 수 없다(중복 요청 재확인 경로와 충돌 방지)
@@ -104,6 +126,24 @@ public class HostApplicationService {
             throw new ApiException(HostApplicationErrorCode.INVALID_DECISION);
         }
         return HostApplicationResponseDto.from(application);
+    }
+
+    //APPROVAL_PENDING에 머문 신청을 다시 승인 처리한다. Role 부여는 applicationId 멱등이라 이미 부여된 경우에도 안전하다.
+    public int retryPendingApprovals(LocalDateTime olderThan) {
+        int healed = 0;
+        for (HostApplication application : hostApplicationRepository.findByStatusAndUpdatedAtBefore(
+                HostApplicationStatus.APPROVAL_PENDING, olderThan)) {
+            try {
+                setHostRole(application.getUserId(), application.getId());
+                application.markApproved();
+                hostApplicationRepository.save(application);
+                healed++;
+                log.info("APPROVAL_PENDING 신청 {} 승인 확정(재시도 성공)", application.getId());
+            } catch (RestClientException e) {
+                log.warn("APPROVAL_PENDING 신청 {} 재시도 실패 — 다음 회차에 다시 시도", application.getId(), e);
+            }
+        }
+        return healed;
     }
 
     //Festival-Service → Auth-Service 내부 호출: 승인된 신청자에게 HOST Role을 부여한다 (PUT /internal/v1/roles)

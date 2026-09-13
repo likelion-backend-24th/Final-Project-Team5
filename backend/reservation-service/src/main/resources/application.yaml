@@ -32,10 +32,13 @@ festival-service:
 app:
   timezone: ${APP_TIMEZONE:Asia/Seoul}
 
-# 사이트 정책 점검 문서 6번 — 1인당(계정 기준) 티켓 종류당 구매 제한 기본값.
-# 주최자가 티켓 종류별로 이 값보다 낮게 설정하는 기능은 festival-service에 아직 없다(후속 작업).
+# 사이트 정책 점검 문서 6번 — 1인당(계정 기준) 페스티벌당 구매 제한 기본값. 티켓 종류를 나눠 사도 합산한다.
+# (티켓 종류당으로 세던 시절엔 종류별 4장씩 8장까지 가능했다 — QA에서 발견.)
+# 주최자가 페스티벌별로 이 값보다 낮게 설정하는 기능은 아직 없다(후속 작업).
 reservation:
-  max-quantity-per-ticket-type: ${RESERVATION_MAX_QUANTITY_PER_TICKET_TYPE:4}
+  max-quantity-per-festival: ${RESERVATION_MAX_QUANTITY_PER_FESTIVAL:${RESERVATION_MAX_QUANTITY_PER_TICKET_TYPE:4}}
+  # 환불 재고 일괄 반환 시각(현지 시, 0~23). 이 시각 전에 환불된 재고는 그날, 이후는 다음 날 이 시각에 풀린다 — 리셀 방지.
+  refund-stock-release-hour: ${REFUND_STOCK_RELEASE_HOUR:19}
 
 # 사이트 정책 점검 5번 환불 정책 팀 결정("기본적으로는 법률에 따름", "24시간 내는 환불 불가",
 # 위약금은 플랫폼이 아니라 참가자에게서 떼지 않고 PG 수수료는 플랫폼 부담)을 옮긴 표.

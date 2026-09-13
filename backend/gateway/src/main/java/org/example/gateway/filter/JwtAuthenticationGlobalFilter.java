@@ -33,6 +33,8 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
     public static final String USER_ID_HEADER = "X-User-Id";
     public static final String USER_ROLE_HEADER = "X-User-Role";
     public static final String FESTIVAL_ID_HEADER = "X-Festival-Id";
+    //토큰 발급 시각(epoch 초). auth-service가 "비밀번호 변경 이전에 발급된 토큰"을 걸러내는 데 쓴다.
+    public static final String TOKEN_ISSUED_AT_HEADER = "X-Token-Iat";
 
     private static final String USER_ID_CLAIM = "userId";
     private static final String ROLE_CLAIM = "role";
@@ -79,6 +81,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
                     headers.remove(USER_ID_HEADER);
                     headers.remove(USER_ROLE_HEADER);
                     headers.remove(FESTIVAL_ID_HEADER);
+                    headers.remove(TOKEN_ISSUED_AT_HEADER);
                 })
                 .build();
 
@@ -104,6 +107,9 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
             ServerHttpRequest.Builder authenticatedRequest = strippedRequest.mutate()
                     .header(USER_ID_HEADER, String.valueOf(claims.get(USER_ID_CLAIM)))
                     .header(USER_ROLE_HEADER, role);
+            if (claims.getIssuedAt() != null) {
+                authenticatedRequest.header(TOKEN_ISSUED_AT_HEADER, String.valueOf(claims.getIssuedAt().getTime() / 1000));
+            }
 
             // HELPER만 값이 있고 나머지 역할은 null이라, 값이 있을 때만 헤더를 붙인다.
             Object festivalId = claims.get(FESTIVAL_ID_CLAIM);

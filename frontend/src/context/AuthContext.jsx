@@ -1,8 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMyInfo, login as loginRequest, logout as logoutRequest } from '../api/authApi'
-import { clearAccessToken, getAccessToken, setAccessToken, subscribeAccessToken } from '../api/tokenStore'
+import {
+  clearAccessToken,
+  getAccessToken,
+  setAccessToken,
+  subscribeAccessToken,
+  subscribeExternalTokenChange,
+} from '../api/tokenStore'
 
 const AuthContext = createContext(null)
+
+const HELPER_SESSION_CHECK_INTERVAL_MS = 30_000
 
 // accessToken은 sessionStorage에 캐싱돼 있어, 만료 전이라면 새로고침해도 그대로 재사용할 수 있다.
 // 그래서 무조건 reissue부터 부르는 대신 /api/users/me를 먼저 시도한다 — 캐싱된 토큰이 아직 유효하면
@@ -21,6 +29,22 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => subscribeAccessToken(setAccessTokenState), [])
+
+  // 다른 탭에서 로그인/로그아웃하면 이 탭의 로그인 상태도 바로 맞춘다.
+  // 로그아웃(토큰 null) → user 비움. 로그인(토큰 생김) → 그 토큰으로 내 정보를 다시 불러온다.
+  useEffect(
+    () =>
+      subscribeExternalTokenChange((token) => {
+        if (!token) {
+          setUser(null)
+          return
+        }
+        fetchMyInfo({ suppressAuthRedirect: true })
+          .then((meResponse) => setUser(meResponse.data.data))
+          .catch(() => setUser(null))
+      }),
+    [],
+  )
 
   // StrictMode(개발 모드)는 마운트 시 이 effect를 두 번 실행한다. ref에 요청 promise를 캐싱해
   // 재실행되어도 bootstrapSession()이 실제로는 한 번만 호출되도록 한다(중복 reissue 경합 방지).
@@ -51,6 +75,21 @@ export function AuthProvider({ children }) {
       cancelled = true
     }
   }, [])
+
+  //도우미(HELPER) 계정은 주최자가 비밀번호를 재발급하면 즉시 쓸 수 없어야 한다. access token은 만료 전까지
+  //스스로 무효화되지 않으므로, 주기적으로 내 정보를 다시 조회해 서버가 거부(비밀번호 변경 이전 토큰)하면
+  //바로 로그아웃시킨다. 일반 회원은 화면을 새로 열 때의 세션 복원만으로 충분해 폴링하지 않는다.
+  useEffect(() => {
+    if (user?.role !== 'HELPER') return undefined
+    const timer = setInterval(() => {
+      fetchMyInfo({ suppressAuthRedirect: true }).catch(() => {
+        clearAccessToken()
+        setUser(null)
+        window.location.assign('/login')
+      })
+    }, HELPER_SESSION_CHECK_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [user?.role])
 
   const login = useCallback(async (username, password) => {
     const loginResponse = await loginRequest({ username, password })

@@ -10,6 +10,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const LOGIN_ERROR_MESSAGES = {
   USER_NOT_FOUND: '존재하지 않는 계정이에요.',
   INVALID_PASSWORD: '이메일 또는 비밀번호가 올바르지 않아요.',
+  ACCOUNT_LOCKED: '비밀번호를 5회 연속 틀려 로그인이 10분간 제한됐어요. 잠시 후 다시 시도해주세요.',
+  ACCOUNT_SUSPENDED: '정지된 계정이에요. 고객센터에 문의해주세요.',
+  ACCOUNT_WITHDRAWN: '탈퇴한 계정이에요.',
 }
 
 // 위에서부터 순서대로 검사하다 처음 걸리는 에러 하나만 반환한다(early return).
@@ -135,6 +138,7 @@ function Login() {
                 type="button"
                 onClick={() => setShowPassword((value) => !value)}
                 aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                tabIndex={-1}
                 className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}

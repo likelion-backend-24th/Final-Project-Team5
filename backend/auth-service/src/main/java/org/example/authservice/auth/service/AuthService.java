@@ -241,6 +241,7 @@ public class AuthService {
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordChangedAt(LocalDateTime.now());
         userRepository.save(user);
 
         refreshTokenRevocationService.revokeAllTokens(user);

@@ -1,6 +1,9 @@
 package org.example.authservice.user.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.authservice.auth.entity.OauthAccount;
+import org.example.authservice.auth.exception.AuthErrorCode;
+import org.example.authservice.auth.repository.OauthAccountRepository;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
@@ -23,6 +26,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenRevocationService refreshTokenRevocationService;
+    private final OauthAccountRepository oauthAccountRepository;
 
     // 내 정보 조회
     public UserResponse getMyInfo(Long userId) {
@@ -39,7 +43,50 @@ public class UserService {
                 .createdAt(user.getCreatedAt())
                 //도우미가 로그인한 뒤 자기가 어느 페스티벌 담당인지 알아야 해당 화면을 열 수 있다.
                 .festivalId(user.getFestivalId())
+                //프론트가 소셜 계정의 비밀번호 변경 폼을 숨길 수 있도록 연결된 소셜 제공자와 비밀번호 유무를 내려준다.
+                .socialProviders(oauthAccountRepository.findAllByUser_Id(userId).stream().map(OauthAccount::getProvider).toList())
+                .hasPassword(user.getPassword() != null)
+                //소셜 가입은 약관 동의·닉네임 입력 없이 계정이 만들어지므로, 약관 동의 시각이 비어 있으면 최초 1회
+                //프로필 설정을 요구한다. 도우미는 주최자가 발급하는 임시 계정이라 제외한다.
+                .profileSetupRequired(user.getTermsAgreeAt() == null && user.getRole() != Role.HELPER)
                 .build();
+    }
+
+    //Gateway가 넘겨준 access token 발급 시각(epoch 초)이 마지막 비밀번호 변경보다 앞서면 거부한다.
+    //stateless JWT는 만료 전까지 스스로 무효화되지 않으므로, 프론트가 주기적으로 부르는 내 정보 조회에서 걸러
+    //비밀번호가 바뀐 기기를 강제 로그아웃시키는 용도다.
+    public void rejectIfTokenPredatesPasswordChange(Long userId, Long tokenIssuedAtEpochSeconds) {
+        if (tokenIssuedAtEpochSeconds == null) {
+            return;
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(UserErrorCode.USER_NOT_FOUND));
+        if (user.getPasswordChangedAt() == null) {
+            return;
+        }
+        long changedAt = user.getPasswordChangedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond();
+        if (tokenIssuedAtEpochSeconds < changedAt) {
+            throw new ApiException(AuthErrorCode.PASSWORD_CHANGED_RELOGIN_REQUIRED);
+        }
+    }
+
+    //소셜 로그인 최초 진입 시 이름·닉네임 확정 + 약관 동의 (1회)
+    @Transactional
+    public void completeProfileSetup(Long userId, String name, String nickname, boolean termsAgreed) {
+        if (!termsAgreed) {
+            throw new ApiException(AuthErrorCode.TERMS_NOT_AGREED);
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(UserErrorCode.USER_NOT_FOUND));
+
+        String trimmedNickname = nickname.trim();
+        if (!user.getNickname().equals(trimmedNickname) && userRepository.existsByNickname(trimmedNickname)) {
+            throw new ApiException(UserErrorCode.DUPLICATE_NICKNAME);
+        }
+        user.setName(name.trim());
+        user.setNickname(trimmedNickname);
+        user.setTermsAgreeAt(LocalDateTime.now());
+        userRepository.save(user);
     }
 
     // 닉네임 수정
@@ -69,6 +116,11 @@ public class UserService {
         if (user.getRole() == Role.HELPER) {
             throw new ApiException(UserErrorCode.HELPER_PASSWORD_CHANGE_NOT_ALLOWED);
         }
+        //카카오·구글로 가입/연결된 계정은 비밀번호 변경을 막는다. 소셜 전용 계정은 비밀번호가 null이라
+        //matches()가 항상 false가 되어 "현재 비밀번호 불일치"로 잘못 안내되고 있었다.
+        if (user.getPassword() == null || !oauthAccountRepository.findAllByUser_Id(userId).isEmpty()) {
+            throw new ApiException(UserErrorCode.SOCIAL_USER_CANNOT_CHANGE_PASSWORD);
+        }
         //현재 비밀번호 불일치
         if(!passwordEncoder.matches(currentPassword,user.getPassword())){
             throw new ApiException(UserErrorCode.INVALID_CURRENT_PASSWORD);
@@ -77,6 +129,7 @@ public class UserService {
             throw new ApiException((UserErrorCode.PASSWORD_CONFIRM_MISMATCH));
         }
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordChangedAt(LocalDateTime.now());
         userRepository.save(user);
 
         // 비밀번호 변경 시 탈취 의심 상황에 대비해 기존 모든 세션(Refresh Token)을 무효화

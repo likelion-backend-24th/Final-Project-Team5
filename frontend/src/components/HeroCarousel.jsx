@@ -27,20 +27,21 @@ function HeroCarousel({ slides = [] }) {
               aria-hidden={!active}
               tabIndex={active ? 0 : -1}
             >
-              <img
-                src={festival.image}
-                alt={festival.title}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              <div className="absolute bottom-0 left-0 p-6 md:p-10">
+              {festival.image ? (
+                <img src={festival.image} alt={festival.title} className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full bg-gradient-to-br from-brand-navy to-brand-blue" aria-hidden="true" />
+              )}
+              {/* 밝은 썸네일 위에서도 흰 글씨가 묻히지 않도록 하단을 충분히 어둡게 깔고, 글자에도 그림자를 준다. */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
+              <div className="absolute bottom-0 left-0 max-w-[75%] p-5 pb-12 sm:max-w-none sm:p-6 sm:pb-6 md:p-10">
                 {festival.badge ? (
                   <Badge variant={badgeVariantForLabel(festival.badge)}>{festival.badge}</Badge>
                 ) : null}
-                <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-white text-balance md:text-4xl">
+                <h2 className="mt-2 text-lg font-extrabold tracking-tight text-white text-balance [text-shadow:0_2px_10px_rgba(0,0,0,0.8)] sm:mt-3 sm:text-2xl md:text-4xl">
                   {festival.title}
                 </h2>
-                <p className="mt-2 text-sm text-gray-200 md:text-base">
+                <p className="mt-1 text-xs text-gray-100 [text-shadow:0_1px_6px_rgba(0,0,0,0.8)] sm:mt-2 sm:text-sm md:text-base">
                   {festival.location} · {festival.date}
                 </p>
               </div>
@@ -48,21 +49,22 @@ function HeroCarousel({ slides = [] }) {
           )
         })}
 
+        {/* 모바일에서는 화살표가 배너 세로 중앙(=제목 위치)을 가리므로 오른쪽 아래 구석에 작게 모아 둔다. */}
         <button
           type="button"
           onClick={() => go(-1)}
           aria-label="이전 슬라이드"
-          className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-white"
+          className="absolute bottom-3 right-14 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-white sm:bottom-auto sm:left-4 sm:right-auto sm:top-1/2 sm:h-11 sm:w-11 sm:-translate-y-1/2"
         >
-          <ChevronLeftIcon className="h-5 w-5" />
+          <ChevronLeftIcon className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
         <button
           type="button"
           onClick={() => go(1)}
           aria-label="다음 슬라이드"
-          className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-white"
+          className="absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow transition hover:bg-white sm:bottom-auto sm:right-4 sm:top-1/2 sm:h-11 sm:w-11 sm:-translate-y-1/2"
         >
-          <ChevronRightIcon className="h-5 w-5" />
+          <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />
         </button>
 
         <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">

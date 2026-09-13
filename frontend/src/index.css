@@ -149,3 +149,18 @@
     outline-offset: 2px;
   }
 }
+/* 입장용 QR 모달의 "실시간 화면" 흐르는 문구. 캡처 이미지에서는 움직이지 않는다. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee {
+  display: inline-block;
+  min-width: 200%;
+  animation: marquee 12s linear infinite;
+}

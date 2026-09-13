@@ -12,6 +12,6 @@ export function fetchPendingFestivals() {
   return apiClient.get('/api/admin/festivals')
 }
 
-export function reviewFestival(id, { decision }) {
-  return apiClient.patch(`/api/admin/festivals/${id}`, { decision })
+export function reviewFestival(id, { decision, rejectReason }) {
+  return apiClient.patch(`/api/admin/festivals/${id}`, { decision, rejectReason })
 }

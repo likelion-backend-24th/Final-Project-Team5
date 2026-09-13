@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookmarkIcon, LogInIcon, LogOutIcon, ScanLineIcon, SearchIcon } from 'lucide-react'
+import { BookmarkIcon, LogInIcon, LogOutIcon, ScanLineIcon, SearchIcon, UserRoundIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function SiteHeader() {
   const [query, setQuery] = useState('')
   const navigate = useNavigate()
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated, isLoading, logout } = useAuth()
   //도우미는 담당 행사 하나만 다루고 예매를 할 수 없어 검색·내 예약이 의미가 없다.
   //대신 현장 검증 화면으로 가는 링크를 둔다(본인 정보 확인은 도우미도 가능해 그대로 남긴다).
   const isHelper = user?.role === 'HELPER'
@@ -56,13 +56,20 @@ function SiteHeader() {
         </form>
 
         <nav className="ml-auto flex items-center gap-2">
-          {isAuthenticated ? (
+          {/* 세션 복원 중에는 "로그인·회원가입"이 잠깐 비쳤다 닉네임으로 바뀌며 깜빡였다. 그 사이엔 빈 자리만 잡아둔다. */}
+          {isLoading ? (
+            <span aria-hidden="true" className="h-9 w-9 animate-pulse rounded-lg bg-gray-100 sm:w-28" />
+          ) : isAuthenticated ? (
             <>
+              {/* 닉네임 글자만으로는 마이페이지로 가는 버튼인지 알기 어렵다는 QA 피드백 — 아이콘+라벨이 있는 버튼 모양으로 바꿨다. */}
               <Link
                 to="/mypage"
-                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-100"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-50"
               >
-                {user.nickname}님
+                <UserRoundIcon className="h-4 w-4" />
+                {/* 도우미 아이디(helper-xxxx@helper.local)처럼 긴 이름이 모바일 헤더를 두 줄로 깨뜨리지 않도록 잘라낸다. */}
+                <span className="hidden max-w-[160px] truncate sm:inline">{user.nickname}님 · </span>
+                <span>마이페이지</span>
               </Link>
               <button
                 type="button"

@@ -153,7 +153,8 @@ function useReviewList(loader, matches, initialQuery = '') {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return items
-      .filter((it) => status === 'ALL' || it.status === status)
+      //'승인대기' 필터에는 권한 부여 확인 중(APPROVAL_PENDING)인 신청도 함께 보여준다.
+      .filter((it) => status === 'ALL' || it.status === status || (status === 'PENDING' && it.status === 'APPROVAL_PENDING'))
       .filter((it) => q === '' || matches(it, q))
       .sort((a, b) => (sort === 'latest' ? b.appliedAt.localeCompare(a.appliedAt) : a.appliedAt.localeCompare(b.appliedAt)))
   }, [items, status, query, sort, matches])
@@ -164,6 +165,10 @@ function useReviewList(loader, matches, initialQuery = '') {
 
   function updateStatus(id, next) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, status: next } : it)))
+  }
+
+  function updateField(id, key, value) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, [key]: value } : it)))
   }
 
   return {
@@ -187,16 +192,13 @@ function useReviewList(loader, matches, initialQuery = '') {
     page: current,
     setPage,
     updateStatus,
+    updateField,
   }
 }
 
 function confirmApprove() {
   return window.confirm('승인하시겠습니까?')
 }
-function confirmReject() {
-  return window.confirm('반려하시겠습니까?')
-}
-
 /* ---------- 서브탭 A: 주최자 신청 승인 (실제 API 연동) ---------- */
 
 function OrganizerApprovals() {
@@ -216,8 +218,9 @@ function OrganizerApprovals() {
     setPendingId(id)
     setError(id, '')
     try {
-      await reviewOrganizerApplication(id, { status: 'APPROVED' })
-      list.updateStatus(id, 'APPROVED')
+      const resultStatus = await reviewOrganizerApplication(id, { status: 'APPROVED' })
+      //권한 부여 응답을 못 받으면 APPROVAL_PENDING으로 남는다(서버 배치가 자동 재시도, 다시 눌러도 됨).
+      list.updateStatus(id, resultStatus ?? 'APPROVED')
     } catch (error) {
       setError(id, error.message)
     } finally {
@@ -276,7 +279,14 @@ function OrganizerApprovals() {
                   <p className="font-bold text-gray-900">{a.email}</p>
                   <p className="mt-0.5 text-sm text-gray-500">
                     {a.name} · 신청일 {a.appliedAt}
+                    {a.reviewedAt && ` · 처리일 ${a.reviewedAt}`}
                   </p>
+                  {a.status === 'REJECTED' && a.rejectReason && (
+                    <p className="mt-1 text-sm text-red-600">반려 사유: {a.rejectReason}</p>
+                  )}
+                  {a.status === 'APPROVAL_PENDING' && (
+                    <p className="mt-1 text-xs text-blue-600">권한 부여 확인 중이에요. 잠시 뒤 자동으로 승인 처리되며, 승인을 다시 눌러도 됩니다.</p>
+                  )}
                   <button type="button" onClick={() => setDetail(a)} className="mt-2 text-sm font-bold text-blue-600 hover:underline">
                     소개글 보기
                   </button>
@@ -310,19 +320,17 @@ function OrganizerApprovals() {
                 </div>
               </div>
 
-              {rejectDraftId !== a.id && (
+              {/* 이미 승인·반려된 신청에는 버튼을 아예 두지 않는다(반려 후에도 승인 버튼이 남아 눌리던 문제). */}
+              {rejectDraftId !== a.id && (a.status === 'PENDING' || a.status === 'APPROVAL_PENDING') && (
                 <div className="flex shrink-0 gap-2">
-                  <button type="button" disabled={a.status === 'APPROVED' || pendingId === a.id} onClick={() => handleApprove(a.id)} className={approveBtn}>
-                    승인
+                  <button type="button" disabled={pendingId === a.id} onClick={() => handleApprove(a.id)} className={approveBtn}>
+                    {a.status === 'APPROVAL_PENDING' ? '승인 재시도' : '승인'}
                   </button>
-                  <button
-                    type="button"
-                    disabled={a.status === 'REJECTED' || pendingId === a.id}
-                    onClick={() => openRejectDraft(a.id)}
-                    className={rejectBtn}
-                  >
-                    반려
-                  </button>
+                  {a.status === 'PENDING' && (
+                    <button type="button" disabled={pendingId === a.id} onClick={() => openRejectDraft(a.id)} className={rejectBtn}>
+                      반려
+                    </button>
+                  )}
                 </div>
               )}
             </li>
@@ -347,8 +355,11 @@ function OrganizerApprovals() {
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <Phone className="h-4 w-4 text-gray-400" />
-                {detail.contact}
+                <span className="text-gray-400">연락처</span> {detail.contact || '입력 안 함'}
               </div>
+              {detail.rejectReason && (
+                <div className="rounded-xl bg-red-50 px-3 py-2 text-red-700">반려 사유: {detail.rejectReason}</div>
+              )}
               <div className="flex items-center gap-2 text-gray-600">
                 <CalendarDays className="h-4 w-4 text-gray-400" />
                 신청일 {detail.appliedAt}
@@ -376,15 +387,37 @@ function FestivalApprovals({ initialQuery = '' }) {
   const [expanded, setExpanded] = useState({})
   const [actionError, setActionError] = useState({})
   const [pendingId, setPendingId] = useState(null)
+  const [rejectDraftId, setRejectDraftId] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
 
-  async function handleDecision(id, uiStatus) {
-    const ok = uiStatus === 'APPROVED' ? confirmApprove() : confirmReject()
-    if (!ok) return
+  async function handleApprove(id) {
+    if (!confirmApprove()) return
     setPendingId(id)
     setActionError((prev) => ({ ...prev, [id]: '' }))
     try {
-      await reviewFestivalSubmission(id, uiStatus === 'APPROVED' ? 'PUBLISHED' : 'REJECTED')
-      list.updateStatus(id, uiStatus)
+      await reviewFestivalSubmission(id, 'PUBLISHED')
+      list.updateStatus(id, 'APPROVED')
+    } catch (error) {
+      setActionError((prev) => ({ ...prev, [id]: error.message }))
+    } finally {
+      setPendingId(null)
+    }
+  }
+
+  //주최자 신청 반려와 같은 방식 — 사유를 필수로 받아 주최자에게 그대로 전달한다.
+  async function handleReject(id) {
+    if (!rejectReason.trim()) {
+      setActionError((prev) => ({ ...prev, [id]: '반려 사유를 입력해주세요.' }))
+      return
+    }
+    setPendingId(id)
+    setActionError((prev) => ({ ...prev, [id]: '' }))
+    try {
+      await reviewFestivalSubmission(id, 'REJECTED', rejectReason.trim())
+      list.updateStatus(id, 'REJECTED')
+      list.updateField(id, 'rejectReason', rejectReason.trim())
+      setRejectDraftId(null)
+      setRejectReason('')
     } catch (error) {
       setActionError((prev) => ({ ...prev, [id]: error.message }))
     } finally {
@@ -442,26 +475,54 @@ function FestivalApprovals({ initialQuery = '' }) {
                     ))}
                   </div>
 
+                  {f.status === 'REJECTED' && f.rejectReason && (
+                    <p className="mt-2 text-sm text-red-600">반려 사유: {f.rejectReason}</p>
+                  )}
+                  {f.rawStatus === 'CLOSED' && <p className="mt-2 text-xs text-gray-500">기간이 끝나 종료된 페스티벌이에요.</p>}
+
                   {actionError[f.id] && <p className="mt-2 text-xs font-semibold text-red-600">{actionError[f.id]}</p>}
 
-                  <div className="mt-4 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      disabled={f.status === 'APPROVED' || pendingId === f.id}
-                      onClick={() => handleDecision(f.id, 'APPROVED')}
-                      className={approveBtn}
-                    >
-                      승인
-                    </button>
-                    <button
-                      type="button"
-                      disabled={f.status === 'REJECTED' || pendingId === f.id}
-                      onClick={() => handleDecision(f.id, 'REJECTED')}
-                      className={rejectBtn}
-                    >
-                      반려
-                    </button>
-                  </div>
+                  {rejectDraftId === f.id && (
+                    <div className="mt-3 max-w-sm space-y-2">
+                      <textarea
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        placeholder="반려 사유를 입력하세요 (주최자에게 그대로 전달됩니다)"
+                        rows={3}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setRejectDraftId(null); setRejectReason('') }}
+                          disabled={pendingId === f.id}
+                          className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-bold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          취소
+                        </button>
+                        <button type="button" onClick={() => handleReject(f.id)} disabled={pendingId === f.id} className={rejectBtn}>
+                          {pendingId === f.id ? '처리 중…' : '반려 확정'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 이미 처리된 페스티벌에는 버튼을 두지 않는다(승인 직후 반려 버튼이 잠깐 남던 문제). */}
+                  {rejectDraftId !== f.id && f.status === 'PENDING' && (
+                    <div className="mt-4 flex justify-end gap-2">
+                      <button type="button" disabled={pendingId === f.id} onClick={() => handleApprove(f.id)} className={approveBtn}>
+                        {pendingId === f.id ? '처리 중…' : '공개 승인'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pendingId === f.id}
+                        onClick={() => { setRejectDraftId(f.id); setRejectReason(''); setActionError((prev) => ({ ...prev, [f.id]: '' })) }}
+                        className={rejectBtn}
+                      >
+                        반려
+                      </button>
+                    </div>
+                  )}
                 </div>
               </li>
             )

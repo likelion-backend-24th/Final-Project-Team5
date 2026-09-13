@@ -50,6 +50,13 @@ export function toAbsoluteImageUrl(imageUrl) {
   return imageUrl ? `${API_BASE_URL}${imageUrl}` : null
 }
 
+//"마감임박" 기준: 공연 시작까지 D-3일 이내. 홈 섹션과 /festivals?sort=deadline 목록이 같은 규칙을 쓴다.
+export const CLOSING_SOON_MAX_DDAY = 3
+
+export function isClosingSoon(festival) {
+  return typeof festival.dday === 'number' && festival.dday >= 0 && festival.dday <= CLOSING_SOON_MAX_DDAY
+}
+
 function daysUntil(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return null

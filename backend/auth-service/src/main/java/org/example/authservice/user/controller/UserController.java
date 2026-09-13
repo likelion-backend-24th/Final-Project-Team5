@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.authservice.common.dto.ApiResponse;
 import org.example.authservice.user.dto.NicknameUpdateRequest;
 import org.example.authservice.user.dto.PasswordUpdateRequest;
+import org.example.authservice.user.dto.ProfileSetupRequest;
 import org.example.authservice.user.dto.UserResponse;
 import org.example.authservice.user.dto.WithdrawAccountRequest;
 import org.example.authservice.user.service.UserService;
@@ -23,7 +24,11 @@ public class UserController {
 
     @Operation(summary = "내 정보 조회", description = "로그인한 사용자 본인의 정보를 조회합니다." )
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@RequestHeader("X-User-Id") Long userId) {
+    public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-Token-Iat", required = false) Long tokenIssuedAt) {
+        //비밀번호가 바뀐 뒤에도 남아 있는 기기(도우미 비밀번호 재발급 등)를 걸러낸다 — 이전 토큰이면 401
+        userService.rejectIfTokenPredatesPasswordChange(userId, tokenIssuedAt);
         UserResponse response = userService.getMyInfo(userId);
         return ResponseEntity.ok(ApiResponse.success("내 정보 조회 성공", response ));
     }
@@ -35,6 +40,16 @@ public class UserController {
             @Valid @RequestBody NicknameUpdateRequest nicknameUpdateRequest){
         userService.updateNickname(userId,nicknameUpdateRequest.getNickname());
         return ResponseEntity.ok(ApiResponse.success("닉네임이 변경되었습니다.",null));
+    }
+
+    //소셜 로그인으로 처음 들어온 회원의 최초 1회 프로필 설정(이름·닉네임 확정 + 약관 동의)
+    @Operation(summary = "프로필 설정 완료", description = "소셜 가입 회원이 이름·닉네임을 정하고 약관에 동의합니다. 완료 후 profileSetupRequired가 false가 됩니다.")
+    @PatchMapping("/me/profile-setup")
+    public ResponseEntity<ApiResponse<Void>> completeProfileSetup(
+            @RequestHeader("X-User-Id") Long userId,
+            @Valid @RequestBody ProfileSetupRequest request) {
+        userService.completeProfileSetup(userId, request.getName(), request.getNickname(), request.isTermsAgreed());
+        return ResponseEntity.ok(ApiResponse.success("프로필 설정이 완료되었습니다.", null));
     }
 
     // 비밀번호 변경

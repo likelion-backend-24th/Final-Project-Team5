@@ -50,6 +50,12 @@ function toStatusLabel(reservationStatus, festivalEndAt, checkedInAt) {
 function formatRemaining(expiresAt, now) {
   const remainingMs = Math.max(0, new Date(expiresAt).getTime() - now)
   const totalSeconds = Math.floor(remainingMs / 1000)
+  //무통장입금(입금 기한 24시간)은 분 단위로 "1439:59"처럼 나와 읽기 어려웠다. 1시간 이상이면 시간·분으로 보여준다.
+  if (totalSeconds >= 3600) {
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    return `${hours}시간 ${minutes}분`
+  }
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
   const seconds = String(totalSeconds % 60).padStart(2, '0')
   return `${minutes}:${seconds}`
@@ -62,23 +68,50 @@ function formatCheckedInAt(value) {
   return date.toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
+//입장 처리된 티켓의 QR 자리에 두는 이미지. 실제 QR을 흐리게만 하면 모양이 그대로 남아 복원 시도의 여지가 있어,
+//QR과 무관한 고정 그림으로 완전히 바꿔치기한다.
+const USED_QR_PLACEHOLDER =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192"><rect width="192" height="192" rx="20" fill="#f3f4f6"/><circle cx="96" cy="86" r="38" fill="#d1d5db"/><path d="M78 86l12 12 24-26" stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><text x="96" y="152" text-anchor="middle" font-family="sans-serif" font-size="16" font-weight="700" fill="#6b7280">입장 완료</text></svg>',
+  )
+
+const QR_REFRESH_INTERVAL_MS = 5_000
+const LIST_REFRESH_INTERVAL_MS = 15_000
+
 function QrModal({ reservationId, onClose }) {
   const [qr, setQr] = useState(null)
   const [error, setError] = useState('')
+  const [clock, setClock] = useState(() => new Date())
 
+  //QR을 띄워둔 동안 주기적으로 다시 조회해 현장에서 입장 처리되면 새로고침 없이 바로 '입장 완료'로 바뀌게 한다.
   useEffect(() => {
     let cancelled = false
-    fetchReservationQr(reservationId)
-      .then((response) => {
-        if (!cancelled) setQr(response.data.data)
-      })
-      .catch(() => {
-        if (!cancelled) setError('QR을 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
-      })
+    function load() {
+      fetchReservationQr(reservationId)
+        .then((response) => {
+          if (!cancelled) {
+            setQr(response.data.data)
+            setError('')
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setError((prev) => prev || 'QR을 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
+        })
+    }
+    load()
+    const timer = setInterval(load, QR_REFRESH_INTERVAL_MS)
     return () => {
       cancelled = true
+      clearInterval(timer)
     }
   }, [reservationId])
+
+  //캡처한 화면이 아니라 지금 열려 있는 실시간 화면임을 검표자가 알 수 있도록 초 단위 시계를 함께 보여준다.
+  useEffect(() => {
+    const timer = setInterval(() => setClock(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-6">
@@ -96,12 +129,21 @@ function QrModal({ reservationId, onClose }) {
 
         {qr && (
           <>
-            {/* 입장 처리된 티켓은 흐리게 보여줘서, 이미 쓴 티켓을 다시 내미는 상황을 참가자가 먼저 알 수 있게 한다. */}
+            {/* 실시간 화면 표시 — 흐르는 문구 + 초 단위 시계. 정지 이미지(캡처)로는 이 두 가지가 움직이지 않는다. */}
+            <div className="mt-5 overflow-hidden rounded-full bg-blue-600 py-1.5 text-xs font-bold text-white">
+              <div className="marquee whitespace-nowrap">
+                실시간 화면입니다 · 캡처 화면은 사용할 수 없어요 · {clock.toLocaleTimeString('ko-KR')} · 실시간
+                화면입니다 · 캡처 화면은 사용할 수 없어요 · {clock.toLocaleTimeString('ko-KR')} ·
+              </div>
+            </div>
+
+            {/* 입장 처리된 티켓은 실제 QR 대신 고정 그림을 보여준다(흐리게만 하면 QR 모양이 남는다). */}
             <img
-              src={qr.qrImageUrl}
-              alt="입장용 QR 코드"
-              className={`mx-auto mt-6 h-48 w-48 ${qr.checkedInAt ? 'opacity-25' : ''}`}
+              src={qr.checkedInAt ? USED_QR_PLACEHOLDER : qr.qrImageUrl}
+              alt={qr.checkedInAt ? '입장 완료된 티켓' : '입장용 QR 코드'}
+              className="mx-auto mt-4 h-48 w-48"
             />
+            <p className="mt-2 font-mono text-sm font-bold text-gray-700">{clock.toLocaleTimeString('ko-KR')}</p>
 
             {qr.checkedInAt && (
               <p className="mt-3 text-sm font-bold text-gray-500">
@@ -190,8 +232,11 @@ function MyPageReservationsTab() {
     }
 
     load()
+    //현장에서 입장 처리되면 새로고침 없이 '입장완료'로 바뀌도록 주기적으로 다시 불러온다(가벼운 폴링).
+    const timer = setInterval(load, LIST_REFRESH_INTERVAL_MS)
     return () => {
       cancelled = true
+      clearInterval(timer)
     }
   }, [])
 

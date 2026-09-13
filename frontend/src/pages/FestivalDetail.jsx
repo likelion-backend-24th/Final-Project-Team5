@@ -152,6 +152,7 @@ function FestivalDetail() {
       </div>
 
       <div className={styles.content}>
+        <div className={styles.info}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {festival.festivalStatus === 'CLOSED' && (
             <Badge variant="secondary">{FESTIVAL_VISIBLE_STATUS_LABELS.CLOSED}</Badge>
@@ -194,6 +195,10 @@ function FestivalDetail() {
           </p>
         )}
 
+        </div>
+
+        {/* 정보는 왼쪽, 티켓은 오른쪽 sticky 패널 — 화면이 좁으면 아래로 내려간다. */}
+        <aside className={styles.ticketPanel}>
         <section className={styles.ticketSection}>
           <h2 className={styles.sectionTitle}>
             <TicketIcon size={18} aria-hidden="true" />
@@ -248,6 +253,7 @@ function FestivalDetail() {
             </ul>
           )}
         </section>
+        </aside>
       </div>
     </main>
   )

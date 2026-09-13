@@ -62,6 +62,13 @@ function CheckIn() {
   const [stats, setStats] = useState(null)
   const [result, setResult] = useState(null) // { ok: true, reservation } | { ok: false, message }
   const [manualCode, setManualCode] = useState('')
+
+  //입장 코드는 2-4-4 고정 형식이라 글자를 치는 대로 하이픈을 자동으로 넣어준다(대문자 변환·10자 제한 포함).
+  function formatCheckInCode(raw) {
+    const alnum = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
+    const parts = [alnum.slice(0, 2), alnum.slice(2, 6), alnum.slice(6, 10)].filter(Boolean)
+    return parts.join('-')
+  }
   const [submitting, setSubmitting] = useState(false)
   //스캔 루프는 0.2초마다 돌기 때문에, 검증 결과를 확인하는 동안 같은 QR이 계속 재전송되지 않도록
   //state가 반영되기 전에도 곧바로 막을 수 있는 ref로 잠근다. 잠금은 사용자가 결과를 닫을 때 풀린다.
@@ -273,7 +280,8 @@ function CheckIn() {
             <input
               type="text"
               value={manualCode}
-              onChange={(event) => setManualCode(event.target.value)}
+              onChange={(event) => setManualCode(formatCheckInCode(event.target.value))}
+              maxLength={12}
               placeholder="예: SE-2Q4Y-5XF2"
               aria-label="입장 코드"
               autoCapitalize="characters"

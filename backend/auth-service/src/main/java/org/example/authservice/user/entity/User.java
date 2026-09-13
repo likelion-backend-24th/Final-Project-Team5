@@ -67,6 +67,11 @@ public class User {
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;  //로그인 몇번 틀리면 몇분간 잠그는 시간 필드
 
+    //마지막 비밀번호 변경(재설정·재발급 포함) 시각. 이 시각보다 먼저 발급된 access token은 내 정보 조회에서 거부해
+    //비밀번호가 바뀐 뒤 남아 있던 기기를 강제로 로그아웃시킨다(도우미 비밀번호 재발급 시 특히 중요).
+    @Column(name = "password_changed_at")
+    private LocalDateTime passwordChangedAt;
+
 
     //HELPER 계정이 배정된 페스티벌. 도우미 한 명은 정확히 한 페스티벌만 담당하므로 컬럼 하나로 충분하다.
     //HELPER가 아닌 계정은 항상 null이며, 로그인 시 JWT의 festivalId 클레임으로 실려 Gateway가 X-Festival-Id로 전달한다.

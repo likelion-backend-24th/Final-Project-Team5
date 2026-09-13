@@ -5,7 +5,7 @@ import FestivalBrowser from '../components/FestivalBrowser'
 import HeroCarousel from '../components/HeroCarousel'
 import OrganizerCta from '../components/OrganizerCta'
 import { useAuth } from '../context/AuthContext.jsx'
-import { fetchFestivals, mapFestivalToCard } from '../api/festivalApi'
+import { fetchFestivals, isClosingSoon, mapFestivalToCard } from '../api/festivalApi'
 
 const HERO_SLIDE_LIMIT = 5
 const CLOSING_SOON_LIMIT = 5
@@ -29,10 +29,11 @@ function Home() {
   }, [])
 
   const heroSlides = useMemo(() => festivals.slice(0, HERO_SLIDE_LIMIT), [festivals])
+  // 마감임박 기준: 공연 시작까지 D-3일 이내
   const closingSoon = useMemo(
     () =>
       festivals
-        .filter((f) => typeof f.dday === 'number' && f.dday >= 0)
+        .filter(isClosingSoon)
         .sort((a, b) => a.dday - b.dday)
         .slice(0, CLOSING_SOON_LIMIT),
     [festivals],

@@ -8,7 +8,8 @@ function AdminHomeBanner() {
   if (user?.role !== 'ADMIN') return null
 
   return (
-    <section className="mx-auto mb-4 max-w-[1440px] px-6">
+    {/* 헤더 바로 아래에 딱 붙어 보인다는 QA 피드백 — 위쪽 여백을 둔다. */}
+    <section className="mx-auto mt-4 mb-4 max-w-[1440px] px-6 sm:mt-6">
       <div className="flex flex-col items-start gap-4 rounded-3xl border border-blue-100 bg-blue-50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white">

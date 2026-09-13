@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BookmarkIcon, LogInIcon, LogOutIcon, ScanLineIcon, SearchIcon } from 'lucide-react'
+import { BookmarkIcon, LogInIcon, LogOutIcon, ScanLineIcon, SearchIcon, UserRoundIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function SiteHeader() {
@@ -61,11 +61,14 @@ function SiteHeader() {
             <span aria-hidden="true" className="h-9 w-9 animate-pulse rounded-lg bg-gray-100 sm:w-28" />
           ) : isAuthenticated ? (
             <>
+              {/* 닉네임 글자만으로는 마이페이지로 가는 버튼인지 알기 어렵다는 QA 피드백 — 아이콘+라벨이 있는 버튼 모양으로 바꿨다. */}
               <Link
                 to="/mypage"
-                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-100"
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-50"
               >
-                {user.nickname}님
+                <UserRoundIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">{user.nickname}님 · </span>
+                <span>마이페이지</span>
               </Link>
               <button
                 type="button"

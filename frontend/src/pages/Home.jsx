@@ -5,7 +5,7 @@ import FestivalBrowser from '../components/FestivalBrowser'
 import HeroCarousel from '../components/HeroCarousel'
 import OrganizerCta from '../components/OrganizerCta'
 import { useAuth } from '../context/AuthContext.jsx'
-import { fetchFestivals, mapFestivalToCard } from '../api/festivalApi'
+import { fetchFestivals, isClosingSoon, mapFestivalToCard } from '../api/festivalApi'
 
 const HERO_SLIDE_LIMIT = 5
 const CLOSING_SOON_LIMIT = 5
@@ -33,7 +33,7 @@ function Home() {
   const closingSoon = useMemo(
     () =>
       festivals
-        .filter((f) => typeof f.dday === 'number' && f.dday >= 0 && f.dday <= 3)
+        .filter(isClosingSoon)
         .sort((a, b) => a.dday - b.dday)
         .slice(0, CLOSING_SOON_LIMIT),
     [festivals],

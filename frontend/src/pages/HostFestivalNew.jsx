@@ -43,6 +43,65 @@ function validateDetailImages(files) {
   return ''
 }
 
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+const MINUTES = ['00', '10', '20', '30', '40', '50']
+
+//브라우저 기본 datetime-local의 시간 스피너가 끝없이 돌고 위/아래 스크롤 속도가 달라 쓰기 불편하다는 QA 피드백.
+//날짜는 기본 달력, 시·분은 10분 단위 select로 받아 form에는 기존과 같은 'YYYY-MM-DDTHH:mm' 문자열로 넣는다.
+function DateTimeFields({ id, value, onChange, invalid }) {
+  const [date = '', time = ''] = value ? value.split('T') : ['', '']
+  const [hour = '', minute = ''] = time ? time.split(':') : ['', '']
+
+  function emit(nextDate, nextHour, nextMinute) {
+    if (!nextDate) {
+      onChange('')
+      return
+    }
+    onChange(`${nextDate}T${nextHour || '00'}:${nextMinute || '00'}`)
+  }
+
+  return (
+    <div className={styles.dateTimeRow}>
+      <input
+        id={`${id}-date`}
+        type="date"
+        className={styles.input}
+        value={date}
+        onChange={(event) => emit(event.target.value, hour, minute)}
+        aria-invalid={invalid}
+      />
+      <select
+        aria-label="시"
+        className={styles.input}
+        value={hour}
+        onChange={(event) => emit(date, event.target.value, minute)}
+        disabled={!date}
+      >
+        <option value="">시</option>
+        {HOURS.map((h) => (
+          <option key={h} value={h}>
+            {h}시
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="분"
+        className={styles.input}
+        value={minute}
+        onChange={(event) => emit(date, hour, event.target.value)}
+        disabled={!date}
+      >
+        <option value="">분</option>
+        {MINUTES.map((m) => (
+          <option key={m} value={m}>
+            {m}분
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 function createEmptyTicketType(key) {
   return { key, name: '', price: '', quantity: '' }
 }
@@ -168,6 +227,14 @@ function HostFestivalNew() {
   function handleChange(field) {
     return (event) => {
       const { value } = event.target
+      setForm((prev) => ({ ...prev, [field]: value }))
+      setErrors((prev) => ({ ...prev, [field]: undefined }))
+      setSubmitError('')
+    }
+  }
+
+  function handleDateTimeChange(field) {
+    return (value) => {
       setForm((prev) => ({ ...prev, [field]: value }))
       setErrors((prev) => ({ ...prev, [field]: undefined }))
       setSubmitError('')
@@ -368,32 +435,18 @@ function HostFestivalNew() {
 
           <div className={styles.row}>
             <div className={styles.field}>
-              <label htmlFor="startAt" className={styles.label}>
+              <label htmlFor="startAt-date" className={styles.label}>
                 시작 일시
               </label>
-              <input
-                id="startAt"
-                type="datetime-local"
-                className={styles.input}
-                value={form.startAt}
-                onChange={handleChange('startAt')}
-                aria-invalid={Boolean(errors.startAt)}
-              />
+              <DateTimeFields id="startAt" value={form.startAt} onChange={handleDateTimeChange('startAt')} invalid={Boolean(errors.startAt)} />
               {errors.startAt && <p className={styles.errorText}>{errors.startAt}</p>}
             </div>
 
             <div className={styles.field}>
-              <label htmlFor="endAt" className={styles.label}>
+              <label htmlFor="endAt-date" className={styles.label}>
                 종료 일시
               </label>
-              <input
-                id="endAt"
-                type="datetime-local"
-                className={styles.input}
-                value={form.endAt}
-                onChange={handleChange('endAt')}
-                aria-invalid={Boolean(errors.endAt)}
-              />
+              <DateTimeFields id="endAt" value={form.endAt} onChange={handleDateTimeChange('endAt')} invalid={Boolean(errors.endAt)} />
               {errors.endAt && <p className={styles.errorText}>{errors.endAt}</p>}
             </div>
           </div>
@@ -439,12 +492,18 @@ function HostFestivalNew() {
             <label htmlFor="thumbnail" className={styles.label}>
               대표 이미지(썸네일) <span className={styles.optional}>(선택, 1장·10MB 이하)</span>
             </label>
+            {/* 브라우저 기본 파일 입력은 "파일 선택"과 "선택된 파일 없음"이 한 칸에 붙어 헷갈린다는 QA 피드백 — 버튼과 상태 문구를 분리한다. */}
+            <div className={styles.filePicker}>
+              <label htmlFor="thumbnail" className={styles.fileButton}>
+                이미지 선택
+              </label>
+              <span className={styles.fileStatus}>{thumbnail ? '1장 선택됨' : '선택된 파일 없음'}</span>
+            </div>
             <input
               id="thumbnail"
               type="file"
               accept="image/*"
-              className={styles.input}
-              style={{ height: 'auto', padding: '12px 16px' }}
+              className={styles.fileInputHidden}
               onChange={handleThumbnailSelect}
               aria-invalid={Boolean(errors.thumbnail)}
             />
@@ -469,13 +528,20 @@ function HostFestivalNew() {
             <label htmlFor="detailImages" className={styles.label}>
               본문 이미지 <span className={styles.optional}>(선택, 최대 2장·장당 10MB)</span>
             </label>
+            <div className={styles.filePicker}>
+              <label htmlFor="detailImages" className={styles.fileButton}>
+                이미지 선택
+              </label>
+              <span className={styles.fileStatus}>
+                {detailImages.length > 0 ? `${detailImages.length}장 선택됨` : '선택된 파일 없음'}
+              </span>
+            </div>
             <input
               id="detailImages"
               type="file"
               accept="image/*"
               multiple
-              className={styles.input}
-              style={{ height: 'auto', padding: '12px 16px' }}
+              className={styles.fileInputHidden}
               onChange={handleDetailImagesSelect}
               aria-invalid={Boolean(errors.detailImages)}
             />

@@ -37,7 +37,7 @@ class AdminFestivalControllerAcceptanceTest {
     }
 
     @Test
-    void listPendingFestivalsReturnsOnlyPending() throws Exception {
+    void listFestivalsForAdminReturnsEveryStatusAsHistory() throws Exception {
         saveFestival("대기1", FestivalStatus.PENDING);
         saveFestival("대기2", FestivalStatus.PENDING);
         saveFestival("공개됨", FestivalStatus.PUBLISHED);
@@ -46,7 +46,7 @@ class AdminFestivalControllerAcceptanceTest {
                         .header("X-User-Id", "1")
                         .header("X-User-Role", "ADMIN"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data", hasSize(2)));
+                .andExpect(jsonPath("$.data", hasSize(3)));
     }
 
     @Test
@@ -81,9 +81,24 @@ class AdminFestivalControllerAcceptanceTest {
                         .header("X-User-Role", "ADMIN")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"decision":"REJECTED"}"""))
+                                {"decision":"REJECTED","rejectReason":"포스터 이미지가 없습니다"}"""))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.festivalStatus", is("REJECTED")));
+                .andExpect(jsonPath("$.data.festivalStatus", is("REJECTED")))
+                .andExpect(jsonPath("$.data.rejectReason", is("포스터 이미지가 없습니다")));
+    }
+
+    @Test
+    void reviewFestivalRejectWithoutReasonIsBadRequest() throws Exception {
+        Festival festival = saveFestival("대기1", FestivalStatus.PENDING);
+
+        mockMvc.perform(patch(ENDPOINT + "/" + festival.getId())
+                        .header("X-User-Id", "1")
+                        .header("X-User-Role", "ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"decision":"REJECTED"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode", is("REJECT_REASON_REQUIRED")));
     }
 
     @Test

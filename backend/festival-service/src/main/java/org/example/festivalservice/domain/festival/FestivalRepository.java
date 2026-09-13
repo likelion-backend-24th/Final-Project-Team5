@@ -20,6 +20,9 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
     //운영자 심사 목록 — 상태별 전체 조회(페이징 없음)
     List<Festival> findByFestivalStatus(FestivalStatus festivalStatus);
 
+    //운영자 심사 목록 — 처리된 것도 이력으로 보여주기 위해 상태와 무관하게 최신순 전체
+    List<Festival> findAllByOrderByCreatedAtDesc();
+
     //방문자용 상세 — 승인(공개) 상태인 것만, 아니면 404 처리하도록 빈 Optional 반환
     Optional<Festival> findByIdAndFestivalStatus(Long id, FestivalStatus festivalStatus);
 

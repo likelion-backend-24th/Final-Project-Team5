@@ -248,4 +248,30 @@ class ReservationAcceptanceTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.errorCode", org.hamcrest.Matchers.is("UNAUTHORIZED")));
     }
+
+    // 1인당 구매 제한은 티켓 종류가 아니라 페스티벌 단위로 합산한다 — 종류를 나눠 사도 4장을 넘길 수 없다
+    @Test
+    void 같은_페스티벌에서_티켓_종류를_나눠_사도_1인당_한도를_넘길_수_없다() throws Exception {
+        long secondTicketTypeId = 201L;
+        when(festivalServiceClient.getFestival(FESTIVAL_ID)).thenReturn(new FestivalDetailResponseDto(
+                FESTIVAL_ID, 999L, "PUBLISHED",
+                java.time.LocalDateTime.now().plusDays(1), java.time.LocalDateTime.now().plusDays(2),
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE),
+                        new FestivalDetailResponseDto.TicketTypeSummary(secondTicketTypeId, TICKET_PRICE))));
+
+        mockMvc.perform(post(CREATE_ENDPOINT)
+                        .header("X-User-Id", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequestBody(TICKET_TYPE_ID, 4)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post(CREATE_ENDPOINT)
+                        .header("X-User-Id", "1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequestBody(secondTicketTypeId, 1)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode", org.hamcrest.Matchers.is("PURCHASE_LIMIT_EXCEEDED")));
+
+        verify(festivalServiceClient, never()).deductStock(secondTicketTypeId, 1);
+    }
 }

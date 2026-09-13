@@ -27,6 +27,10 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findByReservationStatusAndExpiresAtBefore(ReservationStatus status, Instant now);
 
     //1인당 구매 제한 검증 — 취소되지 않은(PENDING·CONFIRMED) 기존 보유 수량을 합산할 때 사용
+    //1인당 구매 제한 — 같은 페스티벌의 모든 티켓 종류를 합산한다
+    List<Reservation> findByUserIdAndFestivalIdAndReservationStatusIn(
+            Long userId, Long festivalId, List<ReservationStatus> statuses);
+
     List<Reservation> findByUserIdAndTicketTypeIdAndReservationStatusIn(
             Long userId, Long ticketTypeId, List<ReservationStatus> statuses);
 }

@@ -16,6 +16,7 @@ import HostFestivals from './pages/HostFestivals'
 import Login from './pages/Login'
 import MyPage from './pages/Mypage'
 import Placeholder from './pages/Placeholder'
+import ProfileSetup from './pages/ProfileSetup'
 import RequireAuth from './components/RequireAuth'
 import ReservationCheckout from './pages/ReservationCheckout'
 import ResetPassword from './pages/ResetPassword'
@@ -42,6 +43,24 @@ function App() {
           <Route path="/terms" element={<Placeholder title="이용약관" />} />
           <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
           <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <SiteFooter />
+      </>
+    )
+  }
+
+  //소셜 로그인으로 처음 들어와 아직 약관 동의·닉네임 설정을 안 한 회원은 그것부터 끝내야 한다.
+  //약관 페이지는 동의 전에 읽어볼 수 있어야 하므로 열어 둔다.
+  if (!isLoading && user?.profileSetupRequired) {
+    return (
+      <>
+        <ScrollToTop />
+        <SiteHeader />
+        <Routes>
+          <Route path="/welcome" element={<ProfileSetup />} />
+          <Route path="/terms" element={<Placeholder title="이용약관" />} />
+          <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
+          <Route path="*" element={<Navigate to="/welcome" replace />} />
         </Routes>
         <SiteFooter />
       </>

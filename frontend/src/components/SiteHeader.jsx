@@ -67,7 +67,8 @@ function SiteHeader() {
                 className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-50"
               >
                 <UserRoundIcon className="h-4 w-4" />
-                <span className="hidden sm:inline">{user.nickname}님 · </span>
+                {/* 도우미 아이디(helper-xxxx@helper.local)처럼 긴 이름이 모바일 헤더를 두 줄로 깨뜨리지 않도록 잘라낸다. */}
+                <span className="hidden max-w-[160px] truncate sm:inline">{user.nickname}님 · </span>
                 <span>마이페이지</span>
               </Link>
               <button

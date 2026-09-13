@@ -52,6 +52,24 @@ public class UserService {
                 .build();
     }
 
+    //Gateway가 넘겨준 access token 발급 시각(epoch 초)이 마지막 비밀번호 변경보다 앞서면 거부한다.
+    //stateless JWT는 만료 전까지 스스로 무효화되지 않으므로, 프론트가 주기적으로 부르는 내 정보 조회에서 걸러
+    //비밀번호가 바뀐 기기를 강제 로그아웃시키는 용도다.
+    public void rejectIfTokenPredatesPasswordChange(Long userId, Long tokenIssuedAtEpochSeconds) {
+        if (tokenIssuedAtEpochSeconds == null) {
+            return;
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(UserErrorCode.USER_NOT_FOUND));
+        if (user.getPasswordChangedAt() == null) {
+            return;
+        }
+        long changedAt = user.getPasswordChangedAt().atZone(java.time.ZoneId.systemDefault()).toEpochSecond();
+        if (tokenIssuedAtEpochSeconds < changedAt) {
+            throw new ApiException(AuthErrorCode.PASSWORD_CHANGED_RELOGIN_REQUIRED);
+        }
+    }
+
     //소셜 로그인 최초 진입 시 이름·닉네임 확정 + 약관 동의 (1회)
     @Transactional
     public void completeProfileSetup(Long userId, String name, String nickname, boolean termsAgreed) {
@@ -111,6 +129,7 @@ public class UserService {
             throw new ApiException((UserErrorCode.PASSWORD_CONFIRM_MISMATCH));
         }
         user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordChangedAt(LocalDateTime.now());
         userRepository.save(user);
 
         // 비밀번호 변경 시 탈취 의심 상황에 대비해 기존 모든 세션(Refresh Token)을 무효화

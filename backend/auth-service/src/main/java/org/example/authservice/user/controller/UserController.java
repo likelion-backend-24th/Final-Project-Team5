@@ -24,7 +24,11 @@ public class UserController {
 
     @Operation(summary = "내 정보 조회", description = "로그인한 사용자 본인의 정보를 조회합니다." )
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(@RequestHeader("X-User-Id") Long userId) {
+    public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader(value = "X-Token-Iat", required = false) Long tokenIssuedAt) {
+        //비밀번호가 바뀐 뒤에도 남아 있는 기기(도우미 비밀번호 재발급 등)를 걸러낸다 — 이전 토큰이면 401
+        userService.rejectIfTokenPredatesPasswordChange(userId, tokenIssuedAt);
         UserResponse response = userService.getMyInfo(userId);
         return ResponseEntity.ok(ApiResponse.success("내 정보 조회 성공", response ));
     }

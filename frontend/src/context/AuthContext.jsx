@@ -10,6 +10,8 @@ import {
 
 const AuthContext = createContext(null)
 
+const HELPER_SESSION_CHECK_INTERVAL_MS = 30_000
+
 // accessToken은 sessionStorage에 캐싱돼 있어, 만료 전이라면 새로고침해도 그대로 재사용할 수 있다.
 // 그래서 무조건 reissue부터 부르는 대신 /api/users/me를 먼저 시도한다 — 캐싱된 토큰이 아직 유효하면
 // 재발급 없이 바로 세션이 복원되고, 토큰이 없거나 만료됐을 때만 client.js의 401 인터셉터가 자동으로
@@ -73,6 +75,21 @@ export function AuthProvider({ children }) {
       cancelled = true
     }
   }, [])
+
+  //도우미(HELPER) 계정은 주최자가 비밀번호를 재발급하면 즉시 쓸 수 없어야 한다. access token은 만료 전까지
+  //스스로 무효화되지 않으므로, 주기적으로 내 정보를 다시 조회해 서버가 거부(비밀번호 변경 이전 토큰)하면
+  //바로 로그아웃시킨다. 일반 회원은 화면을 새로 열 때의 세션 복원만으로 충분해 폴링하지 않는다.
+  useEffect(() => {
+    if (user?.role !== 'HELPER') return undefined
+    const timer = setInterval(() => {
+      fetchMyInfo({ suppressAuthRedirect: true }).catch(() => {
+        clearAccessToken()
+        setUser(null)
+        window.location.assign('/login')
+      })
+    }, HELPER_SESSION_CHECK_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [user?.role])
 
   const login = useCallback(async (username, password) => {
     const loginResponse = await loginRequest({ username, password })

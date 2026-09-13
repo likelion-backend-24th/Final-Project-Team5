@@ -67,9 +67,12 @@ public class HelperAccountService {
 
         String rawPassword = credentialGenerator.generatePassword();
         helper.setPassword(passwordEncoder.encode(rawPassword));
+        helper.setPasswordChangedAt(LocalDateTime.now());
         userRepository.save(helper);
 
         //이전 비밀번호로 로그인해 둔 세션이 남아있지 않도록 정리한다(계정을 다른 알바에게 넘기는 상황 대비).
+        //refresh token은 여기서 폐기하고, 아직 살아 있는 access token은 passwordChangedAt 이전 발급분을
+        ///api/users/me가 거부해 기존 기기가 다음 화면 갱신 때 로그아웃되게 한다.
         refreshTokenRevocationService.revokeAllTokens(helper);
 
         return new HelperAccountCredentialResponse(helper.getId(), helper.getUsername(), rawPassword);

@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRightIcon, CheckCircle2Icon, ClockIcon, XCircleIcon } from 'lucide-react'
-import { fetchMyHostApplication } from '../api/hostApplicationApi'
+import { fetchMyHostApplication, fetchMyHostApplicationHistory } from '../api/hostApplicationApi'
 import { fetchMyFestivals } from '../api/hostFestivalApi'
 
 const cardClass = 'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8'
+
+function formatDate(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
 
 const APPLY_STATUS_META = {
   PENDING: { label: '대기중', cls: 'bg-blue-50 text-blue-600', icon: ClockIcon },
@@ -16,12 +22,13 @@ const APPLY_STATUS_META = {
 function MyPageHostTab() {
   const [applyStatus, setApplyStatus] = useState(null)
   const [festivalCount, setFestivalCount] = useState(null)
+  const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
 
-    Promise.allSettled([fetchMyHostApplication(), fetchMyFestivals()]).then(([applicationResult, festivalsResult]) => {
+    Promise.allSettled([fetchMyHostApplication(), fetchMyFestivals(), fetchMyHostApplicationHistory()]).then(([applicationResult, festivalsResult, historyResult]) => {
       if (cancelled) return
 
       if (applicationResult.status === 'fulfilled') {
@@ -29,6 +36,9 @@ function MyPageHostTab() {
       }
       if (festivalsResult.status === 'fulfilled') {
         setFestivalCount(festivalsResult.value.data.data.length)
+      }
+      if (historyResult.status === 'fulfilled') {
+        setHistory(historyResult.value.data.data)
       }
       setLoading(false)
     })
@@ -75,6 +85,27 @@ function MyPageHostTab() {
             </span>
           </Link>
         </div>
+
+        {/* 반려 후 재신청하면 이전 신청이 화면에서 사라져 이력을 알 수 없다는 QA 피드백 — 지난 신청도 함께 보여준다. */}
+        {history.length > 1 && (
+          <div className="mt-5">
+            <p className="text-sm font-bold text-gray-900">신청 이력</p>
+            <ul className="mt-2 space-y-2">
+              {history.map((item) => {
+                const meta = APPLY_STATUS_META[item.status]
+                return (
+                  <li key={item.id} className="flex flex-col gap-1 rounded-xl bg-gray-50 px-4 py-3 text-sm">
+                    <span className="flex items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${meta?.cls ?? 'bg-gray-100 text-gray-600'}`}>{meta?.label ?? item.status}</span>
+                      <span className="text-gray-500">{formatDate(item.createdAt)} 신청</span>
+                    </span>
+                    {item.rejectReason && <span className="text-red-600">반려 사유: {item.rejectReason}</span>}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className={cardClass}>

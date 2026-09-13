@@ -8,6 +8,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.example.festivalservice.common.exception.ApiException;
 import org.example.festivalservice.domain.hostapplication.HostApplication;
@@ -27,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.example.festivalservice.common.UserLookupClient;
 import org.springframework.web.client.RestClient;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,6 +42,9 @@ class HostApplicationServiceTest {
 
     @Mock
     private RestClient authServiceRestClient;
+
+    @Mock
+    private UserLookupClient userLookupClient;
 
     @Mock
     private RestClient.RequestBodyUriSpec requestBodyUriSpec;
@@ -55,7 +62,7 @@ class HostApplicationServiceTest {
 
     @BeforeEach
     void setUp() {
-        hostApplicationService = new HostApplicationService(hostApplicationRepository, authServiceRestClient);
+        hostApplicationService = new HostApplicationService(hostApplicationRepository, authServiceRestClient, userLookupClient);
         ReflectionTestUtils.setField(hostApplicationService, "internalAuthToken", "test-token");
     }
 
@@ -237,5 +244,39 @@ class HostApplicationServiceTest {
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(HostApplicationErrorCode.ALREADY_REVIEWED));
+    }
+
+    @Test
+    void adminListReturnsEveryStatusWithApplicantInfo() {
+        HostApplication pending = new HostApplication(1L, "소개", "010-0000-0000");
+        HostApplication rejected = new HostApplication(2L, "소개2", "me@example.com");
+        rejected.reject("사유");
+        when(hostApplicationRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(pending, rejected));
+        when(userLookupClient.findByIds(List.of(1L, 2L)))
+                .thenReturn(Map.of(1L, new UserLookupClient.UserSummary(1L, "user1@example.com", "홍길동", "길동이")));
+
+        List<HostApplicationResponseDto> list = hostApplicationService.getListHostApplications("ADMIN");
+
+        assertThat(list).hasSize(2);
+        assertThat(list.get(0).status()).isEqualTo(HostApplicationStatus.PENDING);
+        assertThat(list.get(0).applicantEmail()).isEqualTo("user1@example.com");
+        assertThat(list.get(0).applicantNickname()).isEqualTo("길동이");
+        assertThat(list.get(1).status()).isEqualTo(HostApplicationStatus.REJECTED);
+        assertThat(list.get(1).applicantEmail()).isNull();
+    }
+
+    @Test
+    void retryPendingApprovalsMarksStuckApplicationApproved() {
+        HostApplication stuck = new HostApplication(1L, "소개", "010-0000-0000");
+        ReflectionTestUtils.setField(stuck, "id", 10L);
+        stuck.markApprovalPending();
+        when(hostApplicationRepository.findByStatusAndUpdatedAtBefore(any(), any())).thenReturn(List.of(stuck));
+        stubGrantHostRoleCall();
+
+        int healed = hostApplicationService.retryPendingApprovals(LocalDateTime.now());
+
+        assertThat(healed).isEqualTo(1);
+        assertThat(stuck.getStatus()).isEqualTo(HostApplicationStatus.APPROVED);
+        verify(hostApplicationRepository).save(stuck);
     }
 }

@@ -16,6 +16,8 @@ import { FESTIVAL_CATEGORY_LABELS, toAbsoluteImageUrl } from '../api/festivalApi
 
 export const REVIEW_STATUS_META = {
   PENDING: { label: '승인대기', cls: 'bg-amber-100 text-amber-700' },
+  //승인은 눌렀지만 auth-service의 권한 부여 응답을 못 받은 상태. 서버 배치가 자동 재시도하고, 운영자가 다시 승인을 눌러도 된다.
+  APPROVAL_PENDING: { label: '승인 처리중', cls: 'bg-blue-100 text-blue-700' },
   APPROVED: { label: '승인', cls: 'bg-blue-50 text-blue-600' },
   REJECTED: { label: '반려', cls: 'bg-red-50 text-red-600' },
 }
@@ -57,17 +59,20 @@ const HOST_APPLICATION_ERROR_MESSAGES = {
 }
 
 /** GET /api/admin/host-applications 응답을 주최자 관리 화면이 기대하는 형태로 매핑한다.
- * 이 API는 심사 대기(PENDING) 신청만 내려주고 신청자 이름/이메일 필드도 별도로 제공하지 않아,
- * 흔히 쓰이는 필드명 후보를 순서대로 시도하고 없으면 안내 문구로 대체한다. */
+ * 이제 승인·반려된 신청도 함께 내려오고(이력), 신청자 이름·닉네임·이메일은 festival-service가
+ * auth-service에서 조회해 채워준다(조회 실패 시 null → 안내 문구). */
 function mapHostApplication(raw) {
-  const name = raw.applicantNickname ?? raw.nickname ?? raw.name ?? raw.username ?? '이름 정보 없음'
-  const email = raw.applicantEmail ?? raw.email ?? raw.username ?? '이메일 정보 없음'
+  const nickname = raw.applicantNickname ?? '닉네임 정보 없음'
+  const name = raw.applicantName ? `${nickname} (${raw.applicantName})` : nickname
+  const email = raw.applicantEmail ?? '이메일 정보 없음'
   return {
     id: String(raw.id),
     name,
     email,
     appliedAt: formatDate(raw.createdAt),
-    status: 'PENDING',
+    reviewedAt: raw.status === 'PENDING' ? '' : formatDate(raw.updatedAt),
+    status: raw.status,
+    rejectReason: raw.rejectReason ?? '',
     intro: raw.introduction ?? '',
     contact: raw.contact ?? '',
   }
@@ -81,7 +86,9 @@ export async function fetchOrganizerApplications() {
 /** PATCH /api/admin/host-applications/:id 를 호출한다. 반려 시 rejectReason이 필수다. */
 export async function reviewOrganizerApplication(id, { status, rejectReason }) {
   try {
-    await reviewHostApplication(id, { status, rejectReason })
+    //승인은 권한 부여 응답을 못 받으면 APPROVAL_PENDING으로 돌아올 수 있어, 서버가 확정한 상태를 그대로 돌려준다.
+    const response = await reviewHostApplication(id, { status, rejectReason })
+    return response.data.data.status
   } catch (error) {
     const errorCode = error.response?.data?.errorCode
     throw new Error(

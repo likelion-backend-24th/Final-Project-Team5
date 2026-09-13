@@ -153,7 +153,8 @@ function useReviewList(loader, matches, initialQuery = '') {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return items
-      .filter((it) => status === 'ALL' || it.status === status)
+      //'승인대기' 필터에는 권한 부여 확인 중(APPROVAL_PENDING)인 신청도 함께 보여준다.
+      .filter((it) => status === 'ALL' || it.status === status || (status === 'PENDING' && it.status === 'APPROVAL_PENDING'))
       .filter((it) => q === '' || matches(it, q))
       .sort((a, b) => (sort === 'latest' ? b.appliedAt.localeCompare(a.appliedAt) : a.appliedAt.localeCompare(b.appliedAt)))
   }, [items, status, query, sort, matches])
@@ -216,8 +217,9 @@ function OrganizerApprovals() {
     setPendingId(id)
     setError(id, '')
     try {
-      await reviewOrganizerApplication(id, { status: 'APPROVED' })
-      list.updateStatus(id, 'APPROVED')
+      const resultStatus = await reviewOrganizerApplication(id, { status: 'APPROVED' })
+      //권한 부여 응답을 못 받으면 APPROVAL_PENDING으로 남는다(서버 배치가 자동 재시도, 다시 눌러도 됨).
+      list.updateStatus(id, resultStatus ?? 'APPROVED')
     } catch (error) {
       setError(id, error.message)
     } finally {
@@ -276,7 +278,14 @@ function OrganizerApprovals() {
                   <p className="font-bold text-gray-900">{a.email}</p>
                   <p className="mt-0.5 text-sm text-gray-500">
                     {a.name} · 신청일 {a.appliedAt}
+                    {a.reviewedAt && ` · 처리일 ${a.reviewedAt}`}
                   </p>
+                  {a.status === 'REJECTED' && a.rejectReason && (
+                    <p className="mt-1 text-sm text-red-600">반려 사유: {a.rejectReason}</p>
+                  )}
+                  {a.status === 'APPROVAL_PENDING' && (
+                    <p className="mt-1 text-xs text-blue-600">권한 부여 확인 중이에요. 잠시 뒤 자동으로 승인 처리되며, 승인을 다시 눌러도 됩니다.</p>
+                  )}
                   <button type="button" onClick={() => setDetail(a)} className="mt-2 text-sm font-bold text-blue-600 hover:underline">
                     소개글 보기
                   </button>
@@ -310,19 +319,17 @@ function OrganizerApprovals() {
                 </div>
               </div>
 
-              {rejectDraftId !== a.id && (
+              {/* 이미 승인·반려된 신청에는 버튼을 아예 두지 않는다(반려 후에도 승인 버튼이 남아 눌리던 문제). */}
+              {rejectDraftId !== a.id && (a.status === 'PENDING' || a.status === 'APPROVAL_PENDING') && (
                 <div className="flex shrink-0 gap-2">
-                  <button type="button" disabled={a.status === 'APPROVED' || pendingId === a.id} onClick={() => handleApprove(a.id)} className={approveBtn}>
-                    승인
+                  <button type="button" disabled={pendingId === a.id} onClick={() => handleApprove(a.id)} className={approveBtn}>
+                    {a.status === 'APPROVAL_PENDING' ? '승인 재시도' : '승인'}
                   </button>
-                  <button
-                    type="button"
-                    disabled={a.status === 'REJECTED' || pendingId === a.id}
-                    onClick={() => openRejectDraft(a.id)}
-                    className={rejectBtn}
-                  >
-                    반려
-                  </button>
+                  {a.status === 'PENDING' && (
+                    <button type="button" disabled={pendingId === a.id} onClick={() => openRejectDraft(a.id)} className={rejectBtn}>
+                      반려
+                    </button>
+                  )}
                 </div>
               )}
             </li>
@@ -347,8 +354,11 @@ function OrganizerApprovals() {
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <Phone className="h-4 w-4 text-gray-400" />
-                {detail.contact}
+                <span className="text-gray-400">연락처</span> {detail.contact || '입력 안 함'}
               </div>
+              {detail.rejectReason && (
+                <div className="rounded-xl bg-red-50 px-3 py-2 text-red-700">반려 사유: {detail.rejectReason}</div>
+              )}
               <div className="flex items-center gap-2 text-gray-600">
                 <CalendarDays className="h-4 w-4 text-gray-400" />
                 신청일 {detail.appliedAt}

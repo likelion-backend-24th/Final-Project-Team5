@@ -236,3 +236,11 @@
     padding: 24px 20px;
   }
 }
+
+.rejectReason {
+  display: inline-block;
+  margin-top: 4px;
+  font-weight: 500;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -2,6 +2,9 @@ package org.example.festivalservice.domain.festival;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import org.example.festivalservice.common.UserLookupClient;
+import org.example.festivalservice.common.UserLookupClient.UserSummary;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.exception.ApiException;
 import org.example.festivalservice.domain.tickettype.TicketType;
@@ -25,6 +28,7 @@ public class FestivalService {
     private final FestivalRepository festivalRepository;
     private final TicketTypeRepository ticketTypeRepository;
     private final FestivalImageRepository festivalImageRepository;
+    private final UserLookupClient userLookupClient;
 
     //승인된 주최자가 새 페스티벌(및 티켓 종류·이미지)을 등록한다
     @Transactional
@@ -128,13 +132,21 @@ public class FestivalService {
         return toResponseDto(festival);
     }
 
-    //운영자가 심사 대기(PENDING) 중인 페스티벌 목록을 조회한다
+    //운영자가 심사할 페스티벌 목록을 조회한다 — 대기뿐 아니라 공개·반려·종료된 것도 이력으로 함께 내려준다.
+    //주최자 닉네임은 auth-service에서 한 번에 조회해 붙인다(실패하면 null, 목록은 유지).
     public List<FestivalResponseDto> listPendingFestivals(String role) {
         if (!ADMIN_ROLE.equals(role)) {
             throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
-        return festivalRepository.findByFestivalStatus(FestivalStatus.PENDING).stream()
-                .map(this::toResponseDto)
+        List<Festival> festivals = festivalRepository.findAllByOrderByCreatedAtDesc();
+        Map<Long, UserSummary> hosts = userLookupClient.findByIds(
+                festivals.stream().map(Festival::getHostUserId).toList());
+        return festivals.stream()
+                .map(festival -> FestivalResponseDto.from(
+                        festival,
+                        ticketTypeRepository.findByFestivalId(festival.getId()),
+                        festivalImageRepository.findByFestivalId(festival.getId()),
+                        hosts.get(festival.getHostUserId())))
                 .toList();
     }
 
@@ -157,7 +169,10 @@ public class FestivalService {
         if (request.decision() == FestivalStatus.PUBLISHED) {
             festival.publish();
         } else {
-            festival.reject();
+            if (request.rejectReason() == null || request.rejectReason().isBlank()) {
+                throw new ApiException(FestivalErrorCode.REJECT_REASON_REQUIRED);
+            }
+            festival.reject(request.rejectReason().trim());
         }
         return toResponseDto(festival);
     }

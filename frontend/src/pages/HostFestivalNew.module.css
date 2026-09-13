@@ -367,3 +367,47 @@
     grid-template-columns: 1fr;
   }
 }
+
+.dateTimeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.filePicker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fileButton {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-default);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.fileButton:hover {
+  background-color: var(--bgColor-muted);
+}
+
+.fileStatus {
+  font-size: 13px;
+  color: var(--fgColor-muted);
+}
+
+.fileInputHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

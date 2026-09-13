@@ -69,6 +69,12 @@ const CREATE_RESERVATION_ERROR_MESSAGES = {
 function formatRemaining(expiresAt, now) {
   const remainingMs = Math.max(0, new Date(expiresAt).getTime() - now)
   const totalSeconds = Math.floor(remainingMs / 1000)
+  //무통장입금은 입금 기한(24시간)까지 보유가 연장돼 분 단위로만 쓰면 "1439:59"처럼 읽기 어렵다. 1시간 이상이면 시간·분으로 보여준다.
+  if (totalSeconds >= 3600) {
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    return `${hours}시간 ${minutes}분`
+  }
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
   const seconds = String(totalSeconds % 60).padStart(2, '0')
   return `${minutes}:${seconds}`
@@ -231,6 +237,8 @@ function ReservationCheckout() {
           orderName: `${festival.name} - ${ticketType.name} x ${quantity}`,
           totalAmount: amount,
           currency: 'KRW',
+          //무통장입금 가상계좌의 입금자명은 customer.fullName에서 가져간다. 안 넘기면 "-"로 발급되던 문제.
+          customer: { fullName: user?.name ?? user?.nickname ?? undefined, email: user?.username ?? undefined },
           ...selectedMethod.toRequest(),
         }),
         new Promise((_, reject) =>

@@ -1,5 +1,8 @@
 package org.example.authservice.user.service;
 
+import org.example.authservice.auth.entity.OauthAccount;
+import org.example.authservice.auth.exception.AuthErrorCode;
+import org.example.authservice.auth.repository.OauthAccountRepository;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
@@ -18,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,6 +49,9 @@ class UserServiceTest {
 
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
+    private OauthAccountRepository oauthAccountRepository;
 
     @Test
     @DisplayName("존재하는 userId로 조회하면 내 정보를 정확히 반환한다")
@@ -301,5 +308,104 @@ class UserServiceTest {
         // then
         assertThat(user.getStatus()).isEqualTo(AccountStatus.WITHDRAWN);
         verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    @DisplayName("카카오로 가입한 소셜 전용 계정(비밀번호 없음)은 비밀번호를 변경할 수 없다")
+    void updatePassword_fail_socialOnlyUser() {
+        // given
+        User user = createActiveUser();
+        user.setPassword(null);
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> userService.updatePassword(1L, "anything", "newpassword1234", "newpassword1234"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(UserErrorCode.SOCIAL_USER_CANNOT_CHANGE_PASSWORD));
+
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("구글 계정이 연결된 회원은 비밀번호가 있어도 비밀번호를 변경할 수 없다")
+    void updatePassword_fail_googleLinkedUser() {
+        // given
+        User user = createActiveUser();
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        OauthAccount google = new OauthAccount();
+        google.setProvider("GOOGLE");
+        given(oauthAccountRepository.findAllByUser_Id(1L)).willReturn(List.of(google));
+
+        // when & then
+        assertThatThrownBy(() -> userService.updatePassword(1L, "test1234", "newpassword1234", "newpassword1234"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(UserErrorCode.SOCIAL_USER_CANNOT_CHANGE_PASSWORD));
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("내 정보 조회 응답에 연결된 소셜 제공자와 비밀번호 유무가 포함된다")
+    void getMyInfo_includesSocialProviders() {
+        // given
+        User user = createActiveUser();
+        user.setId(1L);
+        user.setPassword(null);
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        OauthAccount kakao = new OauthAccount();
+        kakao.setProvider("KAKAO");
+        given(oauthAccountRepository.findAllByUser_Id(1L)).willReturn(List.of(kakao));
+
+        // when
+        UserResponse response = userService.getMyInfo(1L);
+
+        // then
+        assertThat(response.getSocialProviders()).containsExactly("KAKAO");
+        assertThat(response.isHasPassword()).isFalse();
+    }
+
+    @Test
+    @DisplayName("소셜 가입 회원이 약관에 동의하고 이름·닉네임을 정하면 프로필 설정이 완료된다")
+    void completeProfileSetup_success() {
+        // given
+        User user = createActiveUser();
+        user.setTermsAgreeAt(null);
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+        given(userRepository.existsByNickname("새닉네임")).willReturn(false);
+
+        // when
+        userService.completeProfileSetup(1L, "홍길동", "새닉네임", true);
+
+        // then
+        assertThat(user.getName()).isEqualTo("홍길동");
+        assertThat(user.getNickname()).isEqualTo("새닉네임");
+        assertThat(user.getTermsAgreeAt()).isNotNull();
+        verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    @DisplayName("약관에 동의하지 않으면 프로필 설정이 거부된다")
+    void completeProfileSetup_fail_termsNotAgreed() {
+        assertThatThrownBy(() -> userService.completeProfileSetup(1L, "홍길동", "새닉네임", false))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.TERMS_NOT_AGREED));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("약관 동의 시각이 비어 있는 일반 회원은 profileSetupRequired가 true다")
+    void getMyInfo_profileSetupRequired_whenTermsNotAgreed() {
+        User user = createActiveUser();
+        user.setId(1L);
+        user.setTermsAgreeAt(null);
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        UserResponse response = userService.getMyInfo(1L);
+
+        assertThat(response.isProfileSetupRequired()).isTrue();
     }
 }

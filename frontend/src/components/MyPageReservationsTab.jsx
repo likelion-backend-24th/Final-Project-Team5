@@ -50,6 +50,12 @@ function toStatusLabel(reservationStatus, festivalEndAt, checkedInAt) {
 function formatRemaining(expiresAt, now) {
   const remainingMs = Math.max(0, new Date(expiresAt).getTime() - now)
   const totalSeconds = Math.floor(remainingMs / 1000)
+  //무통장입금(입금 기한 24시간)은 분 단위로 "1439:59"처럼 나와 읽기 어려웠다. 1시간 이상이면 시간·분으로 보여준다.
+  if (totalSeconds >= 3600) {
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    return `${hours}시간 ${minutes}분`
+  }
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, '0')
   const seconds = String(totalSeconds % 60).padStart(2, '0')
   return `${minutes}:${seconds}`

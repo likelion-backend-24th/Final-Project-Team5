@@ -60,14 +60,19 @@ public class Festival {
     @Column(name = "is_deleted")
     private boolean isDeleted;
 
+    //운영자 반려 사유 — 주최자가 보완해 다시 등록할 수 있도록 그대로 보여준다
+    @Column(name = "reject_reason", length = 500)
+    private String rejectReason;
+
     //운영자 심사: 공개 승인
     public void publish() {
         this.festivalStatus = FestivalStatus.PUBLISHED;
     }
 
-    //운영자 심사: 반려
-    public void reject() {
+    //운영자 심사: 반려(사유 필수)
+    public void reject(String rejectReason) {
         this.festivalStatus = FestivalStatus.REJECTED;
+        this.rejectReason = rejectReason;
     }
 
     //종료 배치: 개최 기간이 끝난 공개 페스티벌을 종료 처리한다

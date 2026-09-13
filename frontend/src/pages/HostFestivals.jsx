@@ -130,6 +130,11 @@ function HostFestivals() {
                 </div>
 
                 <h2 className={styles.festivalName}>{festival.name}</h2>
+                {festival.festivalStatus === 'REJECTED' && festival.rejectReason && (
+                  <p className={styles.location} style={{ color: 'var(--fgColor-danger)' }}>
+                    반려 사유: {festival.rejectReason}
+                  </p>
+                )}
                 <p className={styles.location}>
                   <MapPinIcon size={14} aria-hidden="true" />
                   {festival.location}

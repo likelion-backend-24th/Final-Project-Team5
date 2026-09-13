@@ -15,6 +15,7 @@ public enum FestivalErrorCode implements ErrorCode {
     FORBIDDEN_NOT_OWNER(HttpStatus.FORBIDDEN, "본인 소유 페스티벌만 조회할 수 있습니다."),
     INVALID_DECISION(HttpStatus.BAD_REQUEST, "공개 또는 반려만 결정할 수 있습니다."),
     ALREADY_REVIEWED(HttpStatus.CONFLICT, "이미 심사 처리된 페스티벌입니다."),
+    REJECT_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "반려 시 사유는 필수입니다."),
     INVALID_PERIOD(HttpStatus.BAD_REQUEST, "종료 일시는 시작 일시 이후여야 합니다."),
     INVALID_IMAGE_COUNT(HttpStatus.BAD_REQUEST, "대표 이미지는 1개까지 등록할 수 있습니다."),
     INVALID_DETAIL_IMAGE_COUNT(HttpStatus.BAD_REQUEST, "본문 이미지는 최대 2개까지 등록할 수 있습니다."),

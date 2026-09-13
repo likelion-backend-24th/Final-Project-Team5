@@ -16,6 +16,8 @@ import { FESTIVAL_CATEGORY_LABELS, toAbsoluteImageUrl } from '../api/festivalApi
 
 export const REVIEW_STATUS_META = {
   PENDING: { label: '승인대기', cls: 'bg-amber-100 text-amber-700' },
+  //승인은 눌렀지만 auth-service의 권한 부여 응답을 못 받은 상태. 서버 배치가 자동 재시도하고, 운영자가 다시 승인을 눌러도 된다.
+  APPROVAL_PENDING: { label: '승인 처리중', cls: 'bg-blue-100 text-blue-700' },
   APPROVED: { label: '승인', cls: 'bg-blue-50 text-blue-600' },
   REJECTED: { label: '반려', cls: 'bg-red-50 text-red-600' },
 }
@@ -57,17 +59,20 @@ const HOST_APPLICATION_ERROR_MESSAGES = {
 }
 
 /** GET /api/admin/host-applications 응답을 주최자 관리 화면이 기대하는 형태로 매핑한다.
- * 이 API는 심사 대기(PENDING) 신청만 내려주고 신청자 이름/이메일 필드도 별도로 제공하지 않아,
- * 흔히 쓰이는 필드명 후보를 순서대로 시도하고 없으면 안내 문구로 대체한다. */
+ * 이제 승인·반려된 신청도 함께 내려오고(이력), 신청자 이름·닉네임·이메일은 festival-service가
+ * auth-service에서 조회해 채워준다(조회 실패 시 null → 안내 문구). */
 function mapHostApplication(raw) {
-  const name = raw.applicantNickname ?? raw.nickname ?? raw.name ?? raw.username ?? '이름 정보 없음'
-  const email = raw.applicantEmail ?? raw.email ?? raw.username ?? '이메일 정보 없음'
+  const nickname = raw.applicantNickname ?? '닉네임 정보 없음'
+  const name = raw.applicantName ? `${nickname} (${raw.applicantName})` : nickname
+  const email = raw.applicantEmail ?? '이메일 정보 없음'
   return {
     id: String(raw.id),
     name,
     email,
     appliedAt: formatDate(raw.createdAt),
-    status: 'PENDING',
+    reviewedAt: raw.status === 'PENDING' ? '' : formatDate(raw.updatedAt),
+    status: raw.status,
+    rejectReason: raw.rejectReason ?? '',
     intro: raw.introduction ?? '',
     contact: raw.contact ?? '',
   }
@@ -81,7 +86,9 @@ export async function fetchOrganizerApplications() {
 /** PATCH /api/admin/host-applications/:id 를 호출한다. 반려 시 rejectReason이 필수다. */
 export async function reviewOrganizerApplication(id, { status, rejectReason }) {
   try {
-    await reviewHostApplication(id, { status, rejectReason })
+    //승인은 권한 부여 응답을 못 받으면 APPROVAL_PENDING으로 돌아올 수 있어, 서버가 확정한 상태를 그대로 돌려준다.
+    const response = await reviewHostApplication(id, { status, rejectReason })
+    return response.data.data.status
   } catch (error) {
     const errorCode = error.response?.data?.errorCode
     throw new Error(
@@ -98,21 +105,28 @@ const FESTIVAL_REVIEW_ERROR_MESSAGES = {
   FESTIVAL_NOT_FOUND: '존재하지 않는 페스티벌입니다. 목록을 새로고침해주세요.',
   ALREADY_REVIEWED: '이미 심사 처리된 페스티벌입니다. 목록을 새로고침해주세요.',
   INVALID_DECISION: '공개 또는 반려만 결정할 수 있어요.',
+  REJECT_REASON_REQUIRED: '반려 사유를 입력해주세요.',
 }
 
+//백엔드 페스티벌 상태를 심사 화면의 3단계(대기/승인/반려)로 접는다. CLOSED(기간 종료)는 공개됐던 것이라 승인으로 본다.
+const FESTIVAL_UI_STATUS = { PENDING: 'PENDING', PUBLISHED: 'APPROVED', CLOSED: 'APPROVED', REJECTED: 'REJECTED' }
+
 /** GET /api/admin/festivals 응답을 페스티벌 등록 승인 화면이 기대하는 형태로 매핑한다.
- * 이 API도 심사 대기 목록만 내려주고, 주최자 닉네임 필드를 별도로 제공하지 않는다. */
+ * 이제 공개·반려·종료된 페스티벌도 이력으로 함께 내려오고, 주최자 닉네임은 festival-service가
+ * auth-service에서 조회해 채워준다(조회 실패 시 null → 안내 문구). */
 function mapFestivalSubmission(raw) {
   return {
     id: String(raw.id),
     name: raw.name,
-    host: raw.hostNickname ?? raw.organizerNickname ?? raw.host ?? '주최자 정보 없음',
+    host: raw.hostNickname ?? '주최자 정보 없음',
     image: toAbsoluteImageUrl(raw.thumbnailImageUrl) ?? '/placeholder.svg',
     date: formatDateRange(raw.startAt, raw.endAt),
     location: raw.location,
     category: FESTIVAL_CATEGORY_LABELS[raw.festivalCategory] ?? raw.festivalCategory,
     appliedAt: formatDate(raw.createdAt ?? raw.startAt),
-    status: 'PENDING',
+    status: FESTIVAL_UI_STATUS[raw.festivalStatus] ?? 'PENDING',
+    rawStatus: raw.festivalStatus,
+    rejectReason: raw.rejectReason ?? '',
     description: raw.description ?? '',
     tickets: (raw.ticketTypes ?? []).map((t) => ({
       name: t.name,
@@ -126,10 +140,10 @@ export async function fetchFestivalSubmissions() {
   return response.data.data.map(mapFestivalSubmission)
 }
 
-/** PATCH /api/admin/festivals/:id 를 호출한다. decision은 'PUBLISHED' | 'REJECTED'. */
-export async function reviewFestivalSubmission(id, decision) {
+/** PATCH /api/admin/festivals/:id 를 호출한다. decision은 'PUBLISHED' | 'REJECTED'. 반려 시 rejectReason이 필수다. */
+export async function reviewFestivalSubmission(id, decision, rejectReason) {
   try {
-    await reviewFestival(id, { decision })
+    await reviewFestival(id, { decision, rejectReason })
   } catch (error) {
     const errorCode = error.response?.data?.errorCode
     throw new Error(

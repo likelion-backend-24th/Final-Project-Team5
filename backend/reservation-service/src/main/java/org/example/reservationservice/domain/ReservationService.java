@@ -11,6 +11,11 @@ import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.exception.ApiException;
 import org.example.reservationservice.domain.refund.RefundPolicy;
 import org.example.reservationservice.domain.refund.RefundQuote;
+import org.example.reservationservice.domain.refund.StockReleaseQueue;
+import org.example.reservationservice.domain.refund.StockReleaseQueueRepository;
+import org.example.reservationservice.domain.refund.StockReleaseScheduler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.example.reservationservice.infrastructure.festival.FestivalServiceClient;
 import org.example.reservationservice.infrastructure.festival.dto.FestivalDetailResponseDto;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +34,9 @@ public class ReservationService {
     private static final int MAX_CHECK_IN_CODE_ATTEMPTS = 5;
     //취소되지 않은 것으로 보고 구매 제한에 합산할 상태들 (만료·취소 건은 다시 살 수 있어야 하므로 제외)
     private static final List<ReservationStatus> HELD_STATUSES = List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED);
+    //1인당 구매 제한에 합산할 상태 — 부분 환불된 예매도 남은 장수만큼은 들고 있는 것이다
+    private static final List<ReservationStatus> PURCHASE_LIMIT_STATUSES =
+            List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED, ReservationStatus.PARTIALLY_REFUNDED);
 
     //입장 검증·현황 집계에 포함할 상태들. 부분 환불된 예매도 남은 장수만큼은 입장할 수 있어야 한다.
     private static final List<ReservationStatus> ADMITTABLE_STATUSES =
@@ -38,10 +46,15 @@ public class ReservationService {
     private final FestivalServiceClient festivalServiceClient;
     private final CheckInCodeGenerator checkInCodeGenerator;
     private final RefundPolicy refundPolicy;
+    private final StockReleaseQueueRepository stockReleaseQueueRepository;
+    private final StockReleaseScheduler stockReleaseScheduler;
 
-    //사이트 전체 기본 1인당 구매 제한(계정 기준, 티켓 종류당). 주최자가 티켓 종류별로 더 낮게 설정하는 기능은 아직 없다(festival-service TicketType에 필드 추가 필요 — 후속 작업).
-    @Value("${reservation.max-quantity-per-ticket-type:4}")
-    private int maxQuantityPerTicketType;
+    private static final Logger log = LoggerFactory.getLogger(ReservationService.class);
+
+    //사이트 전체 기본 1인당 구매 제한(계정 기준, 페스티벌당 — 티켓 종류를 나눠 사도 합산). 티켓 종류당으로 세던 시절엔
+    //같은 페스티벌에서 종류별로 4장씩 사 8장까지 가능했다(QA에서 발견). 주최자가 페스티벌별로 더 낮게 설정하는 기능은 아직 없다.
+    @Value("${reservation.max-quantity-per-festival:${reservation.max-quantity-per-ticket-type:4}}")
+    private int maxQuantityPerFestival;
 
     //QR 이미지를 그려주는 goqr.me(api.qrserver.com) create-qr-code API 베이스 URL.
     //디코딩(read-qr-code)은 쓰지 않는다 — 스캔 결과 문자열은 프론트에서 카메라로 직접 디코딩해 전달받는다.
@@ -64,7 +77,7 @@ public class ReservationService {
                 .findFirst()
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.TICKET_TYPE_NOT_FOUND));
 
-        checkPurchaseLimitOrThrow(userId, request.ticketTypeId(), request.quantity());
+        checkPurchaseLimitOrThrow(userId, festival.id(), request.quantity());
         deductStockOrThrow(request.ticketTypeId(), request.quantity());
 
         Reservation reservation = Reservation.builder()
@@ -81,9 +94,12 @@ public class ReservationService {
             reservationRepository.save(reservation);
         } catch (RuntimeException e) {
             //재고는 이미 차감됐는데 예매 저장이 실패하면 재고가 영구 유실되므로 반드시 복구한다.
+            log.error("예매 저장 실패 — 차감한 재고 복구 시도: ticketType={}, qty={}", request.ticketTypeId(), request.quantity(), e);
             festivalServiceClient.restoreStock(request.ticketTypeId(), request.quantity());
             throw e;
         }
+        log.info("예매 생성: reservation={}, user={}, festival={}, ticketType={}, qty={} (재고 차감 완료)",
+                reservation.getId(), userId, festival.id(), request.ticketTypeId(), request.quantity());
 
         return ReservationResponseDto.from(reservation);
     }
@@ -298,7 +314,11 @@ public class ReservationService {
         }
 
         reservation.refund(request.quantity());
-        festivalServiceClient.restoreStock(reservation.getTicketTypeId(), request.quantity());
+        //환불 재고는 바로 풀지 않는다 — 팀 정책(리셀 방지): 모아 두었다가 매일 정해진 시각에 일괄 반환(StockReleaseScheduler).
+        Instant releaseAt = stockReleaseScheduler.nextReleaseInstant(Instant.now());
+        stockReleaseQueueRepository.save(new StockReleaseQueue(reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt));
+        log.info("환불 확정: reservation={}, ticketType={}, qty={}, 재고 반환 예정={}",
+                reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt);
     }
 
     //환불 가능 여부 판정(내부 메서드) — 상태·입장 여부처럼 막는 조건을 먼저 보고, 마지막에 금액을 계산한다.
@@ -329,6 +349,8 @@ public class ReservationService {
         }
         reservation.cancel(CancelReason.USER_CANCELLED);
         festivalServiceClient.restoreStock(reservation.getTicketTypeId(), reservation.getQuantity());
+        log.info("예매 취소(본인): reservation={}, ticketType={}, qty={} 재고 복구 요청 완료",
+                reservation.getId(), reservation.getTicketTypeId(), reservation.getQuantity());
     }
 
     //Payment-Service → Reservation-Service 내부 호출: 결제 실패·취소·만료 시 예매 취소 + 재고 복구
@@ -347,6 +369,8 @@ public class ReservationService {
 
         reservation.cancel(request.reasonCode());
         festivalServiceClient.restoreStock(reservation.getTicketTypeId(), reservation.getQuantity());
+        log.info("예매 취소(결제 {}): reservation={}, ticketType={}, qty={} 재고 복구 요청 완료",
+                request.reasonCode(), reservation.getId(), reservation.getTicketTypeId(), reservation.getQuantity());
     }
 
     //Festival 불러오기(내부 메서드)
@@ -361,13 +385,14 @@ public class ReservationService {
         }
     }
 
-    //1인당 구매 제한 검증(내부 메서드) — 계정 기준, PENDING·CONFIRMED로 이미 들고 있는 수량 + 이번 요청 수량이 한도를 넘으면 거부
-    private void checkPurchaseLimitOrThrow(Long userId, Long ticketTypeId, int quantity) {
+    //1인당 구매 제한 검증(내부 메서드) — 계정 기준, 같은 페스티벌의 모든 티켓 종류에 대해 PENDING·CONFIRMED로 이미 들고 있는
+    //수량(환불된 장수는 제외) + 이번 요청 수량이 한도를 넘으면 거부
+    private void checkPurchaseLimitOrThrow(Long userId, Long festivalId, int quantity) {
         int alreadyHeld = reservationRepository
-                .findByUserIdAndTicketTypeIdAndReservationStatusIn(userId, ticketTypeId, HELD_STATUSES).stream()
-                .mapToInt(Reservation::getQuantity)
+                .findByUserIdAndFestivalIdAndReservationStatusIn(userId, festivalId, PURCHASE_LIMIT_STATUSES).stream()
+                .mapToInt(Reservation::remainingQuantity)
                 .sum();
-        if (alreadyHeld + quantity > maxQuantityPerTicketType) {
+        if (alreadyHeld + quantity > maxQuantityPerFestival) {
             throw new ApiException(ReservationErrorCode.PURCHASE_LIMIT_EXCEEDED);
         }
     }

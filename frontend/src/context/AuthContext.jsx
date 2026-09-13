@@ -1,6 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchMyInfo, login as loginRequest, logout as logoutRequest } from '../api/authApi'
-import { clearAccessToken, getAccessToken, setAccessToken, subscribeAccessToken } from '../api/tokenStore'
+import {
+  clearAccessToken,
+  getAccessToken,
+  setAccessToken,
+  subscribeAccessToken,
+  subscribeExternalTokenChange,
+} from '../api/tokenStore'
 
 const AuthContext = createContext(null)
 
@@ -21,6 +27,22 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => subscribeAccessToken(setAccessTokenState), [])
+
+  // 다른 탭에서 로그인/로그아웃하면 이 탭의 로그인 상태도 바로 맞춘다.
+  // 로그아웃(토큰 null) → user 비움. 로그인(토큰 생김) → 그 토큰으로 내 정보를 다시 불러온다.
+  useEffect(
+    () =>
+      subscribeExternalTokenChange((token) => {
+        if (!token) {
+          setUser(null)
+          return
+        }
+        fetchMyInfo({ suppressAuthRedirect: true })
+          .then((meResponse) => setUser(meResponse.data.data))
+          .catch(() => setUser(null))
+      }),
+    [],
+  )
 
   // StrictMode(개발 모드)는 마운트 시 이 effect를 두 번 실행한다. ref에 요청 promise를 캐싱해
   // 재실행되어도 bootstrapSession()이 실제로는 한 번만 호출되도록 한다(중복 reissue 경합 방지).

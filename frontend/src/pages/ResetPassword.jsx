@@ -272,6 +272,7 @@ function ResetPassword() {
                     onClick={() => setShowPassword((value) => !value)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-600"
                     aria-label={showPassword ? '비밀번호 숨기기' : '비밀번호 표시'}
+                    tabIndex={-1}
                   >
                     {showPassword ? <EyeOffIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                   </button>

@@ -79,7 +79,6 @@ public class HelperInvitation {
 
     @ElementCollection
     @CollectionTable(name = "helper_invitation_sends", joinColumns = @JoinColumn(name = "invitation_id"))
-
     @Column(name = "attempted_at", nullable = false)
     private List<LocalDateTime> sendAttempts = new ArrayList<>();
 

@@ -28,19 +28,19 @@ class HostControllerAcceptanceTest {
 
     private static final String ENDPOINT = "/api/host/festivals";
     private static final String CREATE_REQUEST_BODY = """
-            {
-              "name": "가을 뮤직 페스티벌",
-              "description": "설명",
-              "startAt": "2026-10-01T10:00:00",
-              "endAt": "2026-10-02T22:00:00",
-              "region": "SEOUL",
-              "locationDetail": "서울숲",
-              "festivalCategory": "MUSIC",
-              "ticketTypes": [
-                {"name": "일반", "description": "스탠딩석", "price": 50000, "quantity": 100, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"},
-                {"name": "VIP", "price": 120000, "quantity": 20, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"}
-              ]
-            }""";
+        {
+          "name": "가을 뮤직 페스티벌",
+          "description": "설명",
+          "startAt": "2026-10-01T10:00:00",
+          "endAt": "2026-10-02T22:00:00",
+          "region": "SEOUL",
+          "locationDetail": "서울숲",
+          "festivalCategory": "MUSIC",
+          "ticketTypes": [
+            {"name": "일반", "description": "스탠딩석", "price": 50000, "ticketMode": "STANDING", "quantity": 100, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"},
+            {"name": "VIP", "price": 120000, "ticketMode": "STANDING", "quantity": 20, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"}
+          ]
+        }""";
 
     @Autowired
     private MockMvc mockMvc;

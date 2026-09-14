@@ -33,6 +33,12 @@ spring:
               uri: ${AUTH_SERVICE_URL:http://localhost:8081}
               predicates:
                 - Path=/api/users/**
+            #festival-service 규칙(/api/festivals/**)보다 반드시 먼저 와야 한다 — 순서대로 매칭되므로,
+            #이 route가 뒤에 있으면 festival-service가 먼저 가로채간다.
+            - id: festival-seats
+              uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/festivals/*/ticket-types/*/seats
             - id: festival-service
               uri: ${FESTIVAL_SERVICE_URL:http://localhost:8082}
               predicates:

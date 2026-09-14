@@ -37,4 +37,12 @@ public class SeatGenerationService {
         }
         seatRepository.saveAll(seats);
     }
+
+    //참가자용 좌석맵 조회 — 인증 불필요(페스티벌 목록/상세 조회와 같은 공개 정책)
+    public List<SeatResponseDto> listSeats(Long festivalId, Long ticketTypeId) {
+        return seatRepository.findByFestivalIdAndTicketTypeIdOrderByZoneAscRowLabelAscSeatNumberAsc(festivalId, ticketTypeId)
+                .stream()
+                .map(SeatResponseDto::from)
+                .toList();
+    }
 }

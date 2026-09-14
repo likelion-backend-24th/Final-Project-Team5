@@ -29,7 +29,8 @@ public enum FestivalErrorCode implements ErrorCode {
     INVALID_DETAIL_IMAGE_COUNT(HttpStatus.BAD_REQUEST, "본문 이미지는 최대 2개까지 등록할 수 있습니다."),
     INVALID_IMAGE_SIZE(HttpStatus.BAD_REQUEST, "이미지 용량은 파일당 10MB를 초과할 수 없습니다."),
     INVALID_IMAGE_TYPE(HttpStatus.BAD_REQUEST, "이미지 파일만 업로드할 수 있습니다."),
-    IMAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이미지 업로드에 실패했습니다.");
+    IMAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이미지 업로드에 실패했습니다."),
+    INVALID_SEAT_LAYOUT(HttpStatus.BAD_REQUEST, "좌석 배치(zone/rows/seatsPerRow)가 올바르지 않습니다.");
 
     private final HttpStatus httpStatus;
 

@@ -414,7 +414,8 @@ public class SettlementService {
 
     public void reconcileFrozen(Long id) {
         Settlement before = repository.findById(id).orElseThrow();
-        if (before.isRetired()) return;
+        // 수동 병합이 필요한 중복 원장은 자동 대사로도 변경하지 않는다.
+        if (before.isRetired() || before.getActiveFestivalId() == null) return;
         if (before.getStatus().recalculable()) throw new ApiException(SettlementErrorCode.SETTLEMENT_NOT_FROZEN);
         Calculation calculation = gather(before.getFestivalId(), before.isTestPayment());
         if (calculation.hold() != null) return;

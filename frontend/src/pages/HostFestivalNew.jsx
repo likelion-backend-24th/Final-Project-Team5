@@ -9,7 +9,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from 'lucide-react'
-import { FESTIVAL_CATEGORIES as CATEGORY_OPTIONS } from '../api/festivalApi'
+import { FESTIVAL_CATEGORIES as CATEGORY_OPTIONS, FESTIVAL_REGIONS as REGION_OPTIONS } from '../api/festivalApi'
 import { createFestival, uploadFestivalImages } from '../api/hostFestivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './HostFestivalNew.module.css'
@@ -24,6 +24,13 @@ const IMAGE_ERROR_MESSAGES = {
   INVALID_IMAGE_SIZE: '이미지 용량은 파일당 10MB를 초과할 수 없어요.',
   INVALID_IMAGE_TYPE: '이미지 파일만 업로드할 수 있어요.',
   IMAGE_UPLOAD_FAILED: '이미지 업로드에 실패했어요. 잠시 후 다시 시도해주세요.',
+}
+
+const CREATE_FESTIVAL_ERROR_MESSAGES = {
+  INVALID_PERIOD: '종료 일시는 시작 일시 이후여야 해요.',
+  INVALID_OPERATING_HOURS: '운영 종료 시간은 시작 시간 이후여야 해요.',
+  INVALID_TICKET_SALE_PERIOD: '티켓 판매 종료 일시는 판매 시작 일시 이후여야 해요.',
+  INVALID_TICKET_DATE: '티켓 날짜는 페스티벌 개최 기간 내여야 해요.',
 }
 
 function validateThumbnail(file) {
@@ -103,7 +110,7 @@ function DateTimeFields({ id, value, onChange, invalid }) {
 }
 
 function createEmptyTicketType(key) {
-  return { key, name: '', price: '', quantity: '' }
+  return { key, name: '', description: '', price: '', quantity: '', saleStartAt: '', saleEndAt: '', ticketDate: '' }
 }
 
 function validateTicketType(ticket) {
@@ -123,6 +130,19 @@ function validateTicketType(ticket) {
     errors.quantity = '수량을 입력해주세요.'
   } else if (!Number.isInteger(Number(ticket.quantity)) || Number(ticket.quantity) < 1) {
     errors.quantity = '1 이상의 정수를 입력해주세요.'
+  }
+
+  if (!ticket.saleStartAt) {
+    errors.saleStartAt = '판매 시작 일시를 입력해주세요.'
+  }
+  if (!ticket.saleEndAt) {
+    errors.saleEndAt = '판매 종료 일시를 입력해주세요.'
+  } else if (ticket.saleStartAt && ticket.saleEndAt <= ticket.saleStartAt) {
+    errors.saleEndAt = '판매 종료 일시는 판매 시작 일시 이후여야 해요.'
+  }
+
+  if (ticket.description && ticket.description.length > 50) {
+    errors.description = '설명은 50자 이내로 입력해주세요.'
   }
 
   return errors
@@ -153,11 +173,17 @@ function validate(form, thumbnail, detailImages) {
   } else if (form.startAt && form.endAt <= form.startAt) {
     fieldErrors.endAt = '종료 일시는 시작 일시 이후여야 해요.'
   }
-  if (!form.location.trim()) {
-    fieldErrors.location = '장소를 입력해주세요.'
+  if (!form.region) {
+    fieldErrors.region = '지역을 선택해주세요.'
+  }
+  if (!form.locationDetail.trim()) {
+    fieldErrors.locationDetail = '상세주소를 입력해주세요.'
   }
   if (!form.festivalCategory) {
     fieldErrors.festivalCategory = '카테고리를 선택해주세요.'
+  }
+  if (form.operatingStartTime && form.operatingEndTime && form.operatingEndTime <= form.operatingStartTime) {
+    fieldErrors.operatingEndTime = '운영 종료 시간은 시작 시간 이후여야 해요.'
   }
 
   const ticketErrors = {}
@@ -186,8 +212,12 @@ function HostFestivalNew() {
     description: '',
     startAt: '',
     endAt: '',
-    location: '',
+    region: '',
+    locationDetail: '',
     festivalCategory: 'MUSIC',
+    entryStartTime: '',
+    operatingStartTime: '',
+    operatingEndTime: '',
     ticketTypes: [createEmptyTicketType(0)],
   }))
   const [errors, setErrors] = useState({})
@@ -264,6 +294,24 @@ function HostFestivalNew() {
     }
   }
 
+  //티켓별 판매 시작·종료 일시(DateTimeFields는 값을 문자열로 바로 넘겨준다, event 아님)
+  function handleTicketDateTimeChange(key, field) {
+    return (value) => {
+      setForm((prev) => ({
+        ...prev,
+        ticketTypes: prev.ticketTypes.map((ticket) =>
+          ticket.key === key ? { ...ticket, [field]: value } : ticket,
+        ),
+      }))
+      setTicketErrors((prev) => ({
+        ...prev,
+        [key]: { ...prev[key], [field]: undefined },
+      }))
+      setErrors((prev) => ({ ...prev, ticketTypes: undefined }))
+      setSubmitError('')
+    }
+  }
+
   function handleAddTicket() {
     ticketKeySeq.current += 1
     setForm((prev) => ({
@@ -311,21 +359,29 @@ function HostFestivalNew() {
         description: form.description.trim(),
         startAt: form.startAt,
         endAt: form.endAt,
-        location: form.location.trim(),
+        region: form.region,
+        locationDetail: form.locationDetail.trim(),
         festivalCategory: form.festivalCategory,
+        entryStartTime: form.entryStartTime || null,
+        operatingStartTime: form.operatingStartTime || null,
+        operatingEndTime: form.operatingEndTime || null,
         thumbnailImageUrl,
         detailImageUrls,
         ticketTypes: form.ticketTypes.map((ticket) => ({
           name: ticket.name.trim(),
+          description: ticket.description.trim() || null,
           price: Number(ticket.price),
           quantity: Number(ticket.quantity),
+          saleStartAt: ticket.saleStartAt,
+          saleEndAt: ticket.saleEndAt,
+          ticketDate: ticket.ticketDate || null,
         })),
       })
       setSubmitted(response.data.data)
     } catch (error) {
       const errorCode = error.response?.data?.errorCode
-      if (errorCode === 'INVALID_PERIOD') {
-        setSubmitError('종료 일시는 시작 일시 이후여야 해요.')
+      if (CREATE_FESTIVAL_ERROR_MESSAGES[errorCode]) {
+        setSubmitError(CREATE_FESTIVAL_ERROR_MESSAGES[errorCode])
       } else if (IMAGE_ERROR_MESSAGES[errorCode]) {
         setSubmitError(IMAGE_ERROR_MESSAGES[errorCode])
       } else {
@@ -451,20 +507,86 @@ function HostFestivalNew() {
             </div>
           </div>
 
+          <div className={styles.row}>
+            <div className={styles.field}>
+              <label htmlFor="region" className={styles.label}>
+                지역
+              </label>
+              <select
+                id="region"
+                className={styles.input}
+                value={form.region}
+                onChange={handleChange('region')}
+                aria-invalid={Boolean(errors.region)}
+              >
+                <option value="">선택해주세요</option>
+                {REGION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {errors.region && <p className={styles.errorText}>{errors.region}</p>}
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor="locationDetail" className={styles.label}>
+                상세주소
+              </label>
+              <input
+                id="locationDetail"
+                type="text"
+                className={styles.input}
+                placeholder="예: 잠실동 올림픽주경기장"
+                value={form.locationDetail}
+                onChange={handleChange('locationDetail')}
+                aria-invalid={Boolean(errors.locationDetail)}
+              />
+              {errors.locationDetail && <p className={styles.errorText}>{errors.locationDetail}</p>}
+            </div>
+          </div>
+
           <div className={styles.field}>
-            <label htmlFor="location" className={styles.label}>
-              장소
+            <label htmlFor="entryStartTime" className={styles.label}>
+              입장 시작 시간 <span className={styles.optional}>(선택, 구매자에게 안내되는 참고용 정보)</span>
             </label>
             <input
-              id="location"
-              type="text"
+              id="entryStartTime"
+              type="time"
               className={styles.input}
-              placeholder="예: 서울 잠실 올림픽주경기장"
-              value={form.location}
-              onChange={handleChange('location')}
-              aria-invalid={Boolean(errors.location)}
+              value={form.entryStartTime}
+              onChange={handleChange('entryStartTime')}
             />
-            {errors.location && <p className={styles.errorText}>{errors.location}</p>}
+          </div>
+
+          <div className={styles.row}>
+            <div className={styles.field}>
+              <label htmlFor="operatingStartTime" className={styles.label}>
+                운영 시작 시간 <span className={styles.optional}>(선택)</span>
+              </label>
+              <input
+                id="operatingStartTime"
+                type="time"
+                className={styles.input}
+                value={form.operatingStartTime}
+                onChange={handleChange('operatingStartTime')}
+              />
+            </div>
+
+            <div className={styles.field}>
+              <label htmlFor="operatingEndTime" className={styles.label}>
+                운영 종료 시간 <span className={styles.optional}>(선택)</span>
+              </label>
+              <input
+                id="operatingEndTime"
+                type="time"
+                className={styles.input}
+                value={form.operatingEndTime}
+                onChange={handleChange('operatingEndTime')}
+                aria-invalid={Boolean(errors.operatingEndTime)}
+              />
+              {errors.operatingEndTime && <p className={styles.errorText}>{errors.operatingEndTime}</p>}
+            </div>
           </div>
 
           <div className={styles.field}>
@@ -631,6 +753,60 @@ function HostFestivalNew() {
                         />
                         {rowErrors.quantity && <p className={styles.errorText}>{rowErrors.quantity}</p>}
                       </div>
+                    </div>
+
+                    <div className={styles.ticketField} style={{ marginTop: 10 }}>
+                      <input
+                        type="text"
+                        maxLength={50}
+                        className={styles.input}
+                        placeholder="설명 (선택, 구매 화면에서 티켓 이름 아래 표시돼요)"
+                        value={ticket.description}
+                        onChange={handleTicketChange(ticket.key, 'description')}
+                        aria-invalid={Boolean(rowErrors.description)}
+                        aria-label={`티켓 ${index + 1} 설명`}
+                      />
+                      {rowErrors.description && <p className={styles.errorText}>{rowErrors.description}</p>}
+                    </div>
+
+                    <div className={styles.row} style={{ marginTop: 10 }}>
+                      <div className={styles.ticketField}>
+                        <span style={{ fontSize: 12, color: 'var(--fgColor-muted)', fontWeight: 700 }}>
+                          판매 시작 일시
+                        </span>
+                        <DateTimeFields
+                          id={`ticket-${ticket.key}-saleStartAt`}
+                          value={ticket.saleStartAt}
+                          onChange={handleTicketDateTimeChange(ticket.key, 'saleStartAt')}
+                          invalid={Boolean(rowErrors.saleStartAt)}
+                        />
+                        {rowErrors.saleStartAt && <p className={styles.errorText}>{rowErrors.saleStartAt}</p>}
+                      </div>
+                      <div className={styles.ticketField}>
+                        <span style={{ fontSize: 12, color: 'var(--fgColor-muted)', fontWeight: 700 }}>
+                          판매 종료 일시
+                        </span>
+                        <DateTimeFields
+                          id={`ticket-${ticket.key}-saleEndAt`}
+                          value={ticket.saleEndAt}
+                          onChange={handleTicketDateTimeChange(ticket.key, 'saleEndAt')}
+                          invalid={Boolean(rowErrors.saleEndAt)}
+                        />
+                        {rowErrors.saleEndAt && <p className={styles.errorText}>{rowErrors.saleEndAt}</p>}
+                      </div>
+                    </div>
+
+                    <div className={styles.ticketField} style={{ marginTop: 10 }}>
+                      <span style={{ fontSize: 12, color: 'var(--fgColor-muted)', fontWeight: 700 }}>
+                        날짜 지정 <span className={styles.optional}>(선택, 이틀 이상 지속되는 페스티벌에서 특정 날짜 전용 티켓일 때만)</span>
+                      </span>
+                      <input
+                        type="date"
+                        className={styles.input}
+                        value={ticket.ticketDate}
+                        onChange={handleTicketChange(ticket.key, 'ticketDate')}
+                        aria-label={`티켓 ${index + 1} 날짜`}
+                      />
                     </div>
                   </div>
                 )

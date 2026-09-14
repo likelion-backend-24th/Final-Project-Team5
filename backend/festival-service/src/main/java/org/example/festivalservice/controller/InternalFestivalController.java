@@ -34,6 +34,9 @@ public class InternalFestivalController {
     @Value("${internal.auth-token:CHANGE_ME_IN_ENV}")
     private String token;
 
+    @Value("${app.timezone}")
+    private String timezone;
+
     @GetMapping("/settlement-candidates")
     public List<SettlementContextDto> candidates(
         @RequestHeader("Authorization") String auth,
@@ -43,13 +46,13 @@ public class InternalFestivalController {
         if (page < 0) throw new ApiException(FestivalErrorCode.INVALID_SETTLEMENT_PAGE);
         return repository
             .findSettlementCandidates(
-                LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusHours(24),
+                LocalDateTime.now(ZoneId.of(timezone)).minusHours(24),
                 List.of(FestivalStatus.PUBLISHED, FestivalStatus.CLOSED,
                         FestivalStatus.CANCELLATION_PENDING, FestivalStatus.CANCELLED),
                 PageRequest.of(page, 100)
             )
             .stream()
-            .map(f -> SettlementContextDto.from(f, ZoneId.of("Asia/Seoul")))
+            .map(f -> SettlementContextDto.from(f, ZoneId.of(timezone)))
             .toList();
     }
 
@@ -58,7 +61,7 @@ public class InternalFestivalController {
         verify(auth);
         return SettlementContextDto.from(
             repository.findById(id).orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND)),
-            ZoneId.of("Asia/Seoul")
+            ZoneId.of(timezone)
         );
     }
 

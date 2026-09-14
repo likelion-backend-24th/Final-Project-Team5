@@ -13,6 +13,11 @@ public record TicketTypeRequestDto(
         //구매 화면에서 티켓 이름 아래 보여줄 한 줄 설명(선택)
         @Size(max = 50, message = "티켓 설명은 50자 이내로 입력해주세요.") String description,
         @PositiveOrZero int price,
+        @NotNull TicketMode ticketMode,
+        //SEATED일 때만 값이 있어야 한다 — 조건부 검증은 FestivalService에서 처리
+        String zone,
+        Integer rows,
+        Integer seatsPerRow,
         @Positive int quantity,
         //판매 시작·종료 일시(필수) — reservation-service가 예매 신청 시 이 구간을 검증한다.
         @NotNull LocalDateTime saleStartAt,

@@ -245,7 +245,12 @@ class SettlementAcceptanceTest {
             org.springframework.test.util.ReflectionTestUtils.setField(row, "activeFestivalId", null);
             repository.saveAndFlush(row);
         }
-        assertThatThrownBy(ledgerInitializer::initialize).hasMessageContaining("SETTLEMENT_CHANNEL_MERGE_REVIEW_REQUIRED");
-        assertThat(repository.findByRetiredFalseOrderByIdAsc()).hasSize(2);
+        var before = repository.findByRetiredFalseOrderByIdAsc();
+        assertThatCode(ledgerInitializer::initialize).doesNotThrowAnyException();
+        var after = repository.findByRetiredFalseOrderByIdAsc();
+        assertThat(after).hasSize(2).allSatisfy(row -> assertThat(row.getActiveFestivalId()).isNull());
+        assertThat(after).extracting(Settlement::getPayoutAmount, Settlement::getConfirmedAt, Settlement::getPaidAt)
+                .containsExactlyElementsOf(before.stream().map(row -> org.assertj.core.groups.Tuple.tuple(
+                        row.getPayoutAmount(), row.getConfirmedAt(), row.getPaidAt())).toList());
     }
 }

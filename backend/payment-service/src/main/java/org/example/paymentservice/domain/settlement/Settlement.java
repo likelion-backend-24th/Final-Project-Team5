@@ -94,6 +94,10 @@ public class Settlement {
         activeFestivalId = festivalId;
     }
 
+    public void excludeFromCalculation() {
+        activeFestivalId = null;
+    }
+
     public void retireEmptyLedger() {
         activeFestivalId = null;
         retired = true;

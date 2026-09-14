@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface SettlementRepository extends JpaRepository<Settlement, Long>, JpaSpecificationExecutor<Settlement> {
+
+    boolean existsByFestivalIdAndActiveFestivalIdIsNullAndRetiredFalse(Long festivalId);
     Optional<Settlement> findByFestivalIdAndTestPayment(Long festivalId, boolean testPayment);
     List<Settlement> findByStatusIn(Collection<SettlementStatus> statuses);
     Optional<Settlement> findByActiveFestivalId(Long festivalId);

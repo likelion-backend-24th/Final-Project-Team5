@@ -209,6 +209,10 @@ public class SettlementService {
     }
 
     public void calculateFestival(Long festivalId, boolean test) {
+        // 수동 병합 대상에 새 원장을 만들면 기존 확정 금액을 중복 집계할 수 있다.
+        if (repository.existsByFestivalIdAndActiveFestivalIdIsNullAndRetiredFalse(festivalId)) {
+            return;
+        }
         var existing = repository.findByActiveFestivalId(festivalId);
         if (
             existing.isPresent() && (!existing.get().getStatus().recalculable() || existing.get().isManualHold())

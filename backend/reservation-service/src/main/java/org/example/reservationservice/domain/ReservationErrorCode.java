@@ -38,7 +38,14 @@ public enum ReservationErrorCode implements ErrorCode {
     RESERVATION_NOT_REFUNDABLE(HttpStatus.CONFLICT, "환불할 수 없는 예매 상태입니다."),
     REFUND_WINDOW_CLOSED(HttpStatus.CONFLICT, "공연 시작이 임박해 환불할 수 없습니다."),
     ALREADY_CHECKED_IN_NOT_REFUNDABLE(HttpStatus.CONFLICT, "이미 입장한 예매는 환불할 수 없습니다."),
-    REFUND_QUANTITY_EXCEEDED(HttpStatus.CONFLICT, "환불 가능한 수량을 초과했습니다.");
+    REFUND_QUANTITY_EXCEEDED(HttpStatus.CONFLICT, "환불 가능한 수량을 초과했습니다."),
+    //좌석 예매(Task 5)
+    //SEATED인데 seatIds가 비었거나, STANDING인데 quantity가 없는 등 요청 형식이 티켓 모드와 안 맞을 때
+    INVALID_SEAT_REQUEST(HttpStatus.BAD_REQUEST, "티켓 종류에 맞지 않는 예매 요청입니다."),
+    //선택한 좌석 중 하나라도 이미 선점(HELD)되었거나 판매(SOLD)된 경우 — 트랜잭션 전체 롤백
+    SEAT_ALREADY_TAKEN(HttpStatus.CONFLICT, "이미 선택된 좌석이 포함되어 있습니다."),
+    //요청한 seatId가 해당 festivalId/ticketTypeId 소속이 아닌 경우(다른 페스티벌 좌석을 섞어 보낸 경우 등)
+    SEAT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않거나 요청과 일치하지 않는 좌석입니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

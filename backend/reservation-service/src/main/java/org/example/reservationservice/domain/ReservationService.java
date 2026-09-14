@@ -14,6 +14,7 @@ import org.example.reservationservice.domain.refund.RefundQuote;
 import org.example.reservationservice.domain.refund.StockReleaseQueue;
 import org.example.reservationservice.domain.refund.StockReleaseQueueRepository;
 import org.example.reservationservice.domain.refund.StockReleaseScheduler;
+import org.example.reservationservice.domain.seat.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.example.reservationservice.infrastructure.festival.FestivalServiceClient;
@@ -23,6 +24,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
+
+import static org.example.reservationservice.domain.seat.TicketMode.SEATED;
+import static org.example.reservationservice.domain.seat.TicketMode.STANDING;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +55,8 @@ public class ReservationService {
 
     private static final Logger log = LoggerFactory.getLogger(ReservationService.class);
 
+    private final SeatRepository seatRepository;
+    private final ReservationSeatRepository reservationSeatRepository;
     //사이트 전체 기본 1인당 구매 제한(계정 기준, 페스티벌당 — 티켓 종류를 나눠 사도 합산). 티켓 종류당으로 세던 시절엔
     //같은 페스티벌에서 종류별로 4장씩 사 8장까지 가능했다(QA에서 발견). 주최자가 페스티벌별로 더 낮게 설정하는 기능은 아직 없다.
     @Value("${reservation.max-quantity-per-festival:${reservation.max-quantity-per-ticket-type:4}}")
@@ -78,6 +84,84 @@ public class ReservationService {
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.TICKET_TYPE_NOT_FOUND));
 
         checkTicketSalePeriodOrThrow(ticketType);
+
+        TicketMode mode = parseTicketModeOrThrow(ticketType.ticketMode());
+
+        Reservation reservation = switch (mode) {
+            case SEATED -> createSeatedReservation(userId, festival, request, ticketType);
+            case STANDING -> createStandingReservation(userId, festival, request, ticketType);
+        };
+
+        log.info("예매 생성: reservation={}, user={}, festival={}, ticketType={}, qty={}, mode={}",
+                reservation.getId(), userId, festival.id(), request.ticketTypeId(), reservation.getQuantity(), mode);
+
+        return ReservationResponseDto.from(reservation);
+    }
+
+    private TicketMode parseTicketModeOrThrow(String ticketMode) {
+        try {
+            return TicketMode.valueOf(ticketMode);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new ApiException(ReservationErrorCode.INVALID_SEAT_REQUEST);
+        }
+    }
+
+    private Reservation createSeatedReservation(Long userId, FestivalDetailResponseDto festival,
+                                                ReservationCreateRequestDto request,
+                                                FestivalDetailResponseDto.TicketTypeSummary ticketType) {
+        if (request.seatIds() == null || request.seatIds().isEmpty()) {
+            throw new ApiException(ReservationErrorCode.INVALID_SEAT_REQUEST);
+        }
+
+        List<Seat> seats = seatRepository.findAllById(request.seatIds());
+        if (seats.size() != request.seatIds().size()) {
+            throw new ApiException(ReservationErrorCode.SEAT_NOT_FOUND);
+        }
+        boolean belongsToRequest = seats.stream().allMatch(seat ->
+                seat.getFestivalId().equals(festival.id()) && seat.getTicketTypeId().equals(request.ticketTypeId()));
+        if (!belongsToRequest) {
+            throw new ApiException(ReservationErrorCode.SEAT_NOT_FOUND);
+        }
+
+        checkPurchaseLimitOrThrow(userId, festival.id(), request.seatIds().size());
+
+        Instant heldUntil = Instant.now().plus(RESERVATION_HOLD_DURATION);
+        for (Long seatId : request.seatIds()) {
+            int updated = seatRepository.holdSeat(seatId, userId, heldUntil);
+            if (updated == 0) {
+                throw new ApiException(ReservationErrorCode.SEAT_ALREADY_TAKEN);
+            }
+        }
+
+        Reservation reservation = Reservation.builder()
+                .userId(userId)
+                .festivalId(festival.id())
+                .ticketTypeId(request.ticketTypeId())
+                .quantity(request.seatIds().size())
+                .price(ticketType.price())
+                .reservationStatus(ReservationStatus.PENDING)
+                .expiresAt(Instant.now().plus(RESERVATION_HOLD_DURATION))
+                .build();
+        reservationRepository.save(reservation);
+
+        List<ReservationSeat> reservationSeats = request.seatIds().stream()
+                .map(seatId -> ReservationSeat.builder()
+                        .reservation(reservation)
+                        .seat(seats.stream().filter(s -> s.getId().equals(seatId)).findFirst().orElseThrow())
+                        .build())
+                .toList();
+        reservationSeatRepository.saveAll(reservationSeats);
+
+        return reservation;
+    }
+
+    private Reservation createStandingReservation(Long userId, FestivalDetailResponseDto festival,
+                                                  ReservationCreateRequestDto request,
+                                                  FestivalDetailResponseDto.TicketTypeSummary ticketType) {
+        if (request.quantity() == null || request.quantity() < 1) {
+            throw new ApiException(ReservationErrorCode.INVALID_SEAT_REQUEST);
+        }
+
         checkPurchaseLimitOrThrow(userId, festival.id(), request.quantity());
         deductStockOrThrow(request.ticketTypeId(), request.quantity());
 
@@ -94,15 +178,12 @@ public class ReservationService {
         try {
             reservationRepository.save(reservation);
         } catch (RuntimeException e) {
-            //재고는 이미 차감됐는데 예매 저장이 실패하면 재고가 영구 유실되므로 반드시 복구한다.
             log.error("예매 저장 실패 — 차감한 재고 복구 시도: ticketType={}, qty={}", request.ticketTypeId(), request.quantity(), e);
             festivalServiceClient.restoreStock(request.ticketTypeId(), request.quantity());
             throw e;
         }
-        log.info("예매 생성: reservation={}, user={}, festival={}, ticketType={}, qty={} (재고 차감 완료)",
-                reservation.getId(), userId, festival.id(), request.ticketTypeId(), request.quantity());
 
-        return ReservationResponseDto.from(reservation);
+        return reservation;
     }
 
     //참가자 본인의 예매 목록을 조회한다

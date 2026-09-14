@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Entity
@@ -53,7 +54,7 @@ public class Seat {
     //이 시각이 지나면 만료 배치가 AVAILABLE로 되돌린다. HELD가 아니면 null
     //(Reservation.expiresAt과 같은 패턴 — DB 필드 + 스케줄러, Redis 미사용)
     @Column(name = "held_until")
-    private LocalDateTime heldUntil;
+    private Instant heldUntil;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

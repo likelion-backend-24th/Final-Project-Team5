@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,8 +20,7 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     @Query("UPDATE Seat s SET s.seatStatus = org.example.reservationservice.domain.seat.SeatStatus.HELD, " +
             "s.heldBy = :userId, s.heldUntil = :heldUntil " +
             "WHERE s.id = :id AND s.seatStatus = org.example.reservationservice.domain.seat.SeatStatus.AVAILABLE")
-    int holdSeat(@Param("id") Long id, @Param("userId") Long userId, @Param("heldUntil") LocalDateTime heldUntil);
-
+    int holdSeat(@Param("id") Long id, @Param("userId") Long userId, @Param("heldUntil") Instant heldUntil);
     //만료 배치·결제 확정 실패 시 좌석을 다시 AVAILABLE로 되돌린다. HELD 상태인 것만 대상으로 한다
     //(이미 SOLD로 확정된 좌석이 실수로 되돌아가는 것을 방지).
     @Modifying
@@ -40,5 +40,5 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
     boolean existsByTicketTypeId(Long ticketTypeId);
 
     //만료 배치 — HELD인데 heldUntil이 지난 좌석을 찾는다
-    List<Seat> findBySeatStatusAndHeldUntilBefore(SeatStatus seatStatus, LocalDateTime now);
+    List<Seat> findBySeatStatusAndHeldUntilBefore(SeatStatus seatStatus, Instant now);
 }

@@ -8,7 +8,9 @@ public class FestivalRefundItem {
     @Column(name = "batch_id") private Long batchId;
     @Column(name = "payment_id") private String paymentId;
     private Long reservationId;
-    private String status = "PENDING";
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(30)")
+    private FestivalRefundItemStatus status = FestivalRefundItemStatus.PENDING;
     private int retryCount;
     private String lastError;
     private String idempotencyKey;
@@ -16,6 +18,6 @@ public class FestivalRefundItem {
         batchId = batch; paymentId = payment; reservationId = reservation;
         idempotencyKey = "organizer-" + batch + "-" + payment;
     }
-    public void success() { status = "SUCCEEDED"; lastError = null; }
-    public void fail() { status = "FAILED"; retryCount++; lastError = "REFUND_RETRY_REQUIRED"; }
+    public void success() { status = FestivalRefundItemStatus.SUCCEEDED; lastError = null; }
+    public void fail() { status = FestivalRefundItemStatus.FAILED; retryCount++; lastError = "REFUND_RETRY_REQUIRED"; }
 }

@@ -38,14 +38,14 @@ public class FestivalRefundScheduler {
         }
         var work = items.findByBatchId(batch.getId());
         for (var item : work) {
-            if ("SUCCEEDED".equals(item.getStatus())) continue;
+            if (item.getStatus() == FestivalRefundItemStatus.SUCCEEDED) continue;
             try {
                 if (cancellations.organizerRefund(item.getPaymentId(), item.getIdempotencyKey(), batch.getInitiatedBy(), batch.getReason())) item.success();
                 else item.fail();
             } catch (RuntimeException e) { item.fail(); log.warn("환불 항목 재시도: item={}", item.getId(), e); }
             items.save(item);
         }
-        int succeeded = (int) work.stream().filter(i -> "SUCCEEDED".equals(i.getStatus())).count();
+        int succeeded = (int) work.stream().filter(i -> i.getStatus() == FestivalRefundItemStatus.SUCCEEDED).count();
         batch.progress(work.size(), succeeded, work.size() - succeeded); batches.save(batch);
         var latest = reservations.settlementContext(candidate.festivalId());
         boolean incomplete = latest.stream().anyMatch(r -> !Set.of("CANCELLED", "REFUNDED").contains(r.status()));

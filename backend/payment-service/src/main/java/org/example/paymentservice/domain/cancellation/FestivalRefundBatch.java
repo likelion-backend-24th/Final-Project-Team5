@@ -9,7 +9,9 @@ public class FestivalRefundBatch {
     @Column(name = "festival_id", nullable = false) private Long festivalId;
     private Long initiatedBy;
     @Column(length = 500) private String reason;
-    private String status = "RUNNING";
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(30)")
+    private FestivalRefundBatchStatus status = FestivalRefundBatchStatus.RUNNING;
     private Instant createdAt = Instant.now();
     private Instant completedAt;
     private int totalCount;
@@ -18,6 +20,9 @@ public class FestivalRefundBatch {
     public FestivalRefundBatch(Long festivalId, Long actor, String reason) {
         this.festivalId = festivalId; initiatedBy = actor; this.reason = reason;
     }
+    // 기존 배치 조회 호출자의 문자열 상태 계약은 보존한다.
+    public String getStatus() { return status.name(); }
+
     public void progress(int total, int succeeded, int failed) { totalCount = total; succeededCount = succeeded; failedCount = failed; }
-    public void complete() { status = "SUCCEEDED"; completedAt = Instant.now(); }
+    public void complete() { status = FestivalRefundBatchStatus.SUCCEEDED; completedAt = Instant.now(); }
 }

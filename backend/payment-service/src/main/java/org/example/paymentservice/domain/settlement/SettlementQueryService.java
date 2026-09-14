@@ -89,9 +89,9 @@ public class SettlementQueryService {
             var view = publicView(s);
             var changes = adjustments.findBySourceSettlementId(id);
             var adjustmentViews = changes.stream().map(a -> new SettlementAdjustmentResponse(
-                    a.getAmount(), a.getRemainingAmount(), a.getStatus(), a.getKind(), a.getCreatedAt())).toList();
+                    a.getAmount(), a.getRemainingAmount(), a.getStatus(), a.getKind().name(), a.getCreatedAt())).toList();
             long proposed = Math.addExact(s.getPayoutAmount(), changes.stream()
-                    .filter(a -> "PRE_PAYMENT".equals(a.getKind())).mapToLong(SettlementAdjustment::getAmount).sum());
+                    .filter(a -> a.getKind() == SettlementAdjustmentKind.PRE_PAYMENT).mapToLong(SettlementAdjustment::getAmount).sum());
             var lines = s.getLines().stream().map(line -> new SettlementLineResponse(
                     line.getPaymentMethod(),
                     line.getPaidAt(),

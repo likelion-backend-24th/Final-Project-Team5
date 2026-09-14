@@ -15,14 +15,16 @@ public class SettlementAdjustment {
     @Column(name = "refunded_face_amount") private long refundedFaceAmount;
     @Column(name = "customer_refund_amount") private long customerRefundAmount;
     private long amount;
-    private String kind;
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(30)")
+    private SettlementAdjustmentKind kind;
     private long remainingAmount;
     @Version private Long version;
     private Instant createdAt = Instant.now();
     public SettlementAdjustment(Settlement source, Long paymentId, long face, long cash, long amount) {
         sourceSettlementId = source.getId(); hostUserId = source.getHostUserId(); testPayment = source.isTestPayment();
         this.paymentId = paymentId; refundedFaceAmount = face; customerRefundAmount = cash; this.amount = amount;
-        kind = source.getPaidAt() == null ? "PRE_PAYMENT" : "POST_PAYMENT";
+        kind = source.getPaidAt() == null ? SettlementAdjustmentKind.PRE_PAYMENT : SettlementAdjustmentKind.POST_PAYMENT;
         remainingAmount = source.getPaidAt() == null ? 0 : amount;
     }
     public void allocate(long applied) {
@@ -31,5 +33,5 @@ public class SettlementAdjustment {
         remainingAmount = Math.subtractExact(remainingAmount, applied);
     }
     public void restore(long applied) { remainingAmount = Math.addExact(remainingAmount, applied); }
-    public String getStatus() { return "PRE_PAYMENT".equals(kind) ? "PRE_PAYMENT" : remainingAmount != 0 ? "RECEIVABLE" : "ALLOCATED"; }
+    public String getStatus() { return kind == SettlementAdjustmentKind.PRE_PAYMENT ? "PRE_PAYMENT" : remainingAmount != 0 ? "RECEIVABLE" : "ALLOCATED"; }
 }

@@ -145,6 +145,7 @@ public class SettlementService {
     }
     public SettlementDetailResponse command(SettlementActor actor, Long id, String action, String key, SettlementCommandRequest command) {
         actor.require("ADMIN");
+        var operation = SettlementAction.fromPath(action);
         if (key == null || key.isBlank() || key.length() > 100) throw new ApiException(SettlementErrorCode.IDEMPOTENCY_KEY_REQUIRED);
         String fingerprint = UUID.nameUUIDFromBytes((id + ":" + actor.id() + ":" + action + ":" + command.fingerprintValue()).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
         var prior = audits.findByCommandKey(key);
@@ -181,21 +182,21 @@ public class SettlementService {
                     if (current.result().payout() != expectedPayout || current.result().face() != expectedFace
                             || current.result().cash() != expectedCash) throw new ApiException(SettlementErrorCode.RECONCILIATION_REQUIRED);
                 }
-                long adjustment = adjustments.findBySourceSettlementId(id).stream().filter(a -> "PRE_PAYMENT".equals(a.getKind()))
+                long adjustment = adjustments.findBySourceSettlementId(id).stream().filter(a -> a.getKind() == SettlementAdjustmentKind.PRE_PAYMENT)
                         .mapToLong(SettlementAdjustment::getAmount).sum();
                 if ("mark-paid".equals(action) && adjustment != s.getConfirmedAdjustmentAmount()) throw new ApiException(SettlementErrorCode.REAPPROVAL_REQUIRED);
             }
             validateCommand(s, action, command);
             var previous = s.getStatus();
-            switch (action) {
-                case "confirm" -> s.confirm();
-                case "reapprove" -> reapprove(s);
-                case "mark-paid" -> s.markPaid(command.paidAt(), command.paymentReference(), command.memo());
-                case "hold" -> { restoreAllocations(s.getId()); s.hold("MANUAL_REVIEW", true); }
-                case "release" -> s.release();
+            switch (operation) {
+                case CONFIRM -> s.confirm();
+                case REAPPROVE -> reapprove(s);
+                case MARK_PAID -> s.markPaid(command.paidAt(), command.paymentReference(), command.memo());
+                case HOLD -> { restoreAllocations(s.getId()); s.hold("MANUAL_REVIEW", true); }
+                case RELEASE -> s.release();
                 default -> throw new ApiException(SettlementErrorCode.UNKNOWN_ACTION);
             }
-            audits.save(new SettlementAuditLog(s, action, previous, actor.id(), command.memo(), key, fingerprint));
+            audits.save(new SettlementAuditLog(s, operation.pathValue(), previous, actor.id(), command.memo(), key, fingerprint));
         });
         if ("release".equals(action)) calculateFestival(before.getFestivalId(), before.isTestPayment());
         return queries.detail(actor, false, id);
@@ -230,12 +231,12 @@ public class SettlementService {
     }
     // 엔티티의 최후 방어선에 도달하기 전에 운영자가 이해할 수 있는 업무 오류로 응답한다.
     private void validateCommand(Settlement s, String action, SettlementCommandRequest command) {
-        boolean allowed = switch (action) {
-            case "confirm" -> s.getStatus() == SettlementStatus.CALCULATED;
-            case "reapprove" -> s.getStatus() == SettlementStatus.ADJUSTMENT_REQUIRED && s.getPaidAt() == null;
-            case "mark-paid" -> s.getStatus() == SettlementStatus.CONFIRMED;
-            case "hold" -> s.getStatus().permits(SettlementStatus.HELD);
-            case "release" -> s.getStatus() == SettlementStatus.HELD;
+        boolean allowed = switch (SettlementAction.fromPath(action)) {
+            case CONFIRM -> s.getStatus() == SettlementStatus.CALCULATED;
+            case REAPPROVE -> s.getStatus() == SettlementStatus.ADJUSTMENT_REQUIRED && s.getPaidAt() == null;
+            case MARK_PAID -> s.getStatus() == SettlementStatus.CONFIRMED;
+            case HOLD -> s.getStatus().permits(SettlementStatus.HELD);
+            case RELEASE -> s.getStatus() == SettlementStatus.HELD;
             default -> throw new ApiException(SettlementErrorCode.UNKNOWN_ACTION);
         };
         if (!allowed) throw new ApiException("reapprove".equals(action)
@@ -251,7 +252,7 @@ public class SettlementService {
         if (s.getPaidAt() != null || s.getStatus() != SettlementStatus.ADJUSTMENT_REQUIRED)
             throw new ApiException(SettlementErrorCode.REAPPROVAL_BLOCKED);
         long correction = adjustments.findBySourceSettlementId(s.getId()).stream()
-                .filter(a -> "PRE_PAYMENT".equals(a.getKind())).mapToLong(SettlementAdjustment::getAmount).sum();
+                .filter(a -> a.getKind() == SettlementAdjustmentKind.PRE_PAYMENT).mapToLong(SettlementAdjustment::getAmount).sum();
         long deficit = Math.max(0, -Math.addExact(s.getPayoutAmount(), correction));
         long released = 0;
         for (var allocation : allocations.findBySettlementId(s.getId())) {

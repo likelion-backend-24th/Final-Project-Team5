@@ -33,5 +33,6 @@ auth-service:
   base-url: ${AUTH_SERVICE_URL:http://localhost:8081}
 
 internal:
+  auth-token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}
   auth-service:
     token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}

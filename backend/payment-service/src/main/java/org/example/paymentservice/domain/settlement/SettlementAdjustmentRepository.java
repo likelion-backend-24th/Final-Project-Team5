@@ -6,4 +6,6 @@ public interface SettlementAdjustmentRepository extends JpaRepository<Settlement
     @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     List<SettlementAdjustment> findByHostUserIdAndTestPaymentAndRemainingAmountNot(Long host, boolean test, long remaining);
     List<SettlementAdjustment> findBySourceSettlementId(Long source);
+    @Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    List<SettlementAdjustment> findByHostUserIdAndRemainingAmountNot(Long host, long remaining);
 }

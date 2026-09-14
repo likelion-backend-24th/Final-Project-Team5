@@ -11,9 +11,9 @@ public class SettlementScheduler {
     private final SettlementService service;
     private final SettlementRepository repository;
     private final FestivalSettlementClient festivals;
-    @org.springframework.beans.factory.annotation.Value("${settlement.allow-test-payments:false}") private boolean allowTestPayments;
     @Scheduled(cron = "${settlement.cron:0 0 2 * * *}", zone = "Asia/Seoul")
     public void run() {
+        service.refreshHostNames();
         for (var frozen : repository.findByStatusIn(List.of(SettlementStatus.CONFIRMED, SettlementStatus.PAID, SettlementStatus.ADJUSTMENT_REQUIRED))) {
             try { service.reconcileFrozen(frozen.getId()); }
             catch (RuntimeException e) { log.warn("정산 대사 재시도 필요: id={}", frozen.getId(), e); }
@@ -21,8 +21,7 @@ public class SettlementScheduler {
         for (int page = 0; ; page++) {
             var candidates = festivals.candidates(page);
             for (var festival : candidates) {
-                try { service.calculateFestival(festival.festivalId(), false);
-                    if (allowTestPayments) service.calculateFestival(festival.festivalId(), true); }
+                try { service.calculateFestival(festival.festivalId(), false); }
                 catch (RuntimeException e) { log.warn("정산 계산 재시도 필요: festival={}", festival.festivalId(), e); }
             }
             if (candidates.size() < 100) return;

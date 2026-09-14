@@ -17,11 +17,12 @@ public class SettlementController {
             @RequestParam(required = false) Instant from, @RequestParam(required = false) Instant to,
             @RequestParam(required = false) SettlementStatus status, @RequestParam(required = false) Long festivalId,
             @RequestParam(required = false) Long hostUserId, @RequestParam(required = false) PaymentMethodCategory paymentMethod,
+            @RequestParam(required = false) String festivalName, @RequestParam(required = false) String hostName,
             @RequestParam(defaultValue = "false") boolean testPayment,
             @RequestParam(defaultValue = "SETTLEMENT_AT") String dateBasis,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         var result = service.list(new SettlementService.Actor(user, role), "host".equals(audience),
-                new SettlementService.Filter(from, to, status, festivalId, hostUserId, paymentMethod, testPayment, dateBasis), page, size);
+                new SettlementService.Filter(from, to, status, festivalId, hostUserId, paymentMethod, testPayment, dateBasis, festivalName, hostName), page, size);
         return ApiResponse.success("정산 목록", result.getContent(), Meta.of(result));
     }
     @GetMapping("/summary")
@@ -30,10 +31,11 @@ public class SettlementController {
             @RequestParam(required = false) Instant from, @RequestParam(required = false) Instant to,
             @RequestParam(required = false) SettlementStatus status, @RequestParam(required = false) Long festivalId,
             @RequestParam(required = false) Long hostUserId, @RequestParam(required = false) PaymentMethodCategory paymentMethod,
+            @RequestParam(required = false) String festivalName, @RequestParam(required = false) String hostName,
             @RequestParam(defaultValue = "false") boolean testPayment,
             @RequestParam(defaultValue = "SETTLEMENT_AT") String dateBasis) {
         return ApiResponse.success("정산 요약", service.summary(new SettlementService.Actor(user, role), "host".equals(audience),
-                new SettlementService.Filter(from, to, status, festivalId, hostUserId, paymentMethod, testPayment, dateBasis)));
+                new SettlementService.Filter(from, to, status, festivalId, hostUserId, paymentMethod, testPayment, dateBasis, festivalName, hostName)));
     }
     @GetMapping("/{id}")
     public ApiResponse<?> detail(@PathVariable String audience, @PathVariable Long id,

@@ -13,6 +13,9 @@ public class Settlement {
     @Column(name = "festival_id", nullable = false) private Long festivalId;
     @Column(nullable = false) private Long hostUserId;
     private String festivalName;
+    private String hostName;
+    @Column(unique = true) private Long activeFestivalId;
+    @Column(columnDefinition = "BOOLEAN NOT NULL DEFAULT FALSE") private boolean retired;
     @Column(name = "test_payment", nullable = false) private boolean testPayment;
     private String currency = "KRW";
     private String feePolicyVersion = "2026-09-v1";
@@ -43,7 +46,11 @@ public class Settlement {
     public Settlement(Long festivalId, Long hostUserId, String name, Instant eligibleAt, boolean test) {
         this.festivalId = festivalId; this.hostUserId = hostUserId; this.festivalName = name;
         this.eligibleAt = eligibleAt; this.testPayment = test;
+        this.activeFestivalId = festivalId;
     }
+    public void activateLedger() { activeFestivalId = festivalId; }
+    public void retireEmptyLedger() { activeFestivalId = null; retired = true; }
+    public void snapshotHostName(String name) { if (hostName == null && name != null && !name.isBlank()) hostName = name; }
     public void transition(SettlementStatus next) {
         if (!status.permits(next)) throw new IllegalStateException("SETTLEMENT_STATE_CONFLICT");
         status = next;

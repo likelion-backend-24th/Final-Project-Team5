@@ -17,7 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import java.time.*;
 import java.util.*;
 
-@Service @RequiredArgsConstructor
+@Service @RequiredArgsConstructor @org.springframework.context.annotation.DependsOn("settlementLedgerInitializer")
 public class SettlementService {
     private final SettlementRepository repository;
     private final SettlementAdjustmentRepository adjustments;
@@ -29,7 +29,7 @@ public class SettlementService {
     private final FestivalSettlementClient festivals;
     private final PortOnePaymentClient portone;
     private final PlatformTransactionManager transactionManager;
-    @Value("${settlement.allow-test-payments:false}") private boolean allowTestPayments;
+    private final SettlementHostClient hosts;
     @Value("${portone.store-id}") private String storeId;
 
     public record Actor(Long id, String role) {
@@ -38,7 +38,10 @@ public class SettlementService {
         }
     }
     public record Filter(Instant from, Instant to, SettlementStatus status, Long festivalId,
-                         Long hostUserId, PaymentMethodCategory paymentMethod, boolean testPayment, String dateBasis) {
+                         Long hostUserId, PaymentMethodCategory paymentMethod, boolean testPayment, String dateBasis, String festivalName, String hostName) {
+        public Filter(Instant from, Instant to, SettlementStatus status, Long festivalId, Long hostUserId, PaymentMethodCategory paymentMethod, boolean testPayment, String dateBasis) {
+            this(from, to, status, festivalId, hostUserId, paymentMethod, testPayment, dateBasis, null, null);
+        }
         public Filter(Instant from, Instant to, SettlementStatus status, Long festivalId,
                       Long hostUserId, PaymentMethodCategory paymentMethod, boolean testPayment) {
             this(from, to, status, festivalId, hostUserId, paymentMethod, testPayment, "SETTLEMENT_AT");
@@ -53,11 +56,8 @@ public class SettlementService {
                             PaymentMethodCategory method, Instant paidAt, SettlementCalculator.Result result) { }
     private record Calculation(FestivalSettlementClient.Context festival, List<Evidence> evidence, String hold) { }
 
-    private void testAccess(boolean test) {
-        if (test && !allowTestPayments) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "TEST_PAYMENTS_DISABLED");
-    }
     public Page<Map<String, Object>> list(Actor actor, boolean host, Filter filter, int page, int size) {
-        actor.require(host ? "HOST" : "ADMIN"); testAccess(filter.testPayment());
+        actor.require(host ? "HOST" : "ADMIN");
         if (page < 0 || size < 1 || size > 100 || (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_FILTER");
         return new TransactionTemplate(transactionManager).execute(tx -> repository.findAll(spec(actor, host, filter),
@@ -66,7 +66,9 @@ public class SettlementService {
     private Specification<Settlement> spec(Actor actor, boolean host, Filter f) {
         return (root, query, cb) -> {
             var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
-            predicates.add(cb.equal(root.get("testPayment"), f.testPayment()));
+            predicates.add(cb.isNotNull(root.get("activeFestivalId")));
+            if (f.festivalName() != null && !f.festivalName().isBlank()) predicates.add(cb.like(cb.lower(root.get("festivalName")), contains(f.festivalName()), '!'));
+            if (!host && f.hostName() != null && !f.hostName().isBlank()) predicates.add(cb.like(cb.lower(root.get("hostName")), contains(f.hostName()), '!'));
             Long owner = host ? actor.id() : f.hostUserId();
             if (owner != null) predicates.add(cb.equal(root.get("hostUserId"), owner));
             if (f.status() != null) predicates.add(cb.equal(root.get("status"), f.status()));
@@ -92,7 +94,7 @@ public class SettlementService {
         };
     }
     public Map<String, Object> summary(Actor actor, boolean host, Filter filter) {
-        actor.require(host ? "HOST" : "ADMIN"); testAccess(filter.testPayment());
+        actor.require(host ? "HOST" : "ADMIN");
         return new TransactionTemplate(transactionManager).execute(tx -> {
             var rows = repository.findAll(spec(actor, host, filter));
             var result = new LinkedHashMap<String, Object>(); result.put("currency", "KRW");
@@ -103,6 +105,9 @@ public class SettlementService {
             result.put("payoutAmount", rows.stream().mapToLong(s -> Math.addExact(s.getPayoutAmount(), s.getConfirmedAdjustmentAmount())).sum());
             result.put("paidAmount", rows.stream().filter(s -> s.getPaidAt() != null).mapToLong(s -> s.getPaidPayoutAmount() == null ? s.getPayoutAmount() : s.getPaidPayoutAmount()).sum());
             result.put("heldCount", rows.stream().filter(s -> s.getStatus() == SettlementStatus.HELD).count());
+            result.put("scheduledAmount", rows.stream().filter(s -> s.getStatus() == SettlementStatus.CALCULATED || s.getStatus() == SettlementStatus.CONFIRMED)
+                    .mapToLong(s -> Math.addExact(s.getPayoutAmount(), s.getConfirmedAdjustmentAmount())).sum());
+            result.put("reviewCount", rows.stream().filter(s -> s.getStatus() == SettlementStatus.CALCULATED || s.getStatus() == SettlementStatus.HELD || s.getStatus() == SettlementStatus.ADJUSTMENT_REQUIRED).count());
             return result;
         });
     }
@@ -111,7 +116,7 @@ public class SettlementService {
         return new TransactionTemplate(transactionManager).execute(tx -> {
             Settlement s = owned(actor, host, id); var result = publicView(s);
             result.put("adjustments", adjustments.findBySourceSettlementId(id).stream().map(a -> Map.of(
-                    "amount", a.getAmount(), "remainingAmount", a.getRemainingAmount(), "status", a.getStatus(), "createdAt", a.getCreatedAt())).toList());
+                    "amount", a.getAmount(), "remainingAmount", a.getRemainingAmount(), "status", a.getStatus(), "kind", a.getKind(), "createdAt", a.getCreatedAt())).toList());
             result.put("proposedPayoutAmount", Math.addExact(s.getPayoutAmount(), adjustments.findBySourceSettlementId(id).stream()
                     .filter(a -> "PRE_PAYMENT".equals(a.getKind())).mapToLong(SettlementAdjustment::getAmount).sum()));
             result.put("lines", s.getLines().stream().map(line -> {
@@ -133,13 +138,26 @@ public class SettlementService {
     private Settlement owned(Actor actor, boolean host, Long id) {
         Settlement s = repository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (host && !actor.id().equals(s.getHostUserId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        testAccess(s.isTestPayment()); return s;
+        if (s.isRetired() || s.getActiveFestivalId() == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        return s;
+    }
+    private static String contains(String value) {
+        return "%" + value.trim().toLowerCase(Locale.ROOT).replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+    }
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void refreshHostNames() {
+        var missing = repository.findByRetiredFalseOrderByIdAsc().stream().filter(s -> s.getHostName() == null).toList();
+        var names = hosts.names(missing.stream().map(Settlement::getHostUserId).toList());
+        if (names.isEmpty()) return;
+        new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
+            for (var s : missing) repository.findById(s.getId()).orElseThrow().snapshotHostName(names.get(s.getHostUserId()));
+        });
     }
     private Map<String, Object> publicView(Settlement s) {
         var data = new LinkedHashMap<String, Object>();
         data.put("id", s.getId()); data.put("version", s.getVersion()); data.put("festivalId", s.getFestivalId());
         data.put("festivalName", s.getFestivalName()); data.put("hostUserId", s.getHostUserId()); data.put("currency", "KRW");
-        data.put("status", s.getStatus()); data.put("testPayment", s.isTestPayment());
+        data.put("status", s.getStatus()); data.put("hostName", s.getHostName()); data.put("manualHold", s.isManualHold());
         data.put("eligibleAt", s.getEligibleAt()); data.put("calculatedAt", s.getCalculatedAt());
         data.put("confirmedAt", s.getConfirmedAt()); data.put("paidAt", s.getPaidAt());
         data.put("grossPaymentAmount", s.getGrossPaymentAmount()); data.put("grossRefundedFaceAmount", s.getGrossRefundedFaceAmount());
@@ -172,7 +190,7 @@ public class SettlementService {
                 var remote = portone.getPayment(payment.getPaymentId());
                 if (remote == null || remote.channel() == null || !Set.of("TEST", "LIVE").contains(remote.channel().type()))
                     throw new IllegalArgumentException("UNKNOWN_TEST_CHANNEL");
-                if (test != "TEST".equals(remote.channel().type())) continue;
+                // 채널 구분 없이 승인된 결제를 동일한 정산에 포함한다.
                 if (remote.amount() == null || remote.amount().total() != payment.getTicketAmount() || !"KRW".equals(remote.currency())
                         || !payment.getPaymentId().equals(remote.id()) || !storeId.equals(remote.storeId())
                         || !Set.of("PAID", "PARTIAL_CANCELLED", "CANCELLED").contains(remote.status())
@@ -203,16 +221,17 @@ public class SettlementService {
         } catch (IllegalArgumentException e) { return new Calculation(context, List.of(), e.getMessage()); }
     }
     public void calculateFestival(Long festivalId, boolean test) {
-        testAccess(test);
-        var existing = repository.findByFestivalIdAndTestPayment(festivalId, test);
+        var existing = repository.findByActiveFestivalId(festivalId);
         if (existing.isPresent() && (!existing.get().getStatus().recalculable() || existing.get().isManualHold())) return;
         Calculation calculation = gather(festivalId, test);
         if (calculation.festival().eligibleAt() == null || calculation.festival().hostUserId() == null)
             throw new IllegalStateException("MISSING_FESTIVAL_CONTEXT");
+        var hostNames = hosts.names(List.of(calculation.festival().hostUserId()));
         if (calculation.festival().eligibleAt().isAfter(Instant.now())) return;
         new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
-            Settlement s = repository.findByFestivalIdAndTestPayment(festivalId, test).orElseGet(() -> repository.saveAndFlush(
+            Settlement s = repository.findByActiveFestivalId(festivalId).orElseGet(() -> repository.saveAndFlush(
                     new Settlement(festivalId, calculation.festival().hostUserId(), calculation.festival().name(), calculation.festival().eligibleAt(), test)));
+            s.snapshotHostName(hostNames.get(s.getHostUserId()));
             if (!s.getStatus().recalculable() || s.isManualHold()) return;
             SettlementStatus previous = s.getStatus();
             if (calculation.hold() != null) { restoreAllocations(s.getId()); s.hold(calculation.hold(), false); }
@@ -221,7 +240,7 @@ public class SettlementService {
                 restoreAllocations(s.getId());
                 long adjustment = 0;
                 long available = calculation.evidence().stream().mapToLong(e -> e.result().payout()).sum();
-                var receivables = adjustments.findByHostUserIdAndTestPaymentAndRemainingAmountNot(s.getHostUserId(), test, 0).stream()
+                var receivables = adjustments.findByHostUserIdAndRemainingAmountNot(s.getHostUserId(), 0).stream()
                         .sorted(Comparator.comparingLong(SettlementAdjustment::getRemainingAmount).reversed()).toList();
                 for (var a : receivables) {
                     if (a.getSourceSettlementId().equals(s.getId())) continue;
@@ -295,6 +314,7 @@ public class SettlementService {
     }
     public void reconcileFrozen(Long id) {
         Settlement before = repository.findById(id).orElseThrow();
+        if (before.isRetired()) return;
         if (before.getStatus().recalculable()) throw new IllegalStateException("SETTLEMENT_NOT_FROZEN");
         Calculation calculation = gather(before.getFestivalId(), before.isTestPayment());
         if (calculation.hold() != null) return;

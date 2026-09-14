@@ -37,12 +37,15 @@ class SettlementAcceptanceTest {
     @MockitoBean FestivalSettlementClient festivals;
     @MockitoBean ReservationServiceClient reservations;
     @MockitoBean PortOnePaymentClient portone;
+    @MockitoBean SettlementHostClient hosts;
+    @Autowired SettlementLedgerInitializer ledgerInitializer;
     private final SettlementService.Actor admin = new SettlementService.Actor(1L, "ADMIN");
     private final Instant approved = Instant.parse("2026-01-01T00:00:00Z");
     @BeforeEach void setup() {
         allocations.deleteAll(); adjustments.deleteAll(); audits.deleteAll(); repository.deleteAll();
         cancellations.deleteAll(); transactions.deleteAll(); payments.deleteAll();
         when(festivals.refundCandidates()).thenReturn(List.of());
+        when(hosts.names(any())).thenReturn(Map.of(10L, "정산주최자"));
     }
     private Long calculate() {
         Payment p = payments.save(Payment.builder().paymentId("settlement-" + UUID.randomUUID()).reservationId(999L)
@@ -130,8 +133,8 @@ class SettlementAcceptanceTest {
         when(portone.getPayment(next.getPaymentId())).thenReturn(new PortOnePaymentResponse(next.getPaymentId(), "PAID", "next-tx", remote.storeId(),
                 remote.channel(), remote.method(), new PortOnePaymentResponse.Amount(20000, 0, 0, 0, 0, 20000, 0, 0),
                 "KRW", "order", approved, approved, approved, approved, null, null, "tx", List.of()));
-        service.calculateFestival(43L, false); service.calculateFestival(43L, false);
-        var target = repository.findByFestivalIdAndTestPayment(43L, false).orElseThrow();
+        service.calculateFestival(43L, true); service.calculateFestival(43L, false);
+        var target = repository.findByActiveFestivalId(43L).orElseThrow();
         assertThat(target.getPayoutAmount()).isZero();
         assertThat(target.getAdjustmentAmount()).isEqualTo(-18500);
         assertThat(adjustments.findAll().getFirst().getRemainingAmount()).isEqualTo(-74000);
@@ -200,6 +203,48 @@ class SettlementAcceptanceTest {
         mvc.perform(get("/api/admin/settlements?paymentMethod=VIRTUAL_ACCOUNT").header("X-User-Id", 1).header("X-User-Role", "ADMIN"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data").isEmpty());
         mvc.perform(get("/api/admin/settlements?testPayment=true").header("X-User-Id", 1).header("X-User-Role", "ADMIN"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
+    }
+
+    @Test void testChannelIncludedByDefaultAndNameFiltersApplyBeforePagination() throws Exception {
+        Long id = calculate(); var p = payments.findAll().getFirst(); var remote = portone.getPayment(p.getPaymentId());
+        when(portone.getPayment(p.getPaymentId())).thenReturn(new PortOnePaymentResponse(remote.id(), remote.status(), remote.transactionId(), remote.storeId(),
+                new PortOnePaymentResponse.Channel("test", "channel-key-test", "TEST", "test", "provider"), remote.method(), remote.amount(),
+                remote.currency(), remote.orderName(), approved, approved, approved, approved, null, null, "tx", List.of()));
+        service.calculateFestival(42L, false);
+        mvc.perform(get("/api/admin/settlements?festivalName=행&hostName=주최&size=1").header("X-User-Id", 1).header("X-User-Role", "ADMIN"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data[0].payoutAmount").value(92500))
+                .andExpect(jsonPath("$.data[0].hostName").value("정산주최자")).andExpect(jsonPath("$.meta.pagination.totalItems").value(1));
+        mvc.perform(get("/api/admin/settlements?hostName=없는이름").header("X-User-Id", 1).header("X-User-Role", "ADMIN"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data").isEmpty());
+        mvc.perform(get("/api/admin/settlements?festivalName=%25").header("X-User-Id", 1).header("X-User-Role", "ADMIN"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data").isEmpty());
+        mvc.perform(get("/api/host/settlements?hostName=정산주최자").header("X-User-Id", 20).header("X-User-Role", "HOST"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data").isEmpty());
+        assertThat(repository.findById(id).orElseThrow().getPayoutAmount()).isEqualTo(92500);
+    }
+
+    @Test void legacyEmptyDuplicateIsRetiredWithoutChangingFrozenLedger() {
+        var keep = new Settlement(88L, 10L, "기존 정산", approved, true); keep.calculate(List.of(), 0); keep.confirm();
+        org.springframework.test.util.ReflectionTestUtils.setField(keep, "activeFestivalId", null);
+        repository.saveAndFlush(keep);
+        var empty = new Settlement(88L, 10L, "빈 원장", approved, false);
+        org.springframework.test.util.ReflectionTestUtils.setField(empty, "activeFestivalId", null);
+        repository.saveAndFlush(empty);
+        ledgerInitializer.initialize(); ledgerInitializer.initialize();
+        assertThat(repository.findByActiveFestivalId(88L).orElseThrow().getId()).isEqualTo(keep.getId());
+        assertThat(repository.findById(keep.getId()).orElseThrow().getStatus()).isEqualTo(SettlementStatus.CONFIRMED);
+        assertThat(repository.findById(empty.getId()).orElseThrow().isRetired()).isTrue();
+        assertThatThrownBy(() -> service.detail(admin, false, empty.getId())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+    }
+
+    @Test void twoFrozenLegacyLedgersRequireReviewWithoutSilentMerge() {
+        for (boolean test : List.of(false, true)) {
+            var row = new Settlement(89L, 10L, "중복 확정", approved, test); row.calculate(List.of(), 0); row.confirm();
+            org.springframework.test.util.ReflectionTestUtils.setField(row, "activeFestivalId", null);
+            repository.saveAndFlush(row);
+        }
+        assertThatThrownBy(ledgerInitializer::initialize).hasMessageContaining("SETTLEMENT_CHANNEL_MERGE_REVIEW_REQUIRED");
+        assertThat(repository.findByRetiredFalseOrderByIdAsc()).hasSize(2);
     }
 }

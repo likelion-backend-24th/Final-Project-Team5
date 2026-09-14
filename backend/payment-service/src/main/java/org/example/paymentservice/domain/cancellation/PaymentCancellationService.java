@@ -34,11 +34,8 @@ import org.springframework.web.client.RestClientException;
 public class PaymentCancellationService {
 
     private final PaymentRepository paymentRepository;
-
     private final CancellationRepository cancellationRepository;
-
     private final PortOnePaymentClient portOnePaymentClient;
-
     private final ReservationServiceClient reservationServiceClient;
 
     /**
@@ -46,16 +43,10 @@ public class PaymentCancellationService {
      *
      * @param quantity 환불할 장수. null이면 남은 전량 환불(가이드 9.3의 "전체 취소").
      */
-    public PaymentCancellationResponse cancel(
-        Long userId,
-        String paymentId,
-        Integer quantity,
-        String reason,
-        String idempotencyKey
-    ) {
-        Payment payment = paymentRepository
-            .findByPaymentId(paymentId)
-            .orElseThrow(() -> new ApiException(PaymentErrorCode.PAYMENT_NOT_FOUND));
+    public PaymentCancellationResponse cancel(Long userId, String paymentId, Integer quantity,
+                                              String reason, String idempotencyKey) {
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
+                .orElseThrow(() -> new ApiException(PaymentErrorCode.PAYMENT_NOT_FOUND));
         if (!payment.getUserId().equals(userId)) {
             throw new ApiException(PaymentErrorCode.FORBIDDEN_PAYMENT_OWNER);
         }
@@ -64,31 +55,26 @@ public class PaymentCancellationService {
         Optional<Cancellation> alreadyRequested = cancellationRepository.findByIdempotencyKey(idempotencyKey);
         if (alreadyRequested.isPresent()) {
             Cancellation previous = alreadyRequested.get();
-            if (!Objects.equals(previous.getPayment().getId(), payment.getId())) throw new ApiException(
-                PaymentErrorCode.FORBIDDEN_PAYMENT_OWNER
-            );
+            if (!Objects.equals(previous.getPayment().getId(), payment.getId()))
+                throw new ApiException(PaymentErrorCode.FORBIDDEN_PAYMENT_OWNER);
             reconcile(payment);
             return toResponse(payment, cancellationRepository.findByIdempotencyKey(idempotencyKey).orElseThrow());
         }
 
-        if (
-            !payment.getStatus().canTransitionTo(PaymentStatus.PARTIAL_CANCELLED) &&
-            !payment.getStatus().canTransitionTo(PaymentStatus.CANCELLED)
-        ) {
+        if (!payment.getStatus().canTransitionTo(PaymentStatus.PARTIAL_CANCELLED)
+                && !payment.getStatus().canTransitionTo(PaymentStatus.CANCELLED)) {
             throw new ApiException(PaymentErrorCode.PAYMENT_NOT_CANCELLABLE);
         }
 
         ReservationRefundQuoteResponse quote = getRefundQuoteOrThrow(payment.getReservationId(), quantity);
-        if (
-            !Objects.equals(quote.paymentId(), paymentId) || !Objects.equals(quote.userId(), userId)
-        ) throw new ApiException(PaymentErrorCode.FORBIDDEN_PAYMENT_OWNER);
+        if (!Objects.equals(quote.paymentId(), paymentId) || !Objects.equals(quote.userId(), userId))
+            throw new ApiException(PaymentErrorCode.FORBIDDEN_PAYMENT_OWNER);
         if (!quote.refundable()) {
             throw new ApiException(toRefundErrorCode(quote.rejectReason()));
         }
 
         //먼저 REQUESTED로 남긴다 — PortOne 호출 직후 서버가 죽어도 "요청한 적 있음"이 남아야 대사가 가능하다(가이드 9.1).
-        Cancellation cancellation = cancellationRepository.save(
-            Cancellation.builder()
+        Cancellation cancellation = cancellationRepository.save(Cancellation.builder()
                 .payment(payment)
                 .activePaymentId(payment.getId())
                 .idempotencyKey(idempotencyKey)
@@ -104,22 +90,15 @@ public class PaymentCancellationService {
                 .businessReason(CancellationBusinessReason.USER_REQUEST)
                 .requestedByUserId(userId)
                 .requestedByRole("USER")
-                .build()
-        );
+                .build());
 
         try {
-            PortOneCancelResponse cancelled = portOnePaymentClient.cancelPayment(
-                paymentId,
-                quote.refundAmount(),
-                reason,
-                idempotencyKey
-            );
+            PortOneCancelResponse cancelled =
+                    portOnePaymentClient.cancelPayment(paymentId, quote.refundAmount(), reason, idempotencyKey);
             if (cancelled != null && cancelled.cancellation() != null) {
-                cancellation.syncFrom(
-                    cancelled.cancellation().id(),
-                    toCancellationStatus(cancelled.cancellation().status()),
-                    cancelled.cancellation().cancelledAt()
-                );
+                cancellation.syncFrom(cancelled.cancellation().id(),
+                        toCancellationStatus(cancelled.cancellation().status()),
+                        cancelled.cancellation().cancelledAt());
                 cancellationRepository.save(cancellation);
             }
         } catch (RestClientException e) {
@@ -149,20 +128,10 @@ public class PaymentCancellationService {
         upsertCancellations(payment, remote.cancellations());
         applyCancelledAmount(payment, remote);
         for (Cancellation cancellation : cancellationRepository.findByPayment(payment)) {
-            if (
-                cancellation.getStatus() == CancellationStatus.SUCCEEDED &&
-                cancellation.getQuantity() > 0 &&
-                cancellation.getCancellationId() != null &&
-                cancellation.getReservationAppliedAt() == null
-            ) {
-                reservationServiceClient.refundReservation(
-                    payment.getReservationId(),
-                    new RefundReservationRequest(
-                        payment.getPaymentId(),
-                        cancellation.getQuantity(),
-                        cancellation.getCancellationId()
-                    )
-                );
+            if (cancellation.getStatus() == CancellationStatus.SUCCEEDED && cancellation.getQuantity() > 0
+                    && cancellation.getCancellationId() != null && cancellation.getReservationAppliedAt() == null) {
+                reservationServiceClient.refundReservation(payment.getReservationId(),
+                        new RefundReservationRequest(payment.getPaymentId(), cancellation.getQuantity(), cancellation.getCancellationId()));
                 cancellation.markReservationApplied();
                 cancellationRepository.save(cancellation);
             }
@@ -179,48 +148,23 @@ public class PaymentCancellationService {
         Cancellation cancellation;
         if (existing.isPresent()) cancellation = existing.get();
         else {
-            if (
-                cancellationRepository
-                    .findByPayment(payment)
-                    .stream()
-                    .anyMatch(
-                        c ->
-                            c.getStatus() == CancellationStatus.REQUESTED ||
-                            c.getStatus() == CancellationStatus.PENDING ||
-                            (c.getStatus() == CancellationStatus.SUCCEEDED && c.getQuantity() == 0)
-                    )
-            ) return false;
+            if (cancellationRepository.findByPayment(payment).stream().anyMatch(c ->
+                    c.getStatus() == CancellationStatus.REQUESTED || c.getStatus() == CancellationStatus.PENDING
+                            || (c.getStatus() == CancellationStatus.SUCCEEDED && c.getQuantity() == 0))) return false;
             var quote = reservationServiceClient.getOrganizerRefundQuote(payment.getReservationId());
             if (!Objects.equals(quote.paymentId(), paymentId)) return false;
             if (!quote.refundable()) return quote.refundableQuantity() == 0;
-            cancellation = cancellationRepository.save(
-                Cancellation.builder()
-                    .payment(payment)
-                    .activePaymentId(payment.getId())
-                    .idempotencyKey(key)
-                    .status(CancellationStatus.REQUESTED)
-                    .source(CancellationSource.API_REQUEST)
-                    .amount(quote.refundAmount())
-                    .quantity(quote.refundQuantity())
-                    .grossAmount(quote.grossAmount())
-                    .penaltyRatePercent(0)
-                    .penaltyAmount(0L)
-                    .businessReason(CancellationBusinessReason.ORGANIZER_FAULT)
+            cancellation = cancellationRepository.save(Cancellation.builder().payment(payment).activePaymentId(payment.getId()).idempotencyKey(key)
+                    .status(CancellationStatus.REQUESTED).source(CancellationSource.API_REQUEST)
+                    .amount(quote.refundAmount()).quantity(quote.refundQuantity()).grossAmount(quote.grossAmount())
+                    .penaltyRatePercent(0).penaltyAmount(0L).businessReason(CancellationBusinessReason.ORGANIZER_FAULT)
                     .feeReversalAmount(feeReversal(payment, quote.grossAmount()))
-                    .requestedByUserId(actor)
-                    .requestedByRole("HOST")
-                    .reason(reason)
-                    .build()
-            );
+                    .requestedByUserId(actor).requestedByRole("HOST").reason(reason).build());
         }
         if (cancellation.getCancellationId() == null) {
             var response = portOnePaymentClient.cancelPayment(paymentId, cancellation.getAmount(), reason, key);
             if (response != null && response.cancellation() != null) {
-                cancellation.syncFrom(
-                    response.cancellation().id(),
-                    toCancellationStatus(response.cancellation().status()),
-                    response.cancellation().cancelledAt()
-                );
+                cancellation.syncFrom(response.cancellation().id(), toCancellationStatus(response.cancellation().status()), response.cancellation().cancelledAt());
                 cancellationRepository.save(cancellation);
             }
         }
@@ -238,9 +182,8 @@ public class PaymentCancellationService {
         for (PortOnePaymentResponse.Cancellation remote : remoteCancellations) {
             CancellationStatus remoteStatus = toCancellationStatus(remote.status());
 
-            Optional<Cancellation> local = Optional.ofNullable(remote.id()).flatMap(
-                cancellationRepository::findByCancellationId
-            );
+            Optional<Cancellation> local = Optional.ofNullable(remote.id())
+                    .flatMap(cancellationRepository::findByCancellationId);
             if (local.isPresent()) {
                 Cancellation cancellation = local.get();
                 cancellation.syncFrom(remote.id(), remoteStatus, remote.cancelledAt());
@@ -250,14 +193,9 @@ public class PaymentCancellationService {
 
             //그래도 없으면 PortOne 대시보드 등 외부에서 취소된 건이다(가이드 9.4).
             //장수를 알 수 없으므로 0으로 두고, 예매 쪽 반영은 사람이 확인해야 한다.
-            log.warn(
-                "외부에서 발생한 취소를 발견했다. paymentId={}, cancellationId={}, amount={}",
-                payment.getPaymentId(),
-                remote.id(),
-                remote.totalAmount()
-            );
-            cancellationRepository.save(
-                Cancellation.builder()
+            log.warn("외부에서 발생한 취소를 발견했다. paymentId={}, cancellationId={}, amount={}",
+                    payment.getPaymentId(), remote.id(), remote.totalAmount());
+            cancellationRepository.save(Cancellation.builder()
                     .payment(payment)
                     .cancellationId(remote.id())
                     .status(remoteStatus)
@@ -266,8 +204,7 @@ public class PaymentCancellationService {
                     .quantity(0)
                     .reason(remote.reason())
                     .cancelledAt(remote.cancelledAt())
-                    .build()
-            );
+                    .build());
         }
     }
 
@@ -281,8 +218,9 @@ public class PaymentCancellationService {
             return;
         }
 
-        PaymentStatus next =
-            cancelledTotal >= payment.totalAmount() ? PaymentStatus.CANCELLED : PaymentStatus.PARTIAL_CANCELLED;
+        PaymentStatus next = cancelledTotal >= payment.totalAmount()
+                ? PaymentStatus.CANCELLED
+                : PaymentStatus.PARTIAL_CANCELLED;
         if (payment.getStatus() == next && next == PaymentStatus.CANCELLED) {
             return;
         }
@@ -329,31 +267,26 @@ public class PaymentCancellationService {
         }
     }
 
-    // 결제별 내림 기준을 유지하려면 환불 액면가의 비율 대신 환불 전후 수수료 차액을 환입한다.
+    //결제별 내림 기준을 유지하려면 환불 액면가 비율이 아니라 환불 전후 수수료의 차액을 환입한다.
     private Long feeReversal(Payment payment, long face) {
         if (payment.getPlatformFeeRateBps() == null) return null;
-        var previous = cancellationRepository
-            .findByPayment(payment)
-            .stream()
-            .filter(c -> c.getStatus() == CancellationStatus.SUCCEEDED)
-            .toList();
+        var previous = cancellationRepository.findByPayment(payment).stream()
+                .filter(c -> c.getStatus() == CancellationStatus.SUCCEEDED).toList();
         if (previous.stream().anyMatch(c -> c.getGrossAmount() == null)) return null;
         long remaining = payment.getTicketAmount() - previous.stream().mapToLong(Cancellation::getGrossAmount).sum();
         if (face > remaining) throw new ApiException(PaymentErrorCode.REFUND_QUANTITY_EXCEEDED);
-        return (
-            SettlementCalculator.fee(remaining, payment.getPlatformFeeRateBps()) -
-            SettlementCalculator.fee(remaining - face, payment.getPlatformFeeRateBps())
-        );
+        return SettlementCalculator.fee(remaining, payment.getPlatformFeeRateBps())
+                - SettlementCalculator.fee(remaining - face, payment.getPlatformFeeRateBps());
     }
 
     private PaymentCancellationResponse toResponse(Payment payment, Cancellation cancellation) {
         return new PaymentCancellationResponse(
-            payment.getPaymentId(),
-            cancellation.getCancellationId(),
-            cancellation.getStatus().name(),
-            cancellation.getAmount(),
-            cancellation.getQuantity(),
-            payment.getStatus().name()
+                payment.getPaymentId(),
+                cancellation.getCancellationId(),
+                cancellation.getStatus().name(),
+                cancellation.getAmount(),
+                cancellation.getQuantity(),
+                payment.getStatus().name()
         );
     }
 }

@@ -1,34 +1,26 @@
 package org.example.festivalservice.domain.festival;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.Version;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.festivalservice.domain.tickettype.TicketType;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-@Entity
-@Builder
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
+
+@Entity@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Table(name = "festivals")
 public class Festival {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id@GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     //주최자(Host) id
@@ -39,15 +31,12 @@ public class Festival {
     private String name;
     //페스티벌 설명
     private String description;
-
     //개최 일자 및 시각
     @Column(name = "start_at")
     private LocalDateTime startAt;
-
     //페스티벌 종료 일자 및 시각
     @Column(name = "end_at")
     private LocalDateTime endAt;
-
     //개최 장소 — 행정구역(시/도) 드롭다운 + 상세주소(도로명 등) 텍스트로 나눠 받는다.
     @Enumerated(EnumType.STRING)
     @Column(name = "region", columnDefinition = "VARCHAR(20)")
@@ -68,6 +57,7 @@ public class Festival {
     @Column(name = "operating_end_time")
     private LocalTime operatingEndTime;
 
+
     //columnDefinition을 명시하지 않으면 Hibernate가 MySQL 네이티브 ENUM(...) 컬럼을 생성해,
     //Java enum에 값을 추가해도 ddl-auto: update가 DB의 허용값 목록을 넓혀주지 않는다.
     @Enumerated(EnumType.STRING)
@@ -78,11 +68,12 @@ public class Festival {
     @Column(name = "festival_status", columnDefinition = "VARCHAR(30)")
     private FestivalStatus festivalStatus;
 
+    //취소 요청·승인이 동시에 들어와도 한쪽만 반영되도록 하는 낙관적 락 버전. 기존 행은 0으로 시작한다.
     @Version
     @Column(columnDefinition = "BIGINT DEFAULT 0")
     private Long version;
 
-    // 귀책 환불의 승인 근거를 보존하므로 요청자와 운영 승인자를 분리한다.
+    //주최자 귀책 취소 기록 — 요청자(주최자)와 승인자(운영자)를 분리해 전액 환불의 승인 근거를 남긴다.
     @Column(name = "cancel_reason", length = 500)
     private String cancelReason;
 
@@ -98,6 +89,7 @@ public class Festival {
     @Column(name = "cancellation_approved_by_user_id")
     private Long cancellationApprovedByUserId;
 
+    //상태 검증은 FestivalCancellationService가 맡고, 엔티티는 전이만 기록한다.
     public void requestCancellation(Long actor, String reason) {
         festivalStatus = FestivalStatus.CANCELLATION_PENDING;
         cancelledByUserId = actor;

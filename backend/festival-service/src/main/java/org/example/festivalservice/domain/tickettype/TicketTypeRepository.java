@@ -7,13 +7,13 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-public interface TicketTypeRepository extends JpaRepository<TicketType, Long> {
+public interface TicketTypeRepository extends JpaRepository<TicketType,Long> {
 
     //Festival 상세·목록 조회 시 소속 티켓종류를 조립할 때 사용
     List<TicketType> findByFestivalId(Long festivalId);
 
     @Modifying
-    // 상태 조회와 차감 사이에 취소 요청이 들어오는 경합을 DB에서 막는다.
+    //PUBLISHED 조건: reservation-service의 상태 확인과 이 차감 사이에 행사 취소 요청이 끼어드는 경합을 DB에서 막는다.
     @Query("UPDATE TicketType t SET t.remainQuantity = t.remainQuantity - :qty " +
             "WHERE t.id = :id AND t.remainQuantity >= :qty AND t.festival.id IN " +
             "(SELECT f.id FROM Festival f WHERE f.festivalStatus = " +

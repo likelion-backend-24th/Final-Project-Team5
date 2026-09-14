@@ -1,17 +1,6 @@
 package org.example.paymentservice.domain.payment;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import jakarta.persistence.Version;
-import java.time.Instant;
-import java.time.LocalDateTime;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,6 +8,9 @@ import lombok.NoArgsConstructor;
 import org.example.paymentservice.domain.settlement.SettlementCalculator;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 예매(Reservation) 1건에 대응하는 결제 건. PortOne의 paymentId를 그대로 식별자로 사용한다.
@@ -29,16 +21,14 @@ import org.hibernate.annotations.UpdateTimestamp;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-@Table(
-    name = "payments",
-    uniqueConstraints = @UniqueConstraint(name = "uk_payments_payment_id", columnNames = "payment_id")
-)
+@Table(name = "payments", uniqueConstraints = @UniqueConstraint(name = "uk_payments_payment_id", columnNames = "payment_id"))
 public class Payment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 정산 확정 시 결제가 그 사이 바뀌지 않았는지 대조하는 낙관적 락 버전. 기존 행은 0으로 시작한다.
     @Version
     @Column(columnDefinition = "BIGINT DEFAULT 0")
     private Long version;
@@ -69,32 +59,26 @@ public class Payment {
     @Column(name = "pay_method", length = 30)
     private String payMethod;
 
+    // 정산 계산이 예매·페스티벌 서비스를 다시 조회하지 않도록 승인 시점에 복사해 두는 스냅샷.
     private Long festivalId;
-
     private Long hostUserId;
-
     private Long unitPrice;
-
     private Instant paidAt;
-
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "VARCHAR(30)")
     private PaymentMethodCategory payMethodCategory;
-
     private String easyPayProvider;
-
     private Integer platformFeeRateBps;
-
     private String feePolicyVersion;
-
     private Boolean testPayment;
-
+    // 예매 확정 호출이 성공한 시각. null이면 결제는 PAID인데 예매 확정이 안 된 상태라 완료 API 재호출 때 다시 시도한다.
     private Instant reservationConfirmedAt;
 
     public void markReservationConfirmed() {
         reservationConfirmedAt = Instant.now();
     }
 
+    // PortOne 승인 응답에서 결제수단·승인 시각·채널을 복사하고 수수료율을 확정한다. 이후 정산은 이 스냅샷만 본다.
     public void snapshotApproval(String rawMethod, String provider, Instant approvedAt, Boolean test) {
         this.payMethod = rawMethod;
         this.payMethodCategory = PaymentMethodCategory.fromRaw(rawMethod);

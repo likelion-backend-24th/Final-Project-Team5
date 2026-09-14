@@ -1,23 +1,13 @@
 package org.example.paymentservice.domain.payment;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
-import java.time.LocalDateTime;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+
+import java.time.LocalDateTime;
 
 /**
  * 같은 paymentId에서 발생한 개별 승인 시도. 실패 후 재시도하면 같은 Payment에
@@ -28,13 +18,7 @@ import org.hibernate.annotations.CreationTimestamp;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-@Table(
-    name = "payment_transactions",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_payment_transactions_transaction_id",
-        columnNames = "transaction_id"
-    )
-)
+@Table(name = "payment_transactions", uniqueConstraints = @UniqueConstraint(name = "uk_payment_transactions_transaction_id", columnNames = "transaction_id"))
 public class PaymentTransaction {
 
     @Id
@@ -63,7 +47,6 @@ public class PaymentTransaction {
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "VARCHAR(30)")
     private PaymentMethodCategory payMethodCategory;
-
     private String easyPayProvider;
 
     // FAILED일 때만 채워지는 실패 사유. 카드번호·CVC 등 민감정보는 저장하지 않는다.
@@ -73,6 +56,7 @@ public class PaymentTransaction {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
+    // 같은 transactionId가 먼저 READY/PENDING으로 기록된 뒤 PAID 응답이 오면 새 행 대신 기존 행을 승인 상태로 올린다.
     public void approve(String rawMethod, String provider, LocalDateTime at) {
         status = PaymentStatus.PAID;
         payMethod = rawMethod;

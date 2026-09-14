@@ -6,23 +6,16 @@ import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.exception.ApiException;
 import org.example.reservationservice.reservation.dto.ReservationCancelRequestDto;
 import org.example.reservationservice.reservation.dto.ReservationConfirmRequestDto;
+import org.example.reservationservice.reservation.exception.ReservationErrorCode;
 import org.example.reservationservice.reservation.dto.ReservationExtendHoldRequestDto;
 import org.example.reservationservice.reservation.dto.ReservationForPaymentResponseDto;
 import org.example.reservationservice.reservation.dto.ReservationRefundQuoteResponseDto;
 import org.example.reservationservice.reservation.dto.ReservationRefundRequestDto;
-import org.example.reservationservice.reservation.exception.ReservationErrorCode;
 import org.example.reservationservice.reservation.service.ReservationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * Gateway를 거치지 않는 내부 전용 API — Payment-Service가 관계별 환경변수 Bearer Token으로만
@@ -117,6 +110,7 @@ public class InternalReservationController {
         return ResponseEntity.ok().build();
     }
 
+    //Payment-Service → Reservation-Service: 주최자 귀책 전액 환불 견적(위약금 0, 남은 수량 전부)
     @GetMapping("/{id}/organizer-refund-quote")
     public ReservationRefundQuoteResponseDto organizerQuote(@PathVariable Long id,
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {

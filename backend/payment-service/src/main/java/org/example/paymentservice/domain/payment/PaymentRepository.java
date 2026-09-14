@@ -1,18 +1,23 @@
 package org.example.paymentservice.domain.payment;
 
 import jakarta.persistence.LockModeType;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
+
+    //정산 확정 직전에 결제 행을 잠그고 version을 대조한다 — 그 사이 환불이 끼어들면 확정을 거부하기 위해서다.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Payment p where p.id = :id")
     Optional<Payment> findLockedById(Long id);
 
+    //정산·행사 환불 배치가 페스티벌의 예매 ID 목록으로 결제를 한 번에 조회할 때 사용
     List<Payment> findByReservationIdIn(Collection<Long> ids);
+
     Optional<Payment> findByPaymentId(String paymentId);
 }

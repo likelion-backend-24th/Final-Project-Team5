@@ -19,6 +19,7 @@ function HelperHome() {
   const festivalId = user?.festivalId
 
   const [publicFestival, setPublicFestival] = useState(null)
+  // 공개 전 행사는 공개 API로 조회되지 않으므로 초대 당시의 행사 스냅샷을 대신 사용한다.
   const festival = publicFestival?.id === festivalId ? publicFestival : user?.assignedFestival
 
   useEffect(() => {

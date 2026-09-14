@@ -4,9 +4,12 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.dto.ApiResponse;
+import org.example.festivalservice.domain.festival.FestivalCancellationRequestResponseDto;
+import org.example.festivalservice.domain.festival.FestivalCancellationService;
 import org.example.festivalservice.domain.festival.FestivalResponseDto;
 import org.example.festivalservice.domain.festival.FestivalReviewRequestDto;
 import org.example.festivalservice.domain.festival.FestivalService;
+import org.example.festivalservice.domain.festival.FestivalStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminFestivalController {
 
     private final FestivalService festivalService;
+    private final FestivalCancellationService festivalCancellationService;
 
     //운영자가 심사 대기 중인 페스티벌 목록을 조회한다
     @GetMapping
@@ -33,5 +37,24 @@ public class AdminFestivalController {
             @RequestHeader("X-User-Role") String role,
             @Valid @RequestBody FestivalReviewRequestDto request) {
         return ResponseEntity.ok(ApiResponse.success("심사 대기 중인 페스티벌 상태 변경 성공",festivalService.reviewFestival(id, role, request)));
+    }
+
+    //운영자가 승인 대기 중인 행사 취소 요청 목록을 조회한다(approved=true면 환불 배치가 이미 진행 중)
+    @GetMapping("/cancellation-requests")
+    public ResponseEntity<ApiResponse<List<FestivalCancellationRequestResponseDto>>> listCancellationRequests(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role) {
+        return ResponseEntity.ok(ApiResponse.success("취소 승인 요청",
+                festivalCancellationService.listCancellationRequests(role)));
+    }
+
+    //운영자가 행사 취소를 승인한다 — 승인 시각은 최초 1회만 기록되고 환불 배치가 이를 기준으로 전액 환불을 시작한다
+    @PostMapping("/{id}/approve-cancellation")
+    public ResponseEntity<ApiResponse<FestivalStatus>> approveCancellation(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role) {
+        return ResponseEntity.ok(ApiResponse.success("전액 환불 승인",
+                festivalCancellationService.approveCancellation(id, userId, role)));
     }
 }

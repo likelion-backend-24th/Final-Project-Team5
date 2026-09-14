@@ -3,11 +3,14 @@ package org.example.festivalservice.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.dto.ApiResponse;
+import org.example.festivalservice.domain.festival.FestivalCancellationRequestDto;
+import org.example.festivalservice.domain.festival.FestivalCancellationService;
 import org.example.festivalservice.domain.festival.FestivalImageUploadResponseDto;
 import org.example.festivalservice.domain.festival.FestivalImageUploadService;
 import org.example.festivalservice.domain.festival.FestivalRequestDto;
 import org.example.festivalservice.domain.festival.FestivalResponseDto;
 import org.example.festivalservice.domain.festival.FestivalService;
+import org.example.festivalservice.domain.festival.FestivalStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +24,7 @@ import java.util.List;
 public class HostController {
     private final FestivalService festivalService;
     private final FestivalImageUploadService festivalImageUploadService;
+    private final FestivalCancellationService festivalCancellationService;
 
     //승인된 주최자가 페스티벌 등록 전 이미지를 먼저 업로드하고 URL을 받는다.
     //대표 이미지(썸네일, 0~1장)와 본문 이미지(0~2장)를 한 번에 받는다 — 장당 10MB.
@@ -62,5 +66,17 @@ public class HostController {
             @RequestHeader("X-User-Role") String role
     ){
         return ResponseEntity.ok(ApiResponse.success("본인이 등록한 페스티벌 상세 정보 조회",festivalService.getMyFestivalDetail(id,userId,role)));
+    }
+
+    //주최자가 본인 페스티벌의 취소를 요청한다 — 즉시 신규 예매를 막고 운영자 승인 후 전액 환불이 진행된다
+    @PostMapping("/{id}/cancellation-request")
+    public ResponseEntity<ApiResponse<FestivalStatus>> requestCancellation(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody FestivalCancellationRequestDto request
+    ){
+        return ResponseEntity.ok(ApiResponse.success("행사 취소 승인 대기",
+                festivalCancellationService.requestCancellation(id, userId, role, request.reason())));
     }
 }

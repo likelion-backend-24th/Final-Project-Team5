@@ -85,7 +85,9 @@ services:
       TZ: Asia/Seoul
       PAYMENT_DB_HOST: core-db
       PAYMENT_DB_PORT: 3306
+      AUTH_SERVICE_URL: http://auth-service:8081
       RESERVATION_SERVICE_URL: http://reservation-service:8083
+      FESTIVAL_SERVICE_URL: http://festival-service:8082
     depends_on:
       - core-db
       - reservation-service

@@ -96,6 +96,13 @@ class PaymentCancellationServiceTest {
     @DisplayName("부분 환불이 성공하면 결제가 PARTIAL_CANCELLED가 되고 그 장수만큼 예매에 환불을 통보한다")
     void 부분_환불_성공() {
         Payment payment = paidPayment();
+        java.util.List<Cancellation> ledger = new java.util.ArrayList<>();
+        when(cancellationRepository.save(any(Cancellation.class))).thenAnswer(i -> {
+            Cancellation c = i.getArgument(0); if (!ledger.contains(c)) ledger.add(c); return c;
+        });
+        when(cancellationRepository.findByPayment(payment)).thenAnswer(i -> ledger);
+        when(cancellationRepository.findByCancellationId(anyString())).thenAnswer(i -> ledger.stream()
+                .filter(c -> i.getArgument(0).equals(c.getCancellationId())).findFirst());
         when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
         when(reservationServiceClient.getRefundQuote(1L, 1)).thenReturn(quote(true, null, 1, 9_000L));
         when(portOnePaymentClient.cancelPayment(eq(PAYMENT_ID), eq(9_000L), any(), eq(IDEMPOTENCY_KEY)))
@@ -110,7 +117,7 @@ class PaymentCancellationServiceTest {
         assertThat(response.cancelledAmount()).isEqualTo(9_000L);
         assertThat(response.cancelledQuantity()).isEqualTo(1);
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PARTIAL_CANCELLED);
-        verify(reservationServiceClient).refundReservation(1L, new RefundReservationRequest(PAYMENT_ID, 1));
+        verify(reservationServiceClient).refundReservation(1L, new RefundReservationRequest(PAYMENT_ID, 1, "cancel-1"));
     }
 
     @Test

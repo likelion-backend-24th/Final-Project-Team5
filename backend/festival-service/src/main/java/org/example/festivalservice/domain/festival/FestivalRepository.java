@@ -1,13 +1,30 @@
 package org.example.festivalservice.domain.festival;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface FestivalRepository extends JpaRepository<Festival, Long> {
+    //운영자가 승인한 취소 요청 — payment-service 환불 배치가 이 목록을 대상으로 전액 환불을 진행한다
+    List<Festival> findByFestivalStatusAndCancellationApprovedAtIsNotNull(FestivalStatus status);
+
+    //정산 후보 = 종료 24시간이 지난 공개·종료·취소 페스티벌
+    @Query("""
+            select f from Festival f
+            where f.endAt <= :cutoff and f.festivalStatus in :statuses
+            order by f.id
+            """)
+    List<Festival> findSettlementCandidates(
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("statuses") Collection<FestivalStatus> statuses,
+            Pageable pageable
+    );
 
     List<Festival> findByHostUserId(Long hostUserId);
 

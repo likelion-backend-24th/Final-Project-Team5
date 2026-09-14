@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TicketTypeService {
     private final TicketTypeRepository ticketTypeRepository;
+
     private static final Logger log = LoggerFactory.getLogger(TicketTypeService.class);
 
     //재고 차감 메서드
@@ -19,7 +20,7 @@ public class TicketTypeService {
     public void deductStock(Long ticketTypeId, int quantity) {
         int updated = ticketTypeRepository.deductStock(ticketTypeId, quantity);
         if (updated == 0) {
-            log.info("재고 차감 거부(재고 부족): ticketType={}, qty={}", ticketTypeId, quantity);
+            log.info("재고 차감 거부(재고 부족 또는 비공개 페스티벌): ticketType={}, qty={}", ticketTypeId, quantity);
             throw new ApiException(TicketTypeErrorCode.STOCK_EXCEEDED);
         }
         log.info("재고 차감: ticketType={}, qty={}", ticketTypeId, quantity);

@@ -16,6 +16,16 @@ public record ReservationForPaymentResponse(
         long totalAmount,
         Long ticketTypeId,
         int quantity,
-        Instant expiresAt
+        Instant expiresAt,
+        Long festivalId,
+        Long hostUserId,
+        Long unitPrice,
+        Integer refundedQuantity,
+        String paymentId
 ) {
+    public ReservationForPaymentResponse(Long reservationId, Long userId, String status, long totalAmount,
+                                         Long ticketTypeId, int quantity, Instant expiresAt) {
+        this(reservationId, userId, status, totalAmount, ticketTypeId, quantity, expiresAt,
+                null, null, null, null, null);
+    }
 }

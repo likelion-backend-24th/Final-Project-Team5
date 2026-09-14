@@ -13,6 +13,7 @@ import HostApplication from './pages/HostApplication'
 import HostFestivalDetail from './pages/HostFestivalDetail'
 import HostFestivalNew from './pages/HostFestivalNew'
 import HostFestivals from './pages/HostFestivals'
+import HostSettlements from './pages/HostSettlements'
 import Login from './pages/Login'
 import MyPage from './pages/Mypage'
 import OauthLinkConfirm from './pages/OauthLinkConfirm'
@@ -104,6 +105,7 @@ function App() {
         {/* SiteFooter/OrganizerCta는 여전히 /festivals/new로 링크하므로 같은 화면을 연결해둔다. */}
         <Route path="/festivals/new" element={<HostFestivalNew />} />
         <Route path="/host/festivals" element={<HostFestivals />} />
+        <Route path="/host/settlements" element={<HostSettlements />} />
         <Route path="/host/festivals/:id" element={<HostFestivalDetail />} />
         {/* 현장 입장 검증 — 주최자는 페스티벌을 지정해서, 도우미는 배정된 페스티벌로 /check-in에서 들어온다. */}
         <Route path="/host/festivals/:id/check-in" element={<CheckIn />} />

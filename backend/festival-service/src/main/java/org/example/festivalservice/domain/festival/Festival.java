@@ -9,6 +9,7 @@ import org.example.festivalservice.domain.tickettype.TicketType;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -64,8 +65,46 @@ public class Festival {
     private FestivalCategory festivalCategory;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "festival_status", columnDefinition = "VARCHAR(20)")
+    @Column(name = "festival_status", columnDefinition = "VARCHAR(30)")
     private FestivalStatus festivalStatus;
+
+    //취소 요청·승인이 동시에 들어와도 한쪽만 반영되도록 하는 낙관적 락 버전. 기존 행은 0으로 시작한다.
+    @Version
+    @Column(columnDefinition = "BIGINT DEFAULT 0")
+    private Long version;
+
+    //주최자 귀책 취소 기록 — 요청자(주최자)와 승인자(운영자)를 분리해 전액 환불의 승인 근거를 남긴다.
+    @Column(name = "cancel_reason", length = 500)
+    private String cancelReason;
+
+    @Column(name = "cancelled_by_user_id")
+    private Long cancelledByUserId;
+
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
+    @Column(name = "cancellation_approved_at")
+    private Instant cancellationApprovedAt;
+
+    @Column(name = "cancellation_approved_by_user_id")
+    private Long cancellationApprovedByUserId;
+
+    //상태 검증은 FestivalCancellationService가 맡고, 엔티티는 전이만 기록한다.
+    public void requestCancellation(Long actor, String reason) {
+        festivalStatus = FestivalStatus.CANCELLATION_PENDING;
+        cancelledByUserId = actor;
+        cancelReason = reason;
+    }
+
+    public void approveCancellation(Long actor) {
+        cancellationApprovedAt = Instant.now();
+        cancellationApprovedByUserId = actor;
+    }
+
+    public void completeCancellation() {
+        festivalStatus = FestivalStatus.CANCELLED;
+        cancelledAt = Instant.now();
+    }
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

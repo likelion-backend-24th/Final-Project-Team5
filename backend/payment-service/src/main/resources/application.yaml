@@ -35,5 +35,11 @@ portone:
 reservation-service:
   base-url: ${RESERVATION_SERVICE_URL:http://localhost:8083}
 
+festival-service:
+  base-url: ${FESTIVAL_SERVICE_URL:http://localhost:8082}
+
+auth-service:
+  base-url: ${AUTH_SERVICE_URL:http://localhost:8081}
+
 internal:
   auth-token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}

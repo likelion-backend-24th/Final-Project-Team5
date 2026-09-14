@@ -15,6 +15,11 @@ export function uploadFestivalImages({ thumbnail, detailImages }) {
   })
 }
 
+// 신규 예매를 중단하고 운영자에게 행사 취소 승인을 요청한다.
+export function requestFestivalCancellation(festivalId, reason) {
+  return apiClient.post(`/api/host/festivals/${festivalId}/cancellation-request`, { reason })
+}
+
 export function fetchMyFestivals() {
   return apiClient.get('/api/host/festivals')
 }

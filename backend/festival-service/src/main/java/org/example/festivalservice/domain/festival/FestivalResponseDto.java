@@ -1,6 +1,7 @@
 package org.example.festivalservice.domain.festival;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import org.example.festivalservice.common.UserLookupClient.UserSummary;
 import org.example.festivalservice.domain.tickettype.TicketType;
@@ -13,9 +14,13 @@ public record FestivalResponseDto(
         String description,
         LocalDateTime startAt,
         LocalDateTime endAt,
-        String location,
+        FestivalRegion region,
+        String locationDetail,
         FestivalCategory festivalCategory,
         FestivalStatus festivalStatus,
+        LocalTime entryStartTime,
+        LocalTime operatingStartTime,
+        LocalTime operatingEndTime,
         String thumbnailImageUrl,
         List<String> detailImageUrls,
         List<TicketTypeResponseDto> ticketTypes,
@@ -48,9 +53,13 @@ public record FestivalResponseDto(
                 festival.getDescription(),
                 festival.getStartAt(),
                 festival.getEndAt(),
-                festival.getLocation(),
+                festival.getRegion(),
+                festival.getLocationDetail(),
                 festival.getFestivalCategory(),
                 festival.getFestivalStatus(),
+                festival.getEntryStartTime(),
+                festival.getOperatingStartTime(),
+                festival.getOperatingEndTime(),
                 thumbnailImageUrl,
                 detailImageUrls,
                 ticketTypes.stream().map(TicketTypeResponseDto::from).toList(),

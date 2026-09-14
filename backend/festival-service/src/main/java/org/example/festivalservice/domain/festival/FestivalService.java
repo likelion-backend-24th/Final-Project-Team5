@@ -1,5 +1,6 @@
 package org.example.festivalservice.domain.festival;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,11 +40,16 @@ public class FestivalService {
         if (!request.endAt().isAfter(request.startAt())) {
             throw new ApiException(FestivalErrorCode.INVALID_PERIOD);
         }
+        if (request.operatingStartTime() != null && request.operatingEndTime() != null
+                && !request.operatingEndTime().isAfter(request.operatingStartTime())) {
+            throw new ApiException(FestivalErrorCode.INVALID_OPERATING_HOURS);
+        }
         String thumbnailImageUrl = request.thumbnailImageUrl();
         List<String> detailImageUrls = request.detailImageUrls() == null ? List.of() : request.detailImageUrls();
         if (detailImageUrls.size() > MAX_DETAIL_IMAGE_COUNT) {
             throw new ApiException(FestivalErrorCode.INVALID_DETAIL_IMAGE_COUNT);
         }
+        request.ticketTypes().forEach(ticketTypeRequest -> validateTicketTypeRequest(ticketTypeRequest, request));
 
         Festival festival = Festival.builder()
                 .hostUserId(hostUserId)
@@ -51,9 +57,13 @@ public class FestivalService {
                 .description(request.description())
                 .startAt(request.startAt())
                 .endAt(request.endAt())
-                .location(request.location())
+                .region(request.region())
+                .locationDetail(request.locationDetail())
                 .festivalCategory(request.festivalCategory())
                 .festivalStatus(FestivalStatus.PENDING)
+                .entryStartTime(request.entryStartTime())
+                .operatingStartTime(request.operatingStartTime())
+                .operatingEndTime(request.operatingEndTime())
                 .build();
         Festival saved = festivalRepository.save(festival);
 
@@ -105,14 +115,33 @@ public class FestivalService {
         return festival;
     }
 
+    //티켓 종류별 판매 기간·날짜 검증(내부 메서드) — 페스티벌 저장 전에 먼저 확인해 잘못된 요청으로
+    //페스티벌·티켓이 절반만 생기는 일이 없게 한다.
+    private void validateTicketTypeRequest(TicketTypeRequestDto request, FestivalRequestDto festivalRequest) {
+        if (!request.saleEndAt().isAfter(request.saleStartAt())) {
+            throw new ApiException(FestivalErrorCode.INVALID_TICKET_SALE_PERIOD);
+        }
+        if (request.ticketDate() != null) {
+            LocalDate festivalStartDate = festivalRequest.startAt().toLocalDate();
+            LocalDate festivalEndDate = festivalRequest.endAt().toLocalDate();
+            if (request.ticketDate().isBefore(festivalStartDate) || request.ticketDate().isAfter(festivalEndDate)) {
+                throw new ApiException(FestivalErrorCode.INVALID_TICKET_DATE);
+            }
+        }
+    }
+
     //dto로 TicketType으로 생성(내부 메서드)
     private TicketType toTicketType(Festival festival, TicketTypeRequestDto request) {
         return TicketType.builder()
                 .festival(festival)
                 .name(request.name())
+                .description(request.description())
                 .price(request.price())
                 .totalQuantity(request.quantity())
                 .remainQuantity(request.quantity())
+                .saleStartAt(request.saleStartAt())
+                .saleEndAt(request.saleEndAt())
+                .ticketDate(request.ticketDate())
                 .build();
     }
 

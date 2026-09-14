@@ -63,6 +63,8 @@ const CREATE_RESERVATION_ERROR_MESSAGES = {
   TICKET_TYPE_NOT_FOUND: '존재하지 않는 티켓 종류예요.',
   STOCK_EXCEEDED: '남은 재고가 부족해요.',
   PURCHASE_LIMIT_EXCEEDED: '1인당 구매 가능 수량을 초과했어요.',
+  TICKET_SALE_NOT_STARTED: '아직 판매가 시작되지 않은 티켓이에요.',
+  TICKET_SALE_ENDED: '판매가 종료된 티켓이에요.',
 }
 
 //예매 보유(hold) 남은 시간을 "MM:SS"로 표시한다.
@@ -392,7 +394,17 @@ function ReservationCheckout() {
               <TicketIcon size={16} aria-hidden="true" />
               티켓 종류
             </span>
-            <span className={styles.summaryValue}>{ticketType.name}</span>
+            <span className={styles.summaryValue}>
+              {ticketType.name}
+              {ticketType.description && (
+                <>
+                  <br />
+                  <span style={{ fontSize: '13px', color: 'var(--fgColor-muted)' }}>
+                    {ticketType.description}
+                  </span>
+                </>
+              )}
+            </span>
           </div>
           <div className={styles.summaryRow}>
             <span className={styles.summaryLabel}>수량</span>

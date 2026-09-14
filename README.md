@@ -42,6 +42,3 @@ docker compose -f infra/compose.yaml up
 - **Backend**: Spring Boot 3.5.15, Java 21, JPA
 - **Infra**: Docker, MySQL,GitHub Actions/Jenkins
 - **인증**: JWT (Access·Refresh Token)
-## 도우미 이메일 초대
-
-HOST의 이메일 초대, 일회용 계정 활성화와 자동 로그인, 기존 계정 전환을 지원합니다. API·상태·스키마·검증 방법은 [도우미 이메일 초대 문서](docs/helper-email-invitation.md)를 참고하세요.

@@ -15,6 +15,7 @@ import HostFestivalNew from './pages/HostFestivalNew'
 import HostFestivals from './pages/HostFestivals'
 import Login from './pages/Login'
 import MyPage from './pages/Mypage'
+import OauthLinkConfirm from './pages/OauthLinkConfirm'
 import Placeholder from './pages/Placeholder'
 import ProfileSetup from './pages/ProfileSetup'
 import RequireAuth from './components/RequireAuth'
@@ -77,6 +78,7 @@ function App() {
         <Route path="/festivals/:id" element={<FestivalDetail />} />
         <Route path="/festivals/:id/reserve" element={<ReservationCheckout />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/oauth/link-confirm" element={<OauthLinkConfirm />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route

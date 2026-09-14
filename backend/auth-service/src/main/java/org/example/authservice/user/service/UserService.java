@@ -47,8 +47,10 @@ public class UserService {
                 .socialProviders(oauthAccountRepository.findAllByUser_Id(userId).stream().map(OauthAccount::getProvider).toList())
                 .hasPassword(user.getPassword() != null)
                 //소셜 가입은 약관 동의·닉네임 입력 없이 계정이 만들어지므로, 약관 동의 시각이 비어 있으면 최초 1회
-                //프로필 설정을 요구한다. 도우미는 주최자가 발급하는 임시 계정이라 제외한다.
-                .profileSetupRequired(user.getTermsAgreeAt() == null && user.getRole() != Role.HELPER)
+                //프로필 설정을 요구한다. 비밀번호가 있는 계정(일반 가입, 또는 이미 가입 절차를 마친 계정)은
+                //약관 동의 시각이 비어 있어도 소셜 최초 가입자가 아니므로 절대 이 화면을 보여주면 안 된다.
+                //도우미는 주최자가 발급하는 임시 계정이라 제외한다.
+                .profileSetupRequired(user.getTermsAgreeAt() == null && user.getPassword() == null && user.getRole() != Role.HELPER)
                 .build();
     }
 

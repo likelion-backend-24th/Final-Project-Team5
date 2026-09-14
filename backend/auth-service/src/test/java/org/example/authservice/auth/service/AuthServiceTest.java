@@ -1,5 +1,6 @@
 package org.example.authservice.auth.service;
 
+import io.jsonwebtoken.Claims;
 import org.example.authservice.auth.dto.LoginRequest;
 import org.example.authservice.auth.dto.SignupRequest;
 import org.example.authservice.auth.dto.TokenResponse;
@@ -298,6 +299,27 @@ class AuthServiceTest {
 
         verify(passwordEncoder, never()).matches(any(), any());
         verify(loginAttemptService, never()).recordFailedLoginAttempt(any());
+    }
+
+    @Test
+    @DisplayName("비밀번호가 없는(소셜 전용) 계정으로 비밀번호 로그인을 시도하면 SOCIAL_LOGIN_REQUIRED 예외가 발생하고, 실패 기록도 남기지 않는다")
+    void login_fail_socialOnlyAccount() {
+        // given
+        User user = createActiveUser();
+        user.setPassword(null);
+        LoginRequest request = new LoginRequest("test@naver.com", "test1234");
+
+        given(userRepository.findByUsername(request.getUsername())).willReturn(Optional.of(user));
+
+        // when & then
+        assertThatThrownBy(() -> authService.login(request))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.SOCIAL_LOGIN_REQUIRED));
+
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(loginAttemptService, never()).recordFailedLoginAttempt(any());
+        verify(refreshTokenRepository, never()).save(any());
     }
 
     @Test
@@ -815,17 +837,18 @@ class AuthServiceTest {
         given(jwtTokenProvider.generateRefreshToken(user.getUsername())).willReturn("refresh-token");
 
         // when
-        TokenResponse response = authService.googleLogin("valid-code");
+        AuthService.GoogleLoginResult result = authService.googleLogin("valid-code");
 
         // then
-        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(result.needsLinkConfirmation()).isFalse();
+        assertThat(result.tokenResponse().getAccessToken()).isEqualTo("access-token");
         verify(userRepository, never()).save(any());
         verify(oauthAccountRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("이메일이 같은 기존 일반 가입 유저가 있으면 새 유저를 만들지 않고 OauthAccount만 연결한다 (자동 연동)")
-    void googleLogin_success_autoLinkExistingUser() {
+    @DisplayName("이메일이 같은 기존 일반 가입 유저가 있으면 조용히 연동하지 않고, 전환 동의가 필요하다는 결과를 돌려준다")
+    void googleLogin_needsConfirmation_whenExistingPasswordUser() {
         // given
         User existingUser = createActiveUser();
         GoogleUserInfoResponse googleUserInfo = new GoogleUserInfoResponse();
@@ -837,21 +860,20 @@ class AuthServiceTest {
         given(oauthAccountRepository.findByProviderAndProviderId("GOOGLE", "google-id-999"))
                 .willReturn(Optional.empty());
         given(userRepository.findByUsername("test@naver.com")).willReturn(Optional.of(existingUser));
-        given(jwtTokenProvider.generateAccessToken(any(), any(), any(), any())).willReturn("access-token");
-        given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
+        given(jwtTokenProvider.generateOauthLinkToken("test@naver.com", "GOOGLE", "google-id-999"))
+                .willReturn("pending-link-token");
 
         // when
-        TokenResponse response = authService.googleLogin("code");
+        AuthService.GoogleLoginResult result = authService.googleLogin("code");
 
         // then
-        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(result.needsLinkConfirmation()).isTrue();
+        assertThat(result.pendingLinkToken()).isEqualTo("pending-link-token");
+        assertThat(result.pendingEmail()).isEqualTo("test@naver.com");
+        //동의 전에는 계정을 건드리지 않는다 — 비밀번호 삭제도, OauthAccount 연결도 없어야 한다.
         verify(userRepository, never()).save(any());
-
-        ArgumentCaptor<OauthAccount> oauthCaptor = ArgumentCaptor.forClass(OauthAccount.class);
-        verify(oauthAccountRepository, times(1)).save(oauthCaptor.capture());
-        assertThat(oauthCaptor.getValue().getUser()).isEqualTo(existingUser);
-        assertThat(oauthCaptor.getValue().getProvider()).isEqualTo("GOOGLE");
-        assertThat(oauthCaptor.getValue().getProviderId()).isEqualTo("google-id-999");
+        verify(oauthAccountRepository, never()).save(any());
+        verify(jwtTokenProvider, never()).generateAccessToken(any(), any(), any(), any());
     }
 
     @Test
@@ -874,10 +896,11 @@ class AuthServiceTest {
         given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
 
         // when
-        TokenResponse response = authService.googleLogin("code");
+        AuthService.GoogleLoginResult result = authService.googleLogin("code");
 
         // then
-        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(result.needsLinkConfirmation()).isFalse();
+        assertThat(result.tokenResponse().getAccessToken()).isEqualTo("access-token");
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository, times(1)).save(userCaptor.capture());
@@ -904,6 +927,85 @@ class AuthServiceTest {
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(AuthErrorCode.OAUTH_TOKEN_INVALID));
 
+        verify(userRepository, never()).save(any());
+    }
+
+    // ===== confirmOauthLink =====
+
+    @Test
+    @DisplayName("전환 동의가 확인되면 비밀번호를 지우고 소셜 계정을 연결해 로그인까지 완료한다")
+    void confirmOauthLink_success() {
+        // given
+        User existingUser = createActiveUser();
+        Claims claims = mock(Claims.class);
+        given(claims.getSubject()).willReturn("test@naver.com");
+        given(claims.get("provider", String.class)).willReturn("GOOGLE");
+        given(claims.get("providerId", String.class)).willReturn("google-id-999");
+
+        given(jwtTokenProvider.parseOauthLinkToken("pending-link-token")).willReturn(claims);
+        given(userRepository.findByUsername("test@naver.com")).willReturn(Optional.of(existingUser));
+        given(oauthAccountRepository.findByProviderAndProviderId("GOOGLE", "google-id-999"))
+                .willReturn(Optional.empty());
+        given(jwtTokenProvider.generateAccessToken(any(), any(), any(), any())).willReturn("access-token");
+        given(jwtTokenProvider.generateRefreshToken(any())).willReturn("refresh-token");
+
+        // when
+        TokenResponse response = authService.confirmOauthLink("pending-link-token");
+
+        // then
+        assertThat(response.getAccessToken()).isEqualTo("access-token");
+        assertThat(existingUser.getPassword()).isNull();
+        verify(refreshTokenRevocationService, times(1)).revokeAllTokens(existingUser);
+
+        ArgumentCaptor<OauthAccount> oauthCaptor = ArgumentCaptor.forClass(OauthAccount.class);
+        verify(oauthAccountRepository, times(1)).save(oauthCaptor.capture());
+        assertThat(oauthCaptor.getValue().getProvider()).isEqualTo("GOOGLE");
+        assertThat(oauthCaptor.getValue().getProviderId()).isEqualTo("google-id-999");
+    }
+
+    @Test
+    @DisplayName("토큰이 만료·위조됐으면 OAUTH_LINK_TOKEN_INVALID 예외가 발생하고 계정은 바뀌지 않는다")
+    void confirmOauthLink_fail_invalidToken() {
+        // given
+        given(jwtTokenProvider.parseOauthLinkToken("bad-token")).willThrow(new RuntimeException("invalid"));
+
+        // when & then
+        assertThatThrownBy(() -> authService.confirmOauthLink("bad-token"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.OAUTH_LINK_TOKEN_INVALID));
+
+        verify(userRepository, never()).save(any());
+        verify(oauthAccountRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("이미 연동이 끝난 토큰을 다시 제출하면 OAUTH_LINK_TOKEN_INVALID 예외가 발생한다")
+    void confirmOauthLink_fail_alreadyLinked() {
+        // given
+        User existingUser = createActiveUser();
+        Claims claims = mock(Claims.class);
+        given(claims.getSubject()).willReturn("test@naver.com");
+        given(claims.get("provider", String.class)).willReturn("GOOGLE");
+        given(claims.get("providerId", String.class)).willReturn("google-id-999");
+
+        OauthAccount alreadyLinked = new OauthAccount();
+        alreadyLinked.setUser(existingUser);
+        alreadyLinked.setProvider("GOOGLE");
+        alreadyLinked.setProviderId("google-id-999");
+
+        given(jwtTokenProvider.parseOauthLinkToken("pending-link-token")).willReturn(claims);
+        given(userRepository.findByUsername("test@naver.com")).willReturn(Optional.of(existingUser));
+        given(oauthAccountRepository.findByProviderAndProviderId("GOOGLE", "google-id-999"))
+                .willReturn(Optional.of(alreadyLinked));
+
+        // when & then
+        assertThatThrownBy(() -> authService.confirmOauthLink("pending-link-token"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(AuthErrorCode.OAUTH_LINK_TOKEN_INVALID));
+
+        assertThat(existingUser.getPassword()).isNotNull();
         verify(userRepository, never()).save(any());
     }
 }

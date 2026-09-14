@@ -5,6 +5,7 @@ import { fetchMyFestivals } from '../api/hostFestivalApi'
 import { FESTIVAL_CATEGORY_LABELS, formatLocation } from '../api/festivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
+import HostTabs from '../components/HostTabs'
 import styles from './AdminList.module.css'
 
 const STATUS_LABELS = {
@@ -90,68 +91,75 @@ function HostFestivals() {
   }
 
   return (
-    <main className={styles.main}>
-      <div className={styles.headerRow}>
-        <h1 className={styles.title}>내 페스티벌</h1>
-        <Link to="/host/settlements" className={styles.count}>내 정산</Link>
-        <Link to="/host/festivals/new" className={styles.count}>
-          <PlusIcon size={14} aria-hidden="true" style={{ verticalAlign: 'middle', marginRight: 4 }} />
-          새 페스티벌 등록
-        </Link>
-      </div>
-
-      {loading && <p className={styles.loading}>불러오는 중…</p>}
-
-      {!loading && loadError && (
-        <p className={styles.loadError} role="alert">
-          <CircleAlertIcon size={16} aria-hidden="true" />
-          {loadError}
-        </p>
-      )}
-
-      {!loading && !loadError && festivals.length === 0 && (
-        <div className={styles.emptyState}>
-          <p>아직 등록한 페스티벌이 없어요.</p>
-          <Link to="/host/festivals/new" className={styles.approveButton} style={{ textDecoration: 'none' }}>
-            첫 페스티벌 등록하기
-            <ArrowRightIcon size={16} aria-hidden="true" style={{ marginLeft: 6 }} />
+    <>
+      <HostTabs />
+      <main className={styles.main}>
+        <div className={styles.headerRow} style={{ alignItems: 'center' }}>
+          <h1 className={styles.title}>내 페스티벌</h1>
+          {/* 상단 탭이 화면 이동을 맡으므로 여기에는 등록 버튼만 작게 둔다 */}
+          <Link
+            to="/host/festivals/new"
+            className="inline-flex items-center gap-1 rounded-full bg-blue-600 px-3.5 py-2 text-xs font-bold text-white transition hover:bg-blue-700"
+            style={{ textDecoration: 'none' }}
+          >
+            <PlusIcon size={14} aria-hidden="true" />
+            새 페스티벌 등록
           </Link>
         </div>
-      )}
 
-      {!loading && !loadError && festivals.length > 0 && (
-        <ul className={styles.list}>
-          {festivals.map((festival) => (
-            <li key={festival.id} className={styles.card}>
-              <Link to={`/host/festivals/${festival.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div className={styles.cardHeader}>
-                  <Badge variant={STATUS_VARIANTS[festival.festivalStatus]}>
-                    {STATUS_LABELS[festival.festivalStatus] ?? festival.festivalStatus}
-                  </Badge>
-                  <span className={styles.date}>
-                    <CalendarIcon size={12} aria-hidden="true" />
-                    {formatDateRange(festival.startAt, festival.endAt)}
-                  </span>
-                </div>
+        {loading && <p className={styles.loading}>불러오는 중…</p>}
 
-                <h2 className={styles.festivalName}>{festival.name}</h2>
-                {festival.festivalStatus === 'REJECTED' && festival.rejectReason && (
-                  <p className={styles.location} style={{ color: 'var(--fgColor-danger)' }}>
-                    반려 사유: {festival.rejectReason}
+        {!loading && loadError && (
+          <p className={styles.loadError} role="alert">
+            <CircleAlertIcon size={16} aria-hidden="true" />
+            {loadError}
+          </p>
+        )}
+
+        {!loading && !loadError && festivals.length === 0 && (
+          <div className={styles.emptyState}>
+            <p>아직 등록한 페스티벌이 없어요.</p>
+            <Link to="/host/festivals/new" className={styles.approveButton} style={{ textDecoration: 'none' }}>
+              첫 페스티벌 등록하기
+              <ArrowRightIcon size={16} aria-hidden="true" style={{ marginLeft: 6 }} />
+            </Link>
+          </div>
+        )}
+
+        {!loading && !loadError && festivals.length > 0 && (
+          <ul className={styles.list}>
+            {festivals.map((festival) => (
+              <li key={festival.id} className={styles.card}>
+                <Link to={`/host/festivals/${festival.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div className={styles.cardHeader}>
+                    <Badge variant={STATUS_VARIANTS[festival.festivalStatus]}>
+                      {STATUS_LABELS[festival.festivalStatus] ?? festival.festivalStatus}
+                    </Badge>
+                    <span className={styles.date}>
+                      <CalendarIcon size={12} aria-hidden="true" />
+                      {formatDateRange(festival.startAt, festival.endAt)}
+                    </span>
+                  </div>
+
+                  <h2 className={styles.festivalName}>{festival.name}</h2>
+                  {festival.festivalStatus === 'REJECTED' && festival.rejectReason && (
+                    <p className={styles.location} style={{ color: 'var(--fgColor-danger)' }}>
+                      반려 사유: {festival.rejectReason}
+                    </p>
+                  )}
+                  <p className={styles.location}>
+                    <MapPinIcon size={14} aria-hidden="true" />
+                    {formatLocation(festival)}
+                    {' · '}
+                    {FESTIVAL_CATEGORY_LABELS[festival.festivalCategory] ?? festival.festivalCategory}
                   </p>
-                )}
-                <p className={styles.location}>
-                  <MapPinIcon size={14} aria-hidden="true" />
-                  {formatLocation(festival)}
-                  {' · '}
-                  {FESTIVAL_CATEGORY_LABELS[festival.festivalCategory] ?? festival.festivalCategory}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </main>
+    </>
   )
 }
 

@@ -1,8 +1,7 @@
 package org.example.reservationservice.reservation.dto;
 
-import org.example.reservationservice.reservation.entity.Reservation;
-
 import java.time.Instant;
+import org.example.reservationservice.reservation.entity.Reservation;
 
 /**
  * GET /internal/v1/reservations/{id}(getReservationForPayment) 응답.
@@ -32,8 +31,11 @@ public record ReservationForPaymentResponseDto(
                 reservation.getTicketTypeId(),
                 reservation.getQuantity(),
                 reservation.getExpiresAt(),
-                reservation.getFestivalId(), reservation.getHostUserId(), (long) reservation.getPrice(),
-                reservation.getRefundedQuantity(), reservation.getPaymentId()
+                reservation.getFestivalId(),
+                reservation.getHostUserId(),
+                (long) reservation.getPrice(),
+                reservation.getRefundedQuantity(),
+                reservation.getPaymentId()
         );
     }
 }

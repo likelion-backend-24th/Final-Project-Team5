@@ -1,5 +1,8 @@
 package org.example.reservationservice.reservation.service;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -7,25 +10,38 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.exception.ApiException;
+import org.example.reservationservice.reservation.dto.CheckInStatsResponseDto;
+import org.example.reservationservice.reservation.dto.ReservationCancelRequestDto;
+import org.example.reservationservice.reservation.dto.ReservationConfirmRequestDto;
+import org.example.reservationservice.reservation.dto.ReservationCreateRequestDto;
+import org.example.reservationservice.reservation.dto.ReservationExtendHoldRequestDto;
+import org.example.reservationservice.reservation.dto.ReservationForPaymentResponseDto;
+import org.example.reservationservice.reservation.dto.ReservationQrResponseDto;
+import org.example.reservationservice.reservation.dto.ReservationRefundQuoteResponseDto;
+import org.example.reservationservice.reservation.dto.ReservationRefundRequestDto;
+import org.example.reservationservice.reservation.dto.ReservationResponseDto;
+import org.example.reservationservice.reservation.dto.ReservationVerifyByCodeRequestDto;
+import org.example.reservationservice.reservation.dto.ReservationVerifyRequestDto;
+import org.example.reservationservice.reservation.dto.ReservationVerifyResponseDto;
+import org.example.reservationservice.reservation.entity.CancelReason;
 import org.example.reservationservice.reservation.entity.CheckInCodeGenerator;
+import org.example.reservationservice.reservation.entity.RefundReceipt;
+import org.example.reservationservice.reservation.entity.Reservation;
+import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.example.reservationservice.reservation.entity.refund.RefundPolicy;
 import org.example.reservationservice.reservation.entity.refund.RefundQuote;
 import org.example.reservationservice.reservation.entity.refund.StockReleaseQueue;
 import org.example.reservationservice.reservation.entity.refund.StockReleaseQueueRepository;
 import org.example.reservationservice.reservation.entity.refund.StockReleaseScheduler;
-import org.example.reservationservice.reservation.dto.*;
-import org.example.reservationservice.reservation.entity.CancelReason;
-import org.example.reservationservice.reservation.entity.Reservation;
-import org.example.reservationservice.reservation.entity.RefundReceipt;
-import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.example.reservationservice.reservation.exception.ReservationErrorCode;
+import org.example.reservationservice.reservation.infrastructure.festival.FestivalServiceClient;
+import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalDetailResponseDto;
 import org.example.reservationservice.reservation.repository.ReservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.example.reservationservice.reservation.infrastructure.festival.FestivalServiceClient;
-import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalDetailResponseDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,8 +51,8 @@ import org.springframework.web.client.RestClientException;
 @Service
 @RequiredArgsConstructor
 public class ReservationService {
-    @jakarta.persistence.PersistenceContext
-    private jakarta.persistence.EntityManager entityManager;
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private static final String PUBLISHED = "PUBLISHED";
     private static final String HELPER_ROLE = "HELPER";
@@ -235,6 +251,7 @@ public class ReservationService {
         return ReservationForPaymentResponseDto.from(reservation);
     }
 
+    // 결제 서비스가 타 서비스 DB를 직접 읽지 않고 정산 수량과 단가를 대조하도록 제공한다.
     public List<ReservationForPaymentResponseDto> settlementReservations(Long festivalId) {
         return reservationRepository.findByFestivalId(festivalId).stream().map(ReservationForPaymentResponseDto::from).toList();
     }
@@ -327,10 +344,11 @@ public class ReservationService {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
 
-        entityManager.lock(reservation, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        if (!java.util.Objects.equals(reservation.getPaymentId(), request.paymentId())) {
+        entityManager.lock(reservation, LockModeType.PESSIMISTIC_WRITE);
+        if (!Objects.equals(reservation.getPaymentId(), request.paymentId())) {
             throw new ApiException(ReservationErrorCode.PAYMENT_AMOUNT_MISMATCH);
         }
+        // 취소 ID별로 한 번만 반영해 웹훅·API 응답 중복을 막는다.
         if (request.cancellationId() != null) {
             RefundReceipt receipt = entityManager.find(RefundReceipt.class, request.cancellationId());
             if (receipt != null) {

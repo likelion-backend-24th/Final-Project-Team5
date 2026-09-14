@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { GoogleIcon, KakaoIcon } from '../components/SocialIcons'
@@ -14,6 +14,7 @@ const LOGIN_ERROR_MESSAGES = {
   ACCOUNT_SUSPENDED: '정지된 계정이에요. 고객센터에 문의해주세요.',
   ACCOUNT_WITHDRAWN: '탈퇴한 계정이에요.',
   SOCIAL_LOGIN_REQUIRED: '이 계정은 소셜 로그인으로 전환됐어요. 아래 소셜 로그인으로 로그인해주세요.',
+  OAUTH_TOKEN_INVALID: '소셜 로그인 인증에 실패했어요. 다시 시도해주세요.',
 }
 
 // 위에서부터 순서대로 검사하다 처음 걸리는 에러 하나만 반환한다(early return).
@@ -44,11 +45,25 @@ function inputClass(hasError) {
 function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
+  const [searchParams] = useSearchParams()
   const [form, setForm] = useState({ username: '', password: '' })
   const [errors, setErrors] = useState({})
   const [showPassword, setShowPassword] = useState(false)
-  const [submitError, setSubmitError] = useState('')
+  //카카오/구글 콜백이 실패하면(탈퇴·정지 계정 등) 이 화면으로 ?error=코드와 함께 돌아온다.
+  const [submitError, setSubmitError] = useState(() => {
+    const oauthErrorCode = searchParams.get('error')
+    return oauthErrorCode
+      ? LOGIN_ERROR_MESSAGES[oauthErrorCode] ?? '로그인에 실패했어요. 잠시 후 다시 시도해주세요.'
+      : ''
+  })
   const [submitting, setSubmitting] = useState(false)
+
+  //새로고침해도 에러가 계속 뜨지 않도록 쿼리스트링은 한 번 읽고 지운다.
+  useEffect(() => {
+    if (searchParams.get('error')) {
+      navigate('/login', { replace: true })
+    }
+  }, [])
 
   function handleChange(field) {
     return (event) => {

@@ -5,11 +5,11 @@ import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.dto.ApiResponse;
 import org.example.reservationservice.common.exception.ApiException;
 import org.example.reservationservice.domain.CheckInStatsResponseDto;
-import org.example.reservationservice.domain.ReservationErrorCode;
-import org.example.reservationservice.domain.ReservationService;
-import org.example.reservationservice.domain.ReservationVerifyByCodeRequestDto;
-import org.example.reservationservice.domain.ReservationVerifyRequestDto;
-import org.example.reservationservice.domain.ReservationVerifyResponseDto;
+import org.example.reservationservice.reservation.exception.ReservationErrorCode;
+import org.example.reservationservice.reservation.service.ReservationService;
+import org.example.reservationservice.reservation.dto.ReservationVerifyByCodeRequestDto;
+import org.example.reservationservice.reservation.dto.ReservationVerifyRequestDto;
+import org.example.reservationservice.reservation.dto.ReservationVerifyResponseDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

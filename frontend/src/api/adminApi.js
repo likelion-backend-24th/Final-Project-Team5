@@ -16,12 +16,12 @@ export function reviewFestival(id, { decision, rejectReason }) {
   return apiClient.patch(`/api/admin/festivals/${id}`, { decision, rejectReason })
 }
 
-// 주최자가 요청한 행사 취소 승인 대상을 조회한다.
+//주최자가 요청한 행사 취소 목록(approved=true면 이미 환불 배치 진행 중)
 export function fetchCancellationRequests() {
   return apiClient.get('/api/admin/festivals/cancellation-requests')
 }
 
-// 위약금 없는 전액 환불 배치를 시작하도록 행사 취소를 승인한다.
+//행사 취소 승인 — 이후 payment-service 배치가 남은 티켓을 위약금 없이 전액 환불한다(되돌릴 수 없음)
 export function approveFestivalCancellation(festivalId) {
-  return apiClient.post(`/api/admin/festivals/${festivalId}/approve-cancellation`, { reason: '' })
+  return apiClient.post(`/api/admin/festivals/${festivalId}/approve-cancellation`)
 }

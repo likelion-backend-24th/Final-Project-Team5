@@ -14,7 +14,7 @@ const LIST_ERROR_MESSAGE = '정산 내역을 불러오지 못했습니다. 다�
 const DETAIL_ERROR_MESSAGE = '정산 상세를 불러오지 못했습니다. 다시 시도해 주세요.'
 
 const initialFilters = { festivalName: '', hostName: '', status: '', from: '', to: '' }
-export default function SettlementReport({ host = false }) {
+function SettlementReport({ host = false }) {
   const [draft, setDraft] = useState(initialFilters)
   const [filters, setFilters] = useState(initialFilters)
   const [page, setPage] = useState(0)
@@ -140,10 +140,7 @@ export default function SettlementReport({ host = false }) {
           ? '행사가 끝나면 정산을 준비해요. 받을 금액과 진행 상황을 확인하세요.'
           : '행사별 금액을 확인하고, 검토가 끝난 정산부터 지급을 준비하세요.'}
       </p>
-      <SummaryCards
-        metrics={metrics}
-        loading={loading}
-      />
+      <SummaryCards metrics={metrics} loading={loading} />
       <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <SettlementFilters
           host={host}
@@ -156,34 +153,15 @@ export default function SettlementReport({ host = false }) {
           setRefresh={setRefresh}
         />
         {error && (
-          <div
-            role="alert"
-            className="m-5 rounded-xl bg-red-50 p-4 text-sm text-red-700"
-          >
+          <div role="alert" className="m-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
             {error}
-            <button
-              type="button"
-              className="ml-3 font-bold underline"
-              onClick={() => setRefresh((v) => v + 1)}
-            >
+            <button type="button" className="ml-3 font-bold underline" onClick={() => setRefresh((v) => v + 1)}>
               다시 시도
             </button>
           </div>
         )}
-        <SettlementTable
-          loading={loading}
-          error={error}
-          rows={rows}
-          host={host}
-          busy={busy}
-          open={open}
-        />
-        <SettlementPagination
-          pagination={pagination}
-          loading={loading}
-          page={page}
-          setPage={setPage}
-        />
+        <SettlementTable loading={loading} error={error} rows={rows} host={host} busy={busy} open={open} />
+        <SettlementPagination pagination={pagination} loading={loading} page={page} setPage={setPage} />
       </section>
       <StatusGuide />
       {detail && (
@@ -207,16 +185,10 @@ function SummaryCards({ metrics, loading }) {
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       {metrics.map(({ label, value, hint, Icon, style }) => (
-        <div
-          className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
-          key={label}
-        >
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm" key={label}>
           <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
             <span className={`rounded-lg p-2 ${style}`}>
-              <Icon
-                size={17}
-                aria-hidden="true"
-              />
+              <Icon size={17} aria-hidden="true" />
             </span>
             {label}
           </div>
@@ -232,10 +204,7 @@ function SummaryCards({ metrics, loading }) {
 
 function SettlementFilters({ host, draft, setDraft, filters, search, status, reset, setRefresh }) {
   return (
-    <form
-      onSubmit={search}
-      className="space-y-3 border-b border-gray-100 p-4 sm:p-5"
-    >
+    <form onSubmit={search} className="space-y-3 border-b border-gray-100 p-4 sm:p-5">
       <div className="flex flex-wrap items-end gap-3">
         <label className="min-w-40 flex-1 space-y-1.5 text-xs font-semibold text-gray-500">
           페스티벌 이름
@@ -261,30 +230,17 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
         )}
         <label className="min-w-32 space-y-1.5 text-xs font-semibold text-gray-500">
           정산 상태
-          <select
-            className={INPUT_CLASS}
-            value={draft.status}
-            onChange={(e) => status(e.target.value)}
-          >
+          <select className={INPUT_CLASS} value={draft.status} onChange={(e) => status(e.target.value)}>
             <option value="">전체 상태</option>
             {Object.entries(SETTLEMENT_STATES).map(([key, state]) => (
-              <option
-                key={key}
-                value={key}
-              >
+              <option key={key} value={key}>
                 {state.label}
               </option>
             ))}
           </select>
         </label>
-        <button
-          className={PRIMARY_BUTTON}
-          type="submit"
-        >
-          <Search
-            size={16}
-            aria-hidden="true"
-          />
+        <button className={PRIMARY_BUTTON} type="submit">
+          <Search size={16} aria-hidden="true" />
           검색
         </button>
         <button
@@ -294,10 +250,7 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
           type="button"
           onClick={() => setRefresh((v) => v + 1)}
         >
-          <RefreshCw
-            size={16}
-            aria-hidden="true"
-          />
+          <RefreshCw size={16} aria-hidden="true" />
         </button>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
@@ -329,11 +282,7 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
           </div>
         </details>
         {Object.values(filters).some(Boolean) && (
-          <button
-            type="button"
-            onClick={reset}
-            className="underline underline-offset-2"
-          >
+          <button type="button" onClick={reset} className="underline underline-offset-2">
             검색 초기화
           </button>
         )}
@@ -344,21 +293,14 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
 
 function SettlementTable({ loading, error, rows, host, busy, open }) {
   return loading ? (
-    <p
-      role="status"
-      className="p-12 text-center text-sm text-gray-500"
-    >
+    <p role="status" className="p-12 text-center text-sm text-gray-500">
       정산 내역을 불러오는 중…
     </p>
   ) : (
     !error &&
       (rows.length === 0 ? (
         <div className="p-12 text-center">
-          <Wallet
-            size={32}
-            className="mx-auto mb-3 text-gray-300"
-            aria-hidden="true"
-          />
+          <Wallet size={32} className="mx-auto mb-3 text-gray-300" aria-hidden="true" />
           <p className="font-semibold">조회 조건에 해당하는 정산이 없습니다.</p>
           <p className="mt-2 text-sm text-gray-500">
             검색 조건을 바꾸거나, 행사 종료 후 24시간이 지났는지 확인해 주세요.
@@ -370,28 +312,16 @@ function SettlementTable({ loading, error, rows, host, busy, open }) {
             <caption className="sr-only">페스티벌별 정산</caption>
             <thead className="bg-gray-50 text-left text-xs text-gray-500">
               <tr>
-                <th
-                  scope="col"
-                  className="px-5 py-3 font-medium"
-                >
+                <th scope="col" className="px-5 py-3 font-medium">
                   페스티벌
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 py-3 font-medium"
-                >
+                <th scope="col" className="px-3 py-3 font-medium">
                   진행 상태
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 py-3 text-right font-medium"
-                >
+                <th scope="col" className="px-3 py-3 text-right font-medium">
                   지급액
                 </th>
-                <th
-                  scope="col"
-                  className="px-3 py-3"
-                >
+                <th scope="col" className="px-3 py-3">
                   <span className="sr-only">상세</span>
                 </th>
               </tr>
@@ -404,10 +334,7 @@ function SettlementTable({ loading, error, rows, host, busy, open }) {
                   ? (row.paidPayoutAmount ?? row.payoutAmount)
                   : (row.payableAmount ?? row.payoutAmount)
                 return (
-                  <tr
-                    key={row.id}
-                    className="transition hover:bg-blue-50/30"
-                  >
+                  <tr key={row.id} className="transition hover:bg-blue-50/30">
                     <td className="px-5 py-4">
                       <p className="min-w-36 font-bold text-gray-800">{row.festivalName}</p>
                       {!host && (
@@ -438,10 +365,7 @@ function SettlementTable({ loading, error, rows, host, busy, open }) {
                         onClick={() => open(row.id)}
                         aria-label={`${row.festivalName} 상세`}
                       >
-                        <ArrowUpRight
-                          size={18}
-                          aria-hidden="true"
-                        />
+                        <ArrowUpRight size={18} aria-hidden="true" />
                       </button>
                     </td>
                   </tr>
@@ -490,10 +414,7 @@ function StatusGuide() {
       <summary className="cursor-pointer font-medium">정산 상태가 궁금하신가요?</summary>
       <dl className="mt-4 grid gap-4 sm:grid-cols-2">
         {Object.values(SETTLEMENT_STATES).map((state) => (
-          <div
-            key={state.label}
-            className="rounded-xl bg-white p-4"
-          >
+          <div key={state.label} className="rounded-xl bg-white p-4">
             <dt className="font-bold text-gray-700">{state.label}</dt>
             <dd className="mt-1 text-xs leading-relaxed">{state.description}</dd>
           </div>
@@ -502,3 +423,5 @@ function StatusGuide() {
     </details>
   )
 }
+
+export default SettlementReport

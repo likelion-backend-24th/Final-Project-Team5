@@ -2,7 +2,9 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import SettlementReport from '../components/SettlementReport'
 import styles from './AdminList.module.css'
-export default function HostSettlements() {
+
+/** 주최자 본인의 정산 목록·상세(읽기 전용). 관리자 대시보드와 같은 SettlementReport를 host 모드로 쓴다. */
+function HostSettlements() {
   const { user, isLoading } = useAuth()
   return (
     <main className={styles.main}>
@@ -22,3 +24,5 @@ export default function HostSettlements() {
     </main>
   )
 }
+
+export default HostSettlements

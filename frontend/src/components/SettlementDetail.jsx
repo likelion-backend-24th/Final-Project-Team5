@@ -43,7 +43,7 @@ const HOLD_REASON_MESSAGES = {
   MISSING_REFUND_SNAPSHOT: '환불 계산에 필요한 이전 내역이 부족해요.',
 }
 
-export default function SettlementDetail({ detail, host, busy, error, onClose, onCommand }) {
+function SettlementDetail({ detail, host, busy, error, onClose, onCommand }) {
   const dialog = useRef(null)
   const [action, setAction] = useState('')
   const [memo, setMemo] = useState('')
@@ -113,10 +113,7 @@ export default function SettlementDetail({ detail, host, busy, error, onClose, o
       <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-gray-100 bg-white px-6 py-5">
         <div>
           <p className="mb-1 text-xs font-bold tracking-wide text-blue-600">정산 상세</p>
-          <h2
-            id="settlement-detail-title"
-            className="text-lg font-extrabold tracking-tight"
-          >
+          <h2 id="settlement-detail-title" className="text-lg font-extrabold tracking-tight">
             {detail.festivalName}
           </h2>
           <p className="mt-1 text-sm text-gray-500">{detail.hostName || '주최자 이름 확인 중'}</p>
@@ -131,34 +128,12 @@ export default function SettlementDetail({ detail, host, busy, error, onClose, o
         </button>
       </header>
       <div className="space-y-6 p-6">
-        <PayoutSummary
-          paid={paid}
-          proposed={proposed}
-          status={status}
-          unsettled={unsettled}
-          value={value}
-        />
-        <HoldNotice
-          host={host}
-          detail={detail}
-          paid={paid}
-          debt={debt}
-          proposed={proposed}
-          correction={correction}
-        />
-        <PayoutBreakdown
-          unsettled={unsettled}
-          paid={paid}
-          detail={detail}
-          correction={correction}
-          value={value}
-        />
+        <PayoutSummary paid={paid} proposed={proposed} status={status} unsettled={unsettled} value={value} />
+        <HoldNotice host={host} detail={detail} paid={paid} debt={debt} proposed={proposed} correction={correction} />
+        <PayoutBreakdown unsettled={unsettled} paid={paid} detail={detail} correction={correction} value={value} />
         <ProgressSteps detail={detail} />
         {error && (
-          <p
-            role="alert"
-            className="rounded-xl bg-red-50 p-3 text-sm text-red-700"
-          >
+          <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
             {error}
           </p>
         )}
@@ -181,15 +156,9 @@ export default function SettlementDetail({ detail, host, busy, error, onClose, o
           setAction={setAction}
         />
         <div className="divide-y divide-gray-100 border-t border-gray-100">
-          <FeeBreakdown
-            detail={detail}
-            methods={methods}
-          />
+          <FeeBreakdown detail={detail} methods={methods} />
           <AdjustmentList detail={detail} />
-          <AuditTrail
-            host={host}
-            detail={detail}
-          />
+          <AuditTrail host={host} detail={detail} />
         </div>
       </div>
     </dialog>
@@ -249,10 +218,7 @@ function HoldNotice({ host, detail, paid, debt, proposed, correction }) {
       )}
       {proposed && (
         <p className="flex gap-2 text-sm leading-relaxed text-orange-800">
-          <Info
-            size={18}
-            className="mt-0.5 shrink-0"
-          />
+          <Info size={18} className="mt-0.5 shrink-0" />
           최초 확정액 {formatMoney(detail.payoutAmount)}에서 환불 조정 {formatMoney(correction)}을 반영했어요.{' '}
           {host ? '관리자의 재승인을 기다리고 있어요.' : '변경된 금액을 승인한 뒤 지급해 주세요.'}
         </p>
@@ -273,35 +239,16 @@ function PayoutBreakdown({ unsettled, paid, detail, correction, value }) {
             </p>
           )}
           <dl className="divide-y divide-gray-100 text-sm">
-            <MoneyRow
-              label="티켓 결제액"
-              amount={detail.grossPaymentAmount}
-            />
-            <MoneyRow
-              label="구매자에게 돌려준 금액"
-              amount={-detail.customerRefundAmount}
-            />
-            <MoneyRow
-              label="플랫폼 수수료"
-              amount={-detail.platformFeeAmount}
-            />
+            <MoneyRow label="티켓 결제액" amount={detail.grossPaymentAmount} />
+            <MoneyRow label="구매자에게 돌려준 금액" amount={-detail.customerRefundAmount} />
+            <MoneyRow label="플랫폼 수수료" amount={-detail.platformFeeAmount} />
             {detail.adjustmentAmount !== 0 && (
-              <MoneyRow
-                label="이전 정산에서 반영한 금액"
-                amount={detail.adjustmentAmount}
-              />
+              <MoneyRow label="이전 정산에서 반영한 금액" amount={detail.adjustmentAmount} />
             )}
             {correction !== 0 && (
-              <MoneyRow
-                label="지급 전 환불 조정"
-                amount={correction}
-              />
+              <MoneyRow label="지급 전 환불 조정" amount={correction} />
             )}
-            <MoneyRow
-              label={paid ? '지급한 금액' : '최종 지급액'}
-              amount={value}
-              strong
-            />
+            <MoneyRow label={paid ? '지급한 금액' : '최종 지급액'} amount={value} strong />
           </dl>
           {detail.cancellationPenaltyAmount > 0 && (
             <p className="mt-3 rounded-xl bg-gray-50 p-3 text-xs leading-relaxed text-gray-600">
@@ -318,10 +265,7 @@ function PayoutBreakdown({ unsettled, paid, detail, correction, value }) {
 function ProgressSteps({ detail }) {
   return (
     <>
-      <ol
-        aria-label="정산 진행 단계"
-        className="grid grid-cols-3 gap-2 rounded-2xl border border-gray-100 p-4 text-xs"
-      >
+      <ol aria-label="정산 진행 단계" className="grid grid-cols-3 gap-2 rounded-2xl border border-gray-100 p-4 text-xs">
         {[
           ['계산', detail.calculatedAt],
           ['확정', detail.reapprovedAt || detail.confirmedAt],
@@ -370,40 +314,25 @@ function ActionPanel({
           {!action && (
             <div className="flex flex-wrap gap-2">
               {mainAction && (
-                <button
-                  disabled={busy}
-                  className={PRIMARY_BUTTON}
-                  onClick={() => begin(mainAction)}
-                >
+                <button disabled={busy} className={PRIMARY_BUTTON} onClick={() => begin(mainAction)}>
                   {ACTION_LABELS[mainAction]}
                   <ArrowRight size={16} />
                 </button>
               )}
               {canRecalculate && (
-                <button
-                  disabled={busy}
-                  className={SECONDARY_BUTTON}
-                  onClick={() => begin('recalculate')}
-                >
+                <button disabled={busy} className={SECONDARY_BUTTON} onClick={() => begin('recalculate')}>
                   다시 계산
                 </button>
               )}
               {detail.status === 'CALCULATED' && (
-                <button
-                  disabled={busy}
-                  className={SECONDARY_BUTTON}
-                  onClick={() => begin('hold')}
-                >
+                <button disabled={busy} className={SECONDARY_BUTTON} onClick={() => begin('hold')}>
                   정산 보류
                 </button>
               )}
             </div>
           )}
           {action && (
-            <form
-              onSubmit={submit}
-              className="space-y-4 rounded-2xl border border-blue-200 bg-blue-50/50 p-4"
-            >
+            <form onSubmit={submit} className="space-y-4 rounded-2xl border border-blue-200 bg-blue-50/50 p-4">
               <h3 className="font-bold">{ACTION_LABELS[action]}할까요?</h3>
               <p className="text-sm leading-relaxed text-gray-600">{ACTION_EXPLANATIONS[action]}</p>
               {['confirm', 'reapprove', 'mark-paid'].includes(action) && (
@@ -445,19 +374,10 @@ function ActionPanel({
                 />
               </label>
               <div className="flex gap-2">
-                <button
-                  disabled={busy}
-                  className={PRIMARY_BUTTON}
-                  type="submit"
-                >
+                <button disabled={busy} className={PRIMARY_BUTTON} type="submit">
                   {busy ? '처리 중…' : '확인하고 실행'}
                 </button>
-                <button
-                  disabled={busy}
-                  className={SECONDARY_BUTTON}
-                  type="button"
-                  onClick={() => setAction('')}
-                >
+                <button disabled={busy} className={SECONDARY_BUTTON} type="button" onClick={() => setAction('')}>
                   취소
                 </button>
               </div>
@@ -484,15 +404,9 @@ function FeeBreakdown({ detail, methods }) {
           환불한 티켓 금액 {formatMoney(detail.grossRefundedFaceAmount)} · 실제 환급{' '}
           {formatMoney(detail.customerRefundAmount)} · 위약금 {formatMoney(detail.cancellationPenaltyAmount)}
         </p>
-        <ul
-          aria-label="결제수단별 합계"
-          className="mb-3 space-y-2"
-        >
+        <ul aria-label="결제수단별 합계" className="mb-3 space-y-2">
           {methods.map((group) => (
-            <li
-              key={group.method}
-              className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600"
-            >
+            <li key={group.method} className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
               <strong>{METHOD_LABELS[group.method] || '확인 중'}</strong> · 결제액 {formatMoney(group.gross)}{' '}
               · 수수료 {formatMoney(group.fee)}
             </li>
@@ -504,11 +418,7 @@ function FeeBreakdown({ detail, methods }) {
             <thead className="bg-gray-50 text-gray-500">
               <tr>
                 {['결제수단', '결제액', '최초 수수료', '환불로 돌려받은 수수료', '최종 수수료'].map((t) => (
-                  <th
-                    scope="col"
-                    key={t}
-                    className="p-2 font-medium"
-                  >
+                  <th scope="col" key={t} className="p-2 font-medium">
                     {t}
                   </th>
                 ))}
@@ -516,16 +426,10 @@ function FeeBreakdown({ detail, methods }) {
             </thead>
             <tbody>
               {detail.lines?.map((line, i) => (
-                <tr
-                  key={i}
-                  className="border-b border-gray-50"
-                >
+                <tr key={i} className="border-b border-gray-50">
                   <td className="p-2">{METHOD_LABELS[line.paymentMethod] || '확인 중'}</td>
                   {['grossAmount', 'initialFeeAmount', 'feeReversalAmount', 'finalFeeAmount'].map((k) => (
-                    <td
-                      key={k}
-                      className="p-2 tabular-nums"
-                    >
+                    <td key={k} className="p-2 tabular-nums">
                       {formatMoney(line[k])}
                     </td>
                   ))}
@@ -546,10 +450,7 @@ function AdjustmentList({ detail }) {
         <details className="py-4">
           <summary className="cursor-pointer text-sm font-semibold text-gray-600">환불 조정 내역</summary>
           {detail.adjustments.map((a, i) => (
-            <div
-              key={i}
-              className="mt-3 flex justify-between gap-4 text-sm"
-            >
+            <div key={i} className="mt-3 flex justify-between gap-4 text-sm">
               <div>
                 <p>{a.kind === 'PRE_PAYMENT' ? '지급 전 금액 변경' : '지급 후 정산 조정'}</p>
                 <p className="text-xs text-gray-500">{formatDate(a.createdAt)}</p>
@@ -575,10 +476,7 @@ function AuditTrail({ host, detail }) {
           </p>
           <ol className="space-y-3">
             {detail.auditLogs?.map((log) => (
-              <li
-                key={log.id}
-                className="border-l-2 border-blue-100 pl-3 text-sm"
-              >
+              <li key={log.id} className="border-l-2 border-blue-100 pl-3 text-sm">
                 <p className="font-semibold">{actionLabel(log.action)}</p>
                 <p className="mt-1 text-xs text-gray-500">
                   {formatDate(log.createdAt)} · {log.actorUserId ? `담당자 #${log.actorUserId}` : '자동 처리'}
@@ -597,3 +495,5 @@ function AuditTrail({ host, detail }) {
     </>
   )
 }
+
+export default SettlementDetail

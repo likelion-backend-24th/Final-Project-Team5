@@ -244,7 +244,13 @@ function HostFestivalDetail() {
         </Link>
 
         <HostHelperAccounts festivalId={id} />
-        {['PUBLISHED', 'CLOSED'].includes(festival.festivalStatus) && <HostFestivalCancellation festivalId={id} />}
+        {['PUBLISHED', 'CLOSED', 'CANCELLATION_PENDING'].includes(festival.festivalStatus) && (
+          <HostFestivalCancellation
+            festivalId={id}
+            festivalStatus={festival.festivalStatus}
+            onRequested={(festivalStatus) => setFestival((prev) => ({ ...prev, festivalStatus }))}
+          />
+        )}
       </div>
     </main>
   )

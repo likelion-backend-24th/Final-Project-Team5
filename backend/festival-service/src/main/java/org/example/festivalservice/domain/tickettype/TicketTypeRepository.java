@@ -13,6 +13,7 @@ public interface TicketTypeRepository extends JpaRepository<TicketType, Long> {
     List<TicketType> findByFestivalId(Long festivalId);
 
     @Modifying
+    // 상태 조회와 차감 사이에 취소 요청이 들어오는 경합을 DB에서 막는다.
     @Query("UPDATE TicketType t SET t.remainQuantity = t.remainQuantity - :qty " +
             "WHERE t.id = :id AND t.remainQuantity >= :qty AND t.festival.id IN " +
             "(SELECT f.id FROM Festival f WHERE f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED)")

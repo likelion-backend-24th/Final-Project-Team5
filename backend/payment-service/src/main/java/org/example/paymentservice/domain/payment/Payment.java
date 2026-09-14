@@ -1,14 +1,24 @@
 package org.example.paymentservice.domain.payment;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.paymentservice.domain.settlement.SettlementCalculator;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-
-import java.time.LocalDateTime;
 
 /**
  * 예매(Reservation) 1건에 대응하는 결제 건. PortOne의 paymentId를 그대로 식별자로 사용한다.
@@ -19,13 +29,19 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-@Table(name = "payments", uniqueConstraints = @UniqueConstraint(name = "uk_payments_payment_id", columnNames = "payment_id"))
+@Table(
+    name = "payments",
+    uniqueConstraints = @UniqueConstraint(name = "uk_payments_payment_id", columnNames = "payment_id")
+)
 public class Payment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Version @Column(columnDefinition = "BIGINT DEFAULT 0") private Long version;
+
+    @Version
+    @Column(columnDefinition = "BIGINT DEFAULT 0")
+    private Long version;
 
     // PortOne API·SDK와 공유하는 팀 접두사 포함 결제 ID (예: BE24-T05-...)
     @Column(name = "payment_id", nullable = false, length = 100)
@@ -56,18 +72,23 @@ public class Payment {
     private Long festivalId;
     private Long hostUserId;
     private Long unitPrice;
-    private java.time.Instant paidAt;
+    private Instant paidAt;
+
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "VARCHAR(30)")
     private PaymentMethodCategory payMethodCategory;
+
     private String easyPayProvider;
     private Integer platformFeeRateBps;
     private String feePolicyVersion;
     private Boolean testPayment;
-    private java.time.Instant reservationConfirmedAt;
-    public void markReservationConfirmed() { reservationConfirmedAt = java.time.Instant.now(); }
+    private Instant reservationConfirmedAt;
 
-    public void snapshotApproval(String rawMethod, String provider, java.time.Instant approvedAt, Boolean test) {
+    public void markReservationConfirmed() {
+        reservationConfirmedAt = Instant.now();
+    }
+
+    public void snapshotApproval(String rawMethod, String provider, Instant approvedAt, Boolean test) {
         this.payMethod = rawMethod;
         this.payMethodCategory = PaymentMethodCategory.fromRaw(rawMethod);
         this.easyPayProvider = provider;
@@ -75,8 +96,7 @@ public class Payment {
         this.testPayment = test;
         this.platformFeeRateBps = payMethodCategory.rateBps();
         this.feePolicyVersion = "2026-09-v1";
-        this.platformFee = platformFeeRateBps == null ? 0 :
-                org.example.paymentservice.domain.settlement.SettlementCalculator.fee(ticketAmount, platformFeeRateBps);
+        this.platformFee = platformFeeRateBps == null ? 0 : SettlementCalculator.fee(ticketAmount, platformFeeRateBps);
     }
 
     // MySQL 네이티브 ENUM으로 만들면 값 추가 시 ddl-auto: update가 허용값을 넓혀주지 않으므로 VARCHAR로 고정한다.

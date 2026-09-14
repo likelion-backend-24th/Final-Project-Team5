@@ -1,7 +1,17 @@
 package org.example.paymentservice.domain.settlement;
+
 public enum SettlementStatus {
-    PENDING, CALCULATED, HELD, CONFIRMED, PAID, ADJUSTMENT_REQUIRED;
-    public boolean recalculable() { return this == PENDING || this == CALCULATED || this == HELD; }
+    PENDING,
+    CALCULATED,
+    HELD,
+    CONFIRMED,
+    PAID,
+    ADJUSTMENT_REQUIRED;
+
+    public boolean recalculable() {
+        return this == PENDING || this == CALCULATED || this == HELD;
+    }
+
     public boolean permits(SettlementStatus next) {
         return switch (this) {
             case PENDING -> next == CALCULATED || next == HELD;

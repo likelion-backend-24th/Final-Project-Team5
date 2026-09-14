@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +55,7 @@ class PaymentServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
         paymentService = new PaymentService(paymentRepository, paymentTransactionRepository, reservationServiceClient, portOnePaymentClient);
         ReflectionTestUtils.setField(paymentService, "paymentIdPrefix", "BE24-T05-");
         ReflectionTestUtils.setField(paymentService, "storeId", "store-test");

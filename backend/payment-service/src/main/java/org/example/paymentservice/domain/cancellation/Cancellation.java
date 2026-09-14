@@ -1,6 +1,17 @@
 package org.example.paymentservice.domain.cancellation;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -24,11 +35,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 @NoArgsConstructor
 @Getter
 @Table(
-        name = "cancellations",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_cancellations_cancellation_id", columnNames = "cancellation_id"),
-                @UniqueConstraint(name = "uk_cancellations_idempotency_key", columnNames = "idempotency_key")
-        }
+    name = "cancellations",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "uk_cancellations_cancellation_id", columnNames = "cancellation_id"),
+        @UniqueConstraint(name = "uk_cancellations_idempotency_key", columnNames = "idempotency_key"),
+    }
 )
 public class Cancellation {
 
@@ -74,15 +85,22 @@ public class Cancellation {
     private Integer penaltyRatePercent;
     private Long penaltyAmount;
     private Long feeReversalAmount;
+
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "VARCHAR(30)")
     private CancellationBusinessReason businessReason;
+
     private Long requestedByUserId;
     private String requestedByRole;
     private Instant reservationAppliedAt;
-    @Column(unique = true) private Long activePaymentId;
 
-    public void markReservationApplied() { this.reservationAppliedAt = Instant.now(); this.activePaymentId = null; }
+    @Column(unique = true)
+    private Long activePaymentId;
+
+    public void markReservationApplied() {
+        this.reservationAppliedAt = Instant.now();
+        this.activePaymentId = null;
+    }
 
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
@@ -99,6 +117,7 @@ public class Cancellation {
      * PortOne 재조회 결과로 이 취소를 최신 상태에 맞춘다.
      * 가이드 9.5 — 이미 확정된 취소를 늦게 도착한 중간 상태가 되돌리지 않게 막는다.
      */
+    // 지연된 성공 통지는 실패를 복구할 수 있지만 성공을 실패로 되돌리면 이중 환불 위험이 생긴다.
     public void syncFrom(String cancellationId, CancellationStatus remoteStatus, Instant cancelledAt) {
         if (this.cancellationId == null) {
             this.cancellationId = cancellationId;

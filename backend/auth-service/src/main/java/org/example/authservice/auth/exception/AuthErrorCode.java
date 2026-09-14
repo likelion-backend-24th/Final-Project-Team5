@@ -20,7 +20,9 @@ public enum AuthErrorCode implements ErrorCode {
     ACCOUNT_LOCKED(HttpStatus.FORBIDDEN, "로그인 시도 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
     TERMS_NOT_AGREED(HttpStatus.BAD_REQUEST, "이용약관 및 개인정보처리방침에 동의해야 합니다."),
     OAUTH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "소셜 로그인 토큰이 유효하지 않습니다."),
-    PASSWORD_CHANGED_RELOGIN_REQUIRED(HttpStatus.UNAUTHORIZED, "비밀번호가 변경되어 다시 로그인해야 합니다.");
+    PASSWORD_CHANGED_RELOGIN_REQUIRED(HttpStatus.UNAUTHORIZED, "비밀번호가 변경되어 다시 로그인해야 합니다."),
+    SOCIAL_LOGIN_REQUIRED(HttpStatus.CONFLICT, "이 계정은 소셜 로그인 전용 계정이에요. 소셜 로그인으로 로그인해주세요."),
+    OAUTH_LINK_TOKEN_INVALID(HttpStatus.BAD_REQUEST, "전환 요청이 만료되었거나 유효하지 않습니다. 다시 시도해주세요.");
 
     private final HttpStatus httpStatus;
     private final String message;

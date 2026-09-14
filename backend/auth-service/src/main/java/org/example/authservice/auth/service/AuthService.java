@@ -1,5 +1,6 @@
 package org.example.authservice.auth.service;
 
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.example.authservice.auth.dto.LoginRequest;
 import org.example.authservice.auth.dto.SignupRequest;
@@ -75,6 +76,11 @@ public class AuthService {
         if(existingUser.isPresent()){
             User user = existingUser.get();
             user.setPassword(passwordEncoder.encode(signupRequest.getPassword()));
+            //소셜 최초 로그인 후 아직 약관 동의 화면(/welcome)을 거치지 않은 상태로 여기 들어올 수 있다.
+            //방금 termsAgreed를 확인했으니 이 시점을 약관 동의 시각으로 기록한다.
+            if (user.getTermsAgreeAt() == null) {
+                user.setTermsAgreeAt(LocalDateTime.now());
+            }
             userRepository.save(user);
             return; //여기서 메서드 종료해야함 밑으로 가면 안됨.
         }
@@ -101,6 +107,11 @@ public class AuthService {
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())){
             throw new ApiException(AuthErrorCode.ACCOUNT_LOCKED);
         }
+        //소셜 로그인 전용으로 전환된(또는 소셜로만 가입된) 계정은 비밀번호 자체가 없다. matches()에 null을
+        //넘기면 예외가 나므로 여기서 먼저 걸러, 실패 횟수도 늘리지 않고 소셜 로그인으로 안내한다.
+        if (user.getPassword() == null) {
+            throw new ApiException(AuthErrorCode.SOCIAL_LOGIN_REQUIRED);
+        }
         // 비밀번호 불일치 검증
         if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
             //비번 틀릴 때마다 실패횟수 1씩 증가
@@ -115,11 +126,14 @@ public class AuthService {
         user.setLockedUntil(null);
         userRepository.save(user);
 
-        // 토큰(엑세스,리플레쉬) 생성
+        return issueTokenResponse(user);
+    }
+
+    // 로그인/카카오·구글 로그인/소셜 전환 확인이 공통으로 쓰는 토큰 발급 + RefreshToken 저장.
+    private TokenResponse issueTokenResponse(User user) {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
 
-        // DB에 RefreshToken 저장
         RefreshToken newRefreshToken = new RefreshToken();
         newRefreshToken.setUser(user);
         newRefreshToken.setTokenHash(hashToken(refreshToken)); //해쉬토큰 메서드로 평문방지 보안처리
@@ -317,33 +331,7 @@ public class AuthService {
         // 회원 탈퇴/정지 계정인지 체크
         checkAccountActive(user);
 
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
-
-        // DB에 RefreshToken 저장
-        RefreshToken newRefreshToken = new RefreshToken();
-        newRefreshToken.setUser(user);
-        newRefreshToken.setTokenHash(hashToken(refreshToken));
-        newRefreshToken.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpiration)));
-        refreshTokenRepository.save(newRefreshToken);
-
-        return new TokenResponse(accessToken, refreshToken);
-    }
-
-    // Google 최초 로그인 시 회원가입 또는 기존 계정 연결
-    private User registerGoogleUser(GoogleUserInfoResponse googleUserInfo,String providerId){
-        User user = userRepository.findByUsername(googleUserInfo.getEmail())
-                .orElseGet(() -> createNewGoogleUser(googleUserInfo));
-
-        OauthAccount oauthAccount = new OauthAccount();
-        oauthAccount.setUser(user);
-        oauthAccount.setProvider("GOOGLE");
-        oauthAccount.setProviderId(providerId);
-        oauthAccount.setLinkedAt(LocalDateTime.now());
-
-        oauthAccountRepository.save(oauthAccount);
-
-        return user;
+        return issueTokenResponse(user);
     }
 
     // 완전히 새로운 구글 유저 생성
@@ -359,9 +347,26 @@ public class AuthService {
         return userRepository.save(user);
     }
 
+    private void linkOauthAccount(User user, String provider, String providerId) {
+        OauthAccount oauthAccount = new OauthAccount();
+        oauthAccount.setUser(user);
+        oauthAccount.setProvider(provider);
+        oauthAccount.setProviderId(providerId);
+        oauthAccount.setLinkedAt(LocalDateTime.now());
+        oauthAccountRepository.save(oauthAccount);
+    }
+
+    // googleLogin()의 결과. 정상 로그인이면 tokenResponse가, 기존 비밀번호 계정과 이메일이 같아 전환
+    // 동의가 필요하면 pendingLinkToken/pendingEmail이 채워진다(둘 중 하나만 채워진다).
+    public record GoogleLoginResult(TokenResponse tokenResponse, String pendingLinkToken, String pendingEmail) {
+        public boolean needsLinkConfirmation() {
+            return tokenResponse == null;
+        }
+    }
+
     // Google 로그인
     @Transactional
-    public TokenResponse googleLogin(String code) {
+    public GoogleLoginResult googleLogin(String code) {
         String googleAccessToken;
         GoogleUserInfoResponse googleUserInfo;
         try {
@@ -373,22 +378,61 @@ public class AuthService {
 
         String providerId = googleUserInfo.getId();
 
-        User user = oauthAccountRepository.findByProviderAndProviderId("GOOGLE", providerId)
-                .map(oauthAccount -> oauthAccount.getUser())
-                .orElseGet(() -> registerGoogleUser(googleUserInfo, providerId));
+        Optional<OauthAccount> linkedAccount = oauthAccountRepository.findByProviderAndProviderId("GOOGLE", providerId);
+        if (linkedAccount.isPresent()) {
+            User user = linkedAccount.get().getUser();
+            checkAccountActive(user);
+            return new GoogleLoginResult(issueTokenResponse(user), null, null);
+        }
+
+        Optional<User> existingUser = userRepository.findByUsername(googleUserInfo.getEmail());
+
+        //이미 아이디/비밀번호로 쓰던 이메일이면 조용히 연동하지 않고, 소셜 로그인 전환에 동의를 받는다.
+        if (existingUser.isPresent() && existingUser.get().getPassword() != null) {
+            checkAccountActive(existingUser.get());
+            String pendingLinkToken = jwtTokenProvider.generateOauthLinkToken(googleUserInfo.getEmail(), "GOOGLE", providerId);
+            return new GoogleLoginResult(null, pendingLinkToken, googleUserInfo.getEmail());
+        }
+
+        User user = existingUser.orElseGet(() -> createNewGoogleUser(googleUserInfo));
+        linkOauthAccount(user, "GOOGLE", providerId);
+        checkAccountActive(user);
+
+        return new GoogleLoginResult(issueTokenResponse(user), null, null);
+    }
+
+    // 소셜 로그인 전환 동의 — 기존 비밀번호를 지우고(더 이상 기억하지 않음) 소셜 계정을 연결해 로그인까지 완료한다.
+    @Transactional
+    public TokenResponse confirmOauthLink(String pendingLinkToken) {
+        Claims claims;
+        try {
+            claims = jwtTokenProvider.parseOauthLinkToken(pendingLinkToken);
+        } catch (RuntimeException e) {
+            throw new ApiException(AuthErrorCode.OAUTH_LINK_TOKEN_INVALID);
+        }
+
+        String username = claims.getSubject();
+        String provider = claims.get("provider", String.class);
+        String providerId = claims.get("providerId", String.class);
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
+
+        //중복 클릭 등으로 이미 연동됐다면 다시 처리하지 않는다.
+        if (oauthAccountRepository.findByProviderAndProviderId(provider, providerId).isPresent()) {
+            throw new ApiException(AuthErrorCode.OAUTH_LINK_TOKEN_INVALID);
+        }
 
         checkAccountActive(user);
 
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
+        //비밀번호는 더 이상 기억하지 않고, 앞으로는 소셜 로그인만 쓸 수 있게 전환한다.
+        user.setPassword(null);
+        userRepository.save(user);
+        refreshTokenRevocationService.revokeAllTokens(user); //기존 비밀번호 기반 세션은 모두 무효화
 
-        RefreshToken newRefreshToken = new RefreshToken();
-        newRefreshToken.setUser(user);
-        newRefreshToken.setTokenHash(hashToken(refreshToken));
-        newRefreshToken.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpiration)));
-        refreshTokenRepository.save(newRefreshToken);
+        linkOauthAccount(user, provider, providerId);
 
-        return new TokenResponse(accessToken, refreshToken);
+        return issueTokenResponse(user);
     }
 
     // 이름 뒤에 랜덤6자리 숫자 붙여서 닉네임 생성 메서드

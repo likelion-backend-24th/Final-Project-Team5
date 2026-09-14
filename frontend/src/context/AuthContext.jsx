@@ -121,6 +121,13 @@ const refreshUser = useCallback(async () => {
   setUser(meResponse.data.data)
 }, [])
 
+  // 소셜 로그인 전환 동의(oauth/confirm-link) 응답으로 받은 accessToken을 그대로 로그인 상태에 반영한다.
+  const applySocialLogin = useCallback(async (accessToken) => {
+    setAccessToken(accessToken)
+    const meResponse = await fetchMyInfo()
+    setUser(meResponse.data.data)
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await logoutRequest()
@@ -141,8 +148,9 @@ const refreshUser = useCallback(async () => {
       login,
       logout,
       refreshUser,
+      applySocialLogin,
     }),
-    [accessToken, user, isLoading, login, logout,refreshUser],
+    [accessToken, user, isLoading, login, logout, refreshUser, applySocialLogin],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

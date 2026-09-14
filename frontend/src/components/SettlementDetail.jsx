@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, Info, X } from 'lucide-react'
 import {
   formatMoney,
@@ -49,7 +49,8 @@ export default function SettlementDetail({ detail, host, busy, error, onClose, o
   const [memo, setMemo] = useState('')
   const [reference, setReference] = useState('')
   const [paidAt, setPaidAt] = useState('')
-  useEffect(() => {
+  // 내용이 화면에 노출되기 전에 모달을 열어 포커스와 접근성 트리가 같은 상태를 보게 한다.
+  useLayoutEffect(() => {
     const element = dialog.current
     const previous = document.activeElement
     if (element.showModal) element.showModal()

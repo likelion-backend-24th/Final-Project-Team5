@@ -10,6 +10,7 @@ import org.example.festivalservice.common.exception.ApiException;
 import org.example.festivalservice.domain.festival.FestivalCancellationService;
 import org.example.festivalservice.domain.festival.FestivalErrorCode;
 import org.example.festivalservice.domain.festival.FestivalRepository;
+import org.example.festivalservice.domain.festival.FestivalStatus;
 import org.example.festivalservice.domain.festival.RefundCandidateDto;
 import org.example.festivalservice.domain.festival.SettlementContextDto;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,6 +44,8 @@ public class InternalFestivalController {
         return repository
             .findSettlementCandidates(
                 LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusHours(24),
+                List.of(FestivalStatus.PUBLISHED, FestivalStatus.CLOSED,
+                        FestivalStatus.CANCELLATION_PENDING, FestivalStatus.CANCELLED),
                 PageRequest.of(page, 100)
             )
             .stream()

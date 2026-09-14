@@ -112,6 +112,7 @@ public class Payment {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // 구매자 결제액. platformFee는 주최자 정산에서 공제하는 금액이라 여기에 더하지 않는다.
     public long totalAmount() {
         return ticketAmount;
     }

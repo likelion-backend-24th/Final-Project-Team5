@@ -54,7 +54,7 @@ function formatDate(value) {
   })
 }
 
-export default function HostHelperAccounts({ festivalId }) {
+function HostHelperAccounts({ festivalId }) {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -274,3 +274,5 @@ export default function HostHelperAccounts({ festivalId }) {
     </section>
   )
 }
+
+export default HostHelperAccounts

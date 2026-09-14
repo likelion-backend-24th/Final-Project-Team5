@@ -65,13 +65,9 @@ public class HelperInvitation {
 
     @Column(nullable = false)
     private LocalDateTime expiresAt;
-
     private LocalDateTime sentAt;
-
     private LocalDateTime lastSentAt;
-
     private LocalDateTime acceptedAt;
-
     private LocalDateTime revokedAt;
 
     @Column(nullable = false)

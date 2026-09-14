@@ -23,9 +23,7 @@ import java.util.HexFormat;
 public class TokenSessionService {
 
     private final JwtTokenProvider jwtTokenProvider;
-
     private final RefreshTokenRepository refreshTokenRepository;
-
     private final AccountAccessPolicy accountAccessPolicy;
 
     @Value("${jwt.refresh-token-expiration}")

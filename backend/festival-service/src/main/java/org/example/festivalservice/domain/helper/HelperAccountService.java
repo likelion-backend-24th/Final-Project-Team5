@@ -20,9 +20,7 @@ import org.springframework.web.client.RestClientResponseException;
 public class HelperAccountService {
 
     private static final String HOST_ROLE = "HOST";
-
     private final FestivalRepository festivalRepository;
-
     private final RestClient authServiceRestClient;
 
     @Value("${internal.auth-service.token:CHANGE_ME_IN_ENV}")

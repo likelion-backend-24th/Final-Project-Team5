@@ -24,7 +24,7 @@ function formatDateTime(value) {
   })
 }
 
-export default function HelperInvite() {
+function HelperInvite() {
   const { token } = useParams()
   const navigate = useNavigate()
   const { applyTokenLogin, user, isLoading } = useAuth()
@@ -197,3 +197,5 @@ export default function HelperInvite() {
     </main>
   )
 }
+
+export default HelperInvite

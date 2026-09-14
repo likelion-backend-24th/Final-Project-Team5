@@ -46,23 +46,14 @@ import java.util.function.Supplier;
 public class HelperAccountService {
 
     private final UserRepository userRepository;
-
     private final HelperInvitationRepository invitations;
-
     private final HelperIdentityGenerator identityGenerator;
-
     private final PasswordEncoder passwordEncoder;
-
     private final RefreshTokenRepository refreshTokens;
-
     private final TokenSessionService sessions;
-
     private final EmailService emailService;
-
     private final AccountAccessPolicy policy;
-
     private final PlatformTransactionManager transactionManager;
-
     private final SecureRandom random = new SecureRandom();
 
     @Value("${app.frontend-url}")

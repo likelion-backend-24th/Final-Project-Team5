@@ -27,6 +27,5 @@ public enum HelperErrorCode implements ErrorCode {
     HELPER_SESSION_REVOKED(HttpStatus.UNAUTHORIZED, "만료된 도우미 세션입니다. 다시 로그인해주세요.");
 
     private final HttpStatus httpStatus;
-
     private final String message;
 }

@@ -23,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class HelperInvitationController {
 
     private final HelperAccountService helperAccountService;
-
     private final AuthCookieResponseBuilder cookieResponseBuilder;
 
     @GetMapping("/{token}")

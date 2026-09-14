@@ -1,6 +1,7 @@
 package org.example.paymentservice.domain.settlement;
 
 import lombok.RequiredArgsConstructor;
+import org.example.paymentservice.domain.settlement.dto.*;
 import org.example.paymentservice.domain.payment.*;
 import org.example.paymentservice.domain.cancellation.*;
 import org.example.paymentservice.infrastructure.reservation.*;
@@ -31,38 +32,28 @@ public class SettlementService {
     private final SettlementHostClient hosts;
     @Value("${portone.store-id}") private String storeId;
 
-    public record Actor(Long id, String role) {
-        public void require(String expected) {
-            if (id == null || !expected.equals(role)) throw new ApiException(SettlementErrorCode.FORBIDDEN_ROLE);
-        }
-    }
-    public record Filter(Instant from, Instant to, SettlementStatus status, Long festivalId,
-                         Long hostUserId, PaymentMethodCategory paymentMethod, boolean testPayment, String dateBasis, String festivalName, String hostName) {
-        public Filter(Instant from, Instant to, SettlementStatus status, Long festivalId, Long hostUserId, PaymentMethodCategory paymentMethod, boolean testPayment, String dateBasis) {
-            this(from, to, status, festivalId, hostUserId, paymentMethod, testPayment, dateBasis, null, null);
-        }
-        public Filter(Instant from, Instant to, SettlementStatus status, Long festivalId,
-                      Long hostUserId, PaymentMethodCategory paymentMethod, boolean testPayment) {
-            this(from, to, status, festivalId, hostUserId, paymentMethod, testPayment, "SETTLEMENT_AT");
-        }
-        public Filter {
-            if (!Set.of("PAID_AT", "SETTLEMENT_AT").contains(dateBasis)) throw new ApiException(SettlementErrorCode.INVALID_FILTER);
-            if (from != null && to != null && from.isAfter(to)) throw new ApiException(SettlementErrorCode.INVALID_FILTER);
-        }
-    }
+    public record Actor(Long id, String role) { }
     public record Command(Instant paidAt, String paymentReference, String memo) { }
+    public SettlementDetailResponse detail(Actor actor, boolean host, Long id) {
+        return detail(new SettlementActor(actor.id(), actor.role()), host, id);
+    }
+    public SettlementDetailResponse command(Actor actor, Long id, String action, String key, Command command) {
+        return command(new SettlementActor(actor.id(), actor.role()), id, action, key,
+                new SettlementCommandRequest(command.paidAt(), command.paymentReference(), command.memo()));
+    }
+
     private record Evidence(Payment payment, ReservationForPaymentResponse reservation,
                             PaymentMethodCategory method, Instant paidAt, SettlementCalculator.Result result) { }
     private record Calculation(FestivalSettlementClient.Context festival, List<Evidence> evidence, String hold) { }
 
-    public Page<Map<String, Object>> list(Actor actor, boolean host, Filter filter, int page, int size) {
+    public Page<SettlementResponse> list(SettlementActor actor, boolean host, SettlementFilter filter, int page, int size) {
         actor.require(host ? "HOST" : "ADMIN");
         if (page < 0 || size < 1 || size > 100 || (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())))
             throw new ApiException(SettlementErrorCode.INVALID_FILTER);
         return new TransactionTemplate(transactionManager).execute(tx -> repository.findAll(spec(actor, host, filter),
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))).map(this::publicView));
     }
-    private Specification<Settlement> spec(Actor actor, boolean host, Filter f) {
+    private Specification<Settlement> spec(SettlementActor actor, boolean host, SettlementFilter f) {
         return (root, query, cb) -> {
             var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
             predicates.add(cb.isNotNull(root.get("activeFestivalId")));
@@ -92,49 +83,82 @@ public class SettlementService {
             return cb.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
         };
     }
-    public Map<String, Object> summary(Actor actor, boolean host, Filter filter) {
+    public SettlementSummaryResponse summary(SettlementActor actor, boolean host, SettlementFilter filter) {
         actor.require(host ? "HOST" : "ADMIN");
         return new TransactionTemplate(transactionManager).execute(tx -> {
             var rows = repository.findAll(spec(actor, host, filter));
-            var result = new LinkedHashMap<String, Object>(); result.put("currency", "KRW");
-            result.put("dateBasis", filter.dateBasis()); result.put("count", rows.size());
-            result.put("grossPaymentAmount", rows.stream().mapToLong(Settlement::getGrossPaymentAmount).sum());
-            result.put("customerRefundAmount", rows.stream().mapToLong(Settlement::getCustomerRefundAmount).sum());
-            result.put("platformFeeAmount", rows.stream().mapToLong(Settlement::getPlatformFeeAmount).sum());
-            result.put("payoutAmount", rows.stream().mapToLong(s -> Math.addExact(s.getPayoutAmount(), s.getConfirmedAdjustmentAmount())).sum());
-            result.put("paidAmount", rows.stream().filter(s -> s.getPaidAt() != null).mapToLong(s -> s.getPaidPayoutAmount() == null ? s.getPayoutAmount() : s.getPaidPayoutAmount()).sum());
-            result.put("heldCount", rows.stream().filter(s -> s.getStatus() == SettlementStatus.HELD).count());
-            result.put("scheduledAmount", rows.stream().filter(s -> s.getStatus() == SettlementStatus.CALCULATED || s.getStatus() == SettlementStatus.CONFIRMED)
-                    .mapToLong(s -> Math.addExact(s.getPayoutAmount(), s.getConfirmedAdjustmentAmount())).sum());
-            result.put("reviewCount", rows.stream().filter(s -> s.getStatus() == SettlementStatus.CALCULATED || s.getStatus() == SettlementStatus.HELD || s.getStatus() == SettlementStatus.ADJUSTMENT_REQUIRED).count());
-            return result;
+            return new SettlementSummaryResponse(
+                    "KRW",
+                    filter.dateBasis(),
+                    rows.size(),
+                    rows.stream().mapToLong(Settlement::getGrossPaymentAmount).sum(),
+                    rows.stream().mapToLong(Settlement::getCustomerRefundAmount).sum(),
+                    rows.stream().mapToLong(Settlement::getPlatformFeeAmount).sum(),
+                    rows.stream().mapToLong(s -> Math.addExact(s.getPayoutAmount(), s.getConfirmedAdjustmentAmount())).sum(),
+                    rows.stream().filter(s -> s.getPaidAt() != null).mapToLong(s -> s.getPaidPayoutAmount() == null ? s.getPayoutAmount() : s.getPaidPayoutAmount()).sum(),
+                    rows.stream().filter(s -> s.getStatus() == SettlementStatus.HELD).count(),
+                    rows.stream().filter(s -> s.getStatus() == SettlementStatus.CALCULATED || s.getStatus() == SettlementStatus.CONFIRMED)
+                    .mapToLong(s -> Math.addExact(s.getPayoutAmount(), s.getConfirmedAdjustmentAmount())).sum(),
+                    rows.stream().filter(s -> s.getStatus() == SettlementStatus.CALCULATED || s.getStatus() == SettlementStatus.HELD || s.getStatus() == SettlementStatus.ADJUSTMENT_REQUIRED).count());
+
         });
     }
-    public Map<String, Object> detail(Actor actor, boolean host, Long id) {
+    public SettlementDetailResponse detail(SettlementActor actor, boolean host, Long id) {
         actor.require(host ? "HOST" : "ADMIN");
         return new TransactionTemplate(transactionManager).execute(tx -> {
-            Settlement s = owned(actor, host, id); var result = publicView(s);
-            result.put("adjustments", adjustments.findBySourceSettlementId(id).stream().map(a -> Map.of(
-                    "amount", a.getAmount(), "remainingAmount", a.getRemainingAmount(), "status", a.getStatus(), "kind", a.getKind(), "createdAt", a.getCreatedAt())).toList());
-            result.put("proposedPayoutAmount", Math.addExact(s.getPayoutAmount(), adjustments.findBySourceSettlementId(id).stream()
-                    .filter(a -> "PRE_PAYMENT".equals(a.getKind())).mapToLong(SettlementAdjustment::getAmount).sum()));
-            result.put("lines", s.getLines().stream().map(line -> {
-                var data = new LinkedHashMap<String, Object>();
-                data.put("paymentMethod", line.getPaymentMethod()); data.put("paidAt", line.getPaidAt());
-                data.put("grossAmount", line.getGrossAmount()); data.put("refundedFaceAmount", line.getRefundedFaceAmount());
-                data.put("customerRefundAmount", line.getCustomerRefundAmount()); data.put("penaltyAmount", line.getPenaltyAmount());
-                data.put("feeRateBps", line.getFeeRateBps()); data.put("initialFeeAmount", line.getInitialFeeAmount());
-                data.put("feeReversalAmount", line.getFeeReversalAmount()); data.put("finalFeeAmount", line.getFinalFeeAmount());
-                data.put("payoutAmount", line.getPayoutAmount());
-                if (!host) { data.put("paymentId", line.getPaymentId()); data.put("reservationId", line.getReservationId()); }
-                return data;
-            }).toList());
-            if (!host) { result.put("auditLogs", audits.findBySettlementIdOrderByIdAsc(id)); result.put("adminMemo", s.getAdminMemo());
-                result.put("paymentReference", s.getPaymentReference()); result.put("holdReason", s.getHoldReason()); }
-            return result;
+            Settlement s = owned(actor, host, id);
+            var view = publicView(s);
+            var changes = adjustments.findBySourceSettlementId(id);
+            var adjustmentViews = changes.stream().map(a -> new SettlementAdjustmentResponse(
+                    a.getAmount(), a.getRemainingAmount(), a.getStatus(), a.getKind(), a.getCreatedAt())).toList();
+            long proposed = Math.addExact(s.getPayoutAmount(), changes.stream()
+                    .filter(a -> "PRE_PAYMENT".equals(a.getKind())).mapToLong(SettlementAdjustment::getAmount).sum());
+            var lines = s.getLines().stream().map(line -> new SettlementLineResponse(
+                    line.getPaymentMethod(),
+                    line.getPaidAt(),
+                    line.getGrossAmount(),
+                    line.getRefundedFaceAmount(),
+                    line.getCustomerRefundAmount(),
+                    line.getPenaltyAmount(),
+                    line.getFeeRateBps(),
+                    line.getInitialFeeAmount(),
+                    line.getFeeReversalAmount(),
+                    line.getFinalFeeAmount(),
+                    line.getPayoutAmount(),
+                    host ? null : line.getPaymentId(),
+                    host ? null : line.getReservationId())).toList();
+            return new SettlementDetailResponse(
+                    view.id(),
+                    view.version(),
+                    view.festivalId(),
+                    view.festivalName(),
+                    view.hostUserId(),
+                    view.currency(),
+                    view.status(),
+                    view.hostName(),
+                    view.manualHold(),
+                    view.eligibleAt(),
+                    view.calculatedAt(),
+                    view.confirmedAt(),
+                    view.paidAt(),
+                    view.grossPaymentAmount(),
+                    view.grossRefundedFaceAmount(),
+                    view.customerRefundAmount(),
+                    view.cancellationPenaltyAmount(),
+                    view.netTicketSalesAmount(),
+                    view.platformFeeAmount(),
+                    view.adjustmentAmount(),
+                    view.payoutAmount(),
+                    view.confirmedAdjustmentAmount(),
+                    view.payableAmount(),
+                    view.paidPayoutAmount(),
+                    view.reapprovedAt(),
+                    view.holdMessage(),
+                    adjustmentViews, proposed, lines, host ? null : audits.findBySettlementIdOrderByIdAsc(id),
+                    host ? null : s.getAdminMemo(), host ? null : s.getPaymentReference(), host ? null : s.getHoldReason());
         });
     }
-    private Settlement owned(Actor actor, boolean host, Long id) {
+    private Settlement owned(SettlementActor actor, boolean host, Long id) {
         Settlement s = repository.findById(id).orElseThrow(() -> new ApiException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
         if (host && !actor.id().equals(s.getHostUserId())) throw new ApiException(SettlementErrorCode.SETTLEMENT_NOT_FOUND);
         if (s.isRetired() || s.getActiveFestivalId() == null) throw new ApiException(SettlementErrorCode.SETTLEMENT_NOT_FOUND);
@@ -152,22 +176,34 @@ public class SettlementService {
             for (var s : missing) repository.findById(s.getId()).orElseThrow().snapshotHostName(names.get(s.getHostUserId()));
         });
     }
-    private Map<String, Object> publicView(Settlement s) {
-        var data = new LinkedHashMap<String, Object>();
-        data.put("id", s.getId()); data.put("version", s.getVersion()); data.put("festivalId", s.getFestivalId());
-        data.put("festivalName", s.getFestivalName()); data.put("hostUserId", s.getHostUserId()); data.put("currency", "KRW");
-        data.put("status", s.getStatus()); data.put("hostName", s.getHostName()); data.put("manualHold", s.isManualHold());
-        data.put("eligibleAt", s.getEligibleAt()); data.put("calculatedAt", s.getCalculatedAt());
-        data.put("confirmedAt", s.getConfirmedAt()); data.put("paidAt", s.getPaidAt());
-        data.put("grossPaymentAmount", s.getGrossPaymentAmount()); data.put("grossRefundedFaceAmount", s.getGrossRefundedFaceAmount());
-        data.put("customerRefundAmount", s.getCustomerRefundAmount()); data.put("cancellationPenaltyAmount", s.getCancellationPenaltyAmount());
-        data.put("netTicketSalesAmount", s.getNetTicketSalesAmount()); data.put("platformFeeAmount", s.getPlatformFeeAmount());
-        data.put("adjustmentAmount", s.getAdjustmentAmount()); data.put("payoutAmount", s.getPayoutAmount());
-        data.put("confirmedAdjustmentAmount", s.getConfirmedAdjustmentAmount());
-        data.put("payableAmount", Math.addExact(s.getPayoutAmount(), s.getConfirmedAdjustmentAmount()));
-        data.put("paidPayoutAmount", s.getPaidPayoutAmount()); data.put("reapprovedAt", s.getReapprovedAt());
-        data.put("holdMessage", s.getStatus() == SettlementStatus.HELD ? "결제·환불 내역을 확인 중입니다." : null);
-        return data;
+    private SettlementResponse publicView(Settlement s) {
+        return new SettlementResponse(
+                s.getId(),
+                s.getVersion(),
+                s.getFestivalId(),
+                s.getFestivalName(),
+                s.getHostUserId(),
+                "KRW",
+                s.getStatus(),
+                s.getHostName(),
+                s.isManualHold(),
+                s.getEligibleAt(),
+                s.getCalculatedAt(),
+                s.getConfirmedAt(),
+                s.getPaidAt(),
+                s.getGrossPaymentAmount(),
+                s.getGrossRefundedFaceAmount(),
+                s.getCustomerRefundAmount(),
+                s.getCancellationPenaltyAmount(),
+                s.getNetTicketSalesAmount(),
+                s.getPlatformFeeAmount(),
+                s.getAdjustmentAmount(),
+                s.getPayoutAmount(),
+                s.getConfirmedAdjustmentAmount(),
+                Math.addExact(s.getPayoutAmount(), s.getConfirmedAdjustmentAmount()),
+                s.getPaidPayoutAmount(),
+                s.getReapprovedAt(),
+                s.getStatus() == SettlementStatus.HELD ? "결제·환불 내역을 확인 중입니다." : null);
     }
     private Calculation gather(Long festivalId, boolean test) {
         var context = festivals.context(festivalId);
@@ -256,10 +292,10 @@ public class SettlementService {
             audits.save(new SettlementAuditLog(s, "CALCULATE", previous, null, calculation.hold(), null, null));
         });
     }
-    public Map<String, Object> command(Actor actor, Long id, String action, String key, Command command) {
+    public SettlementDetailResponse command(SettlementActor actor, Long id, String action, String key, SettlementCommandRequest command) {
         actor.require("ADMIN");
         if (key == null || key.isBlank() || key.length() > 100) throw new ApiException(SettlementErrorCode.IDEMPOTENCY_KEY_REQUIRED);
-        String fingerprint = UUID.nameUUIDFromBytes((id + ":" + actor.id() + ":" + action + ":" + command).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+        String fingerprint = UUID.nameUUIDFromBytes((id + ":" + actor.id() + ":" + action + ":" + command.fingerprintValue()).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
         var prior = audits.findByCommandKey(key);
         if (prior.isPresent()) {
             if (!fingerprint.equals(prior.get().getCommandFingerprint())) throw new ApiException(SettlementErrorCode.IDEMPOTENCY_KEY_CONFLICT);
@@ -342,7 +378,7 @@ public class SettlementService {
         allocations.deleteAll(previous); allocations.flush();
     }
     // 엔티티의 최후 방어선에 도달하기 전에 운영자가 이해할 수 있는 업무 오류로 응답한다.
-    private void validateCommand(Settlement s, String action, Command command) {
+    private void validateCommand(Settlement s, String action, SettlementCommandRequest command) {
         boolean allowed = switch (action) {
             case "confirm" -> s.getStatus() == SettlementStatus.CALCULATED;
             case "reapprove" -> s.getStatus() == SettlementStatus.ADJUSTMENT_REQUIRED && s.getPaidAt() == null;

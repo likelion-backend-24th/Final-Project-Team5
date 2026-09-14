@@ -29,6 +29,7 @@ export function AuthProvider({ children }) {
   const [accessToken, setAccessTokenState] = useState(getAccessToken())
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  // 구 세션의 늦게 도착한 /me 응답이 새 세션 사용자를 덮어쓰지 않도록 요청 시점의 버전을 비교한다.
   const sessionRevision = useRef(0)
   // 렌더링 시점(하트비트를 남기기 전)에 한 번만 확인해야 "이 탭이 방금 남긴 하트비트"를
   // 자기 자신의 근거로 잘못 쓰지 않는다.
@@ -95,7 +96,7 @@ export function AuthProvider({ children }) {
     }
   }, [continuousSession])
 
-  // 도우미 계정 해지를 화면에도 반영한다.
+  // 해지·다른 기기의 활성화로 무효화된 세션을 화면에도 반영하도록 30초마다 /me를 다시 확인한다.
   useEffect(() => {
     if (user?.role !== 'HELPER') return undefined
     const timer = setInterval(() => {

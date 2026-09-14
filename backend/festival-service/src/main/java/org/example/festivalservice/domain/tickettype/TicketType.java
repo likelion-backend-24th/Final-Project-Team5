@@ -32,10 +32,28 @@ public class TicketType {
     private String description;
 
     private int price;
-    //총 수량
+
+    //이 티켓 종류가 좌석 선택형인지 스탠딩(수량제)인지 구분한다.
+    //STANDING이면 zone/rows/seatsPerRow는 null이고 기존 remainQuantity 차감 로직을 그대로 쓴다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "ticket_mode", columnDefinition = "VARCHAR(20)")
+    private TicketMode ticketMode;
+
+    //구역명(예: "VIP", "일반") — 좌석맵에서 이 구역 단위로 묶어 보여준다
+    @Column(name = "zone")
+    private String zone;
+    //좌석 배치 — SEATED일 때만 값이 있다. rows × seatsPerRow = totalQuantity
+    @Column(name = "rows")
+    private Integer rows;
+
+    @Column(name = "seats_per_row")
+    private Integer seatsPerRow;
+
+    //총 수량 — STANDING이면 원자적 차감 대상, SEATED면 좌석 배치 설정값(참고용)
     @Column(name = "total_quantity")
     private int totalQuantity;
-    //잔여 수량
+
+    //잔여 수량 — STANDING에서만 원자적으로 감소. SEATED는 더 이상 감소시키지 않는다(죽은 필드).
     @Column(name = "remain_quantity")
     private int remainQuantity;
 

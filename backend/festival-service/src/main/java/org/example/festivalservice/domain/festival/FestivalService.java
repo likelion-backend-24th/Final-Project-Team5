@@ -8,6 +8,7 @@ import org.example.festivalservice.common.UserLookupClient;
 import org.example.festivalservice.common.UserLookupClient.UserSummary;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.exception.ApiException;
+import org.example.festivalservice.domain.tickettype.TicketMode;
 import org.example.festivalservice.domain.tickettype.TicketType;
 import org.example.festivalservice.domain.tickettype.TicketTypeRepository;
 import org.example.festivalservice.domain.tickettype.TicketTypeRequestDto;
@@ -49,7 +50,10 @@ public class FestivalService {
         if (detailImageUrls.size() > MAX_DETAIL_IMAGE_COUNT) {
             throw new ApiException(FestivalErrorCode.INVALID_DETAIL_IMAGE_COUNT);
         }
-        request.ticketTypes().forEach(ticketTypeRequest -> validateTicketTypeRequest(ticketTypeRequest, request));
+        request.ticketTypes().forEach(ticketTypeRequest -> {
+            validateTicketTypeRequest(ticketTypeRequest, request);
+            validateTicketTypeLayout(ticketTypeRequest);
+        });
 
         Festival festival = Festival.builder()
                 .hostUserId(hostUserId)
@@ -137,12 +141,37 @@ public class FestivalService {
                 .name(request.name())
                 .description(request.description())
                 .price(request.price())
+                .ticketMode(request.ticketMode())
+                .zone(request.zone())
+                .rows(request.rows())
+                .seatsPerRow(request.seatsPerRow())
                 .totalQuantity(request.quantity())
                 .remainQuantity(request.quantity())
                 .saleStartAt(request.saleStartAt())
                 .saleEndAt(request.saleEndAt())
                 .ticketDate(request.ticketDate())
                 .build();
+    }
+
+    //SEATED면 zone/rows/seatsPerRow가 다 채워져 있고, rows*seatsPerRow가 quantity와 정확히 맞아야 한다.
+//STANDING은 이 필드들을 검증하지 않는다(null이어도 정상).
+    private void validateTicketTypeLayout(TicketTypeRequestDto request) {
+        if (request.ticketMode() == TicketMode.SEATED) {
+            boolean invalid = request.zone() == null || request.zone().isBlank()
+                    || request.rows() == null || request.rows() <= 0
+                    || request.seatsPerRow() == null || request.seatsPerRow() <= 0
+                    || request.rows() * request.seatsPerRow() != request.quantity();
+            if (invalid) {
+                throw new ApiException(FestivalErrorCode.INVALID_SEAT_LAYOUT);
+            }
+            return;
+        }
+
+        //STANDING인데 좌석 필드가 섞여 들어오면 데이터 혼란을 막기 위해 거부한다.
+        boolean hasSeatFields = request.zone() != null || request.rows() != null || request.seatsPerRow() != null;
+        if (hasSeatFields) {
+            throw new ApiException(FestivalErrorCode.INVALID_SEAT_LAYOUT);
+        }
     }
 
     //방문자에게 노출 가능한 상태 — 진행중(PUBLISHED)뿐 아니라 종료(CLOSED)된 것도 "종료됨" 배지로 계속 보여준다

@@ -1,6 +1,5 @@
-// @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import SettlementReport from './SettlementReport'
 import { listSettlements, settlementSummary, settlementDetail, settlementCommand } from '../api/settlementApi'
 vi.mock('../api/settlementApi', () => ({ listSettlements: vi.fn(), settlementSummary: vi.fn(), settlementDetail: vi.fn(), settlementCommand: vi.fn() }))
@@ -12,7 +11,6 @@ beforeEach(() => {
   settlementSummary.mockResolvedValue({ data: { data: row } })
   settlementDetail.mockResolvedValue({ data: { data: row } })
 })
-afterEach(cleanup)
 describe('SettlementReport', () => {
   it('searches names without test-channel, method or ID controls', async () => {
     render(<SettlementReport />)

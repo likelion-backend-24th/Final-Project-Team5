@@ -1,19 +1,39 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import Badge, { badgeVariantForLabel } from './Badge'
 
+//모바일에서 스와이프로 슬라이드를 넘기기 위한 최소 이동 거리(px). 너무 작으면 스크롤·탭과 헷갈린다.
+const SWIPE_THRESHOLD_PX = 40
+
 function HeroCarousel({ slides = [] }) {
   const [index, setIndex] = useState(0)
+  const touchStartXRef = useRef(null)
   const count = slides.length
 
   if (count === 0) return null
 
   const go = (step) => setIndex((current) => (current + step + count) % count)
 
+  function handleTouchStart(event) {
+    touchStartXRef.current = event.touches[0].clientX
+  }
+
+  function handleTouchEnd(event) {
+    if (touchStartXRef.current === null) return
+    const deltaX = event.changedTouches[0].clientX - touchStartXRef.current
+    touchStartXRef.current = null
+    if (deltaX > SWIPE_THRESHOLD_PX) go(-1)
+    else if (deltaX < -SWIPE_THRESHOLD_PX) go(1)
+  }
+
   return (
     <section className="mx-auto max-w-[1440px] px-6 pt-6">
-      <div className="relative aspect-[16/6] w-full overflow-hidden rounded-3xl bg-gray-100">
+      <div
+        className="relative aspect-[16/6] w-full overflow-hidden rounded-3xl bg-gray-100"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {slides.map((festival, i) => {
           const active = i === index
           return (

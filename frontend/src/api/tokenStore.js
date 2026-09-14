@@ -68,3 +68,36 @@ if (typeof window !== 'undefined') {
     externalChangeListeners.forEach((listener) => listener(accessToken))
   })
 }
+
+// 이 사이트를 연 탭이 살아있는 동안(다른 탭 포함) 주기적으로 남기는 신호. 탭이 실제로 닫히면
+// 더 이상 갱신되지 않으므로, 이 값이 일정 시간 이상 오래됐다면 그 사이 모든 탭이 닫혔었다고 본다.
+const HEARTBEAT_KEY = 'tabHeartbeat'
+const HEARTBEAT_INTERVAL_MS = 2000
+const HEARTBEAT_STALE_MS = 6000
+
+// 모든 탭이 닫혔다가 다시 열렸는지 확인한다. 하트비트가 전혀 없으면(이 브라우저의 첫 방문) 로그인한
+// 적이 없으므로 로그아웃 처리할 필요가 없다고 보고 true를 돌려준다.
+export function wasSessionContinuous() {
+  try {
+    const last = localStorage.getItem(HEARTBEAT_KEY)
+    if (last === null) return true
+    return Date.now() - Number(last) <= HEARTBEAT_STALE_MS
+  } catch {
+    return true // 저장소 접근이 막히면 판단할 수 없으니 기존 동작(세션 유지)을 따른다.
+  }
+}
+
+// 살아있는 탭이 있는 동안 주기적으로 하트비트를 남긴다. 새로고침도 같은 탭이 짧은 간격으로
+// 다시 하트비트를 남기는 것이라 HEARTBEAT_STALE_MS 안에 들어와 세션 유지로 판단된다.
+export function startTabHeartbeat() {
+  function beat() {
+    try {
+      localStorage.setItem(HEARTBEAT_KEY, String(Date.now()))
+    } catch {
+      // 저장소 접근이 막혀 있으면 하트비트를 남기지 않는다.
+    }
+  }
+  beat()
+  const timer = setInterval(beat, HEARTBEAT_INTERVAL_MS)
+  return () => clearInterval(timer)
+}

@@ -67,7 +67,10 @@ public class EmailService {
                 "FevalGo 홈페이지: " + SITE_URL;
     }
 
-    //메일 클라이언트는 외부 CSS·이미지를 자주 막으므로 인라인 스타일만 쓰고, 로고도 이미지 대신 텍스트로 넣는다.
+    //메일 클라이언트는 외부 CSS를 자주 막으므로 인라인 스타일만 쓴다. 이미지는 대부분 클라이언트가 허용하므로
+    //로고는 사이트에 이미 올라가 있는 실제 로고 이미지를 그대로 가져와 보여준다.
+    private static final String LOGO_URL = SITE_URL + "/brand/logo-horizontal.webp";
+
     private String buildHtml(String code) {
         return """
                 <!DOCTYPE html>
@@ -78,8 +81,7 @@ public class EmailService {
                       <table role="presentation" width="480" cellspacing="0" cellpadding="0" style="max-width:480px;width:100%%;background:#ffffff;border-radius:16px;overflow:hidden;">
                         <tr>
                           <td style="background:#101a44;padding:20px 28px;">
-                            <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">FevalGo</span>
-                            <span style="font-size:12px;color:#c7d2fe;margin-left:8px;">페스티벌·행사 예약 플랫폼</span>
+                            <img src="%s" alt="FevalGo" height="28" style="height:28px;display:block;">
                           </td>
                         </tr>
                         <tr>
@@ -121,7 +123,7 @@ public class EmailService {
                   </table>
                 </body>
                 </html>
-                """.formatted(code, SITE_URL);
+                """.formatted(LOGO_URL, code, SITE_URL);
     }
 
     // 6자리 숫자 코드(우리가 회원가입때 입력해야할 인증코드) 생성-> 보안 강도 높임 secureRandom사용

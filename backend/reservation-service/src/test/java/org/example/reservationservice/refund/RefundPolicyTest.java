@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import org.example.reservationservice.domain.refund.RefundPolicy;
-import org.example.reservationservice.domain.refund.RefundPolicyProperties;
-import org.example.reservationservice.domain.refund.RefundQuote;
+import org.example.reservationservice.reservation.entity.refund.RefundPolicy;
+import org.example.reservationservice.reservation.entity.refund.RefundPolicyProperties;
+import org.example.reservationservice.reservation.entity.refund.RefundQuote;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

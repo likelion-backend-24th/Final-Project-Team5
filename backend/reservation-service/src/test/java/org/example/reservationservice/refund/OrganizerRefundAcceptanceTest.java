@@ -1,6 +1,7 @@
 package org.example.reservationservice.refund;
-import org.example.reservationservice.domain.*;
-import org.example.reservationservice.domain.refund.StockReleaseQueueRepository;
+import org.example.reservationservice.reservation.entity.*;
+import org.example.reservationservice.reservation.repository.ReservationRepository;
+import org.example.reservationservice.reservation.entity.refund.StockReleaseQueueRepository;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;

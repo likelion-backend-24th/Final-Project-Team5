@@ -77,6 +77,7 @@ public class ReservationService {
                 .findFirst()
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.TICKET_TYPE_NOT_FOUND));
 
+        checkTicketSalePeriodOrThrow(ticketType);
         checkPurchaseLimitOrThrow(userId, festival.id(), request.quantity());
         deductStockOrThrow(request.ticketTypeId(), request.quantity());
 
@@ -382,6 +383,18 @@ public class ReservationService {
             throw new ApiException(ReservationErrorCode.FESTIVAL_NOT_PUBLISHED);
         } catch (RestClientException e) {
             throw new ApiException(ReservationErrorCode.FESTIVAL_SERVICE_UNAVAILABLE);
+        }
+    }
+
+    //티켓 판매 기간 검증(내부 메서드) — festival-service에 등록된 saleStartAt/saleEndAt 구간 밖이면 거부한다.
+    //startAt/endAt과 같은 타임존 없는 벽시계 값이라, checkIn()·환불 판정과 같은 기준 타임존으로 now()를 뽑는다.
+    private void checkTicketSalePeriodOrThrow(FestivalDetailResponseDto.TicketTypeSummary ticketType) {
+        LocalDateTime now = LocalDateTime.now(ZoneId.of(appTimezone));
+        if (ticketType.saleStartAt() != null && now.isBefore(ticketType.saleStartAt())) {
+            throw new ApiException(ReservationErrorCode.TICKET_SALE_NOT_STARTED);
+        }
+        if (ticketType.saleEndAt() != null && now.isAfter(ticketType.saleEndAt())) {
+            throw new ApiException(ReservationErrorCode.TICKET_SALE_ENDED);
         }
     }
 

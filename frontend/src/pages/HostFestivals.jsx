@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRightIcon, CalendarIcon, CircleAlertIcon, LockIcon, MapPinIcon, PlusIcon } from 'lucide-react'
 import { fetchMyFestivals } from '../api/hostFestivalApi'
-import { FESTIVAL_CATEGORY_LABELS } from '../api/festivalApi'
+import { FESTIVAL_CATEGORY_LABELS, formatLocation } from '../api/festivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
 import styles from './AdminList.module.css'
@@ -137,7 +137,7 @@ function HostFestivals() {
                 )}
                 <p className={styles.location}>
                   <MapPinIcon size={14} aria-hidden="true" />
-                  {festival.location}
+                  {formatLocation(festival)}
                   {' · '}
                   {FESTIVAL_CATEGORY_LABELS[festival.festivalCategory] ?? festival.festivalCategory}
                 </p>

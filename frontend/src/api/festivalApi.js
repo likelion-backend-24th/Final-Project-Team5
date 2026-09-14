@@ -20,6 +20,38 @@ export const FESTIVAL_CATEGORY_LABELS = Object.fromEntries(
   FESTIVAL_CATEGORIES.map((category) => [category.value, category.label]),
 )
 
+//장소 행정구역(시/도) 드롭다운 — 백엔드 FestivalRegion과 값이 같아야 한다.
+export const FESTIVAL_REGIONS = [
+  { value: 'SEOUL', label: '서울특별시' },
+  { value: 'BUSAN', label: '부산광역시' },
+  { value: 'DAEGU', label: '대구광역시' },
+  { value: 'INCHEON', label: '인천광역시' },
+  { value: 'GWANGJU', label: '광주광역시' },
+  { value: 'DAEJEON', label: '대전광역시' },
+  { value: 'ULSAN', label: '울산광역시' },
+  { value: 'SEJONG', label: '세종특별자치시' },
+  { value: 'GYEONGGI', label: '경기도' },
+  { value: 'GANGWON', label: '강원특별자치도' },
+  { value: 'CHUNGBUK', label: '충청북도' },
+  { value: 'CHUNGNAM', label: '충청남도' },
+  { value: 'JEONBUK', label: '전북특별자치도' },
+  { value: 'JEONNAM', label: '전라남도' },
+  { value: 'GYEONGBUK', label: '경상북도' },
+  { value: 'GYEONGNAM', label: '경상남도' },
+  { value: 'JEJU', label: '제주특별자치도' },
+]
+
+export const FESTIVAL_REGION_LABELS = Object.fromEntries(
+  FESTIVAL_REGIONS.map((region) => [region.value, region.label]),
+)
+
+//region(행정구역) + locationDetail(상세주소)을 화면에 보여줄 한 문장으로 합친다.
+export function formatLocation(festival) {
+  const regionLabel = FESTIVAL_REGION_LABELS[festival.region] ?? festival.region ?? ''
+  const detail = festival.locationDetail ?? ''
+  return [regionLabel, detail].filter(Boolean).join(' ')
+}
+
 //방문자에게 노출되는 상태(PUBLISHED/CLOSED)의 배지 라벨. PENDING/REJECTED는 방문자 화면에 나타나지 않는다.
 export const FESTIVAL_VISIBLE_STATUS_LABELS = {
   PUBLISHED: '진행중',
@@ -69,7 +101,7 @@ export function mapFestivalToCard(festival) {
     id: festival.id,
     title: festival.name,
     category: festival.festivalCategory,
-    location: festival.location,
+    location: formatLocation(festival),
     date: formatDateRange(festival.startAt, festival.endAt),
     price: formatPrice(festival.ticketTypes),
     image: toAbsoluteImageUrl(festival.thumbnailImageUrl),

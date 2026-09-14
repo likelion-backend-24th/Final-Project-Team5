@@ -10,6 +10,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Entity@Builder
@@ -35,8 +36,25 @@ public class Festival {
     //페스티벌 종료 일자 및 시각
     @Column(name = "end_at")
     private LocalDateTime endAt;
-    //개최 장소
-    private String location;
+    //개최 장소 — 행정구역(시/도) 드롭다운 + 상세주소(도로명 등) 텍스트로 나눠 받는다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "region", columnDefinition = "VARCHAR(20)")
+    private FestivalRegion region;
+
+    @Column(name = "location_detail")
+    private String locationDetail;
+
+    //입장 시작 시간(몇 시부터 입장 가능한지, 날짜 아닌 시각만). QR 체크인 로직에서는 쓰지 않고
+    //구매자에게 안내만 하는 참고용 값이다.
+    @Column(name = "entry_start_time")
+    private LocalTime entryStartTime;
+
+    //운영 시간(구매자 확인용 참고 정보). 마찬가지로 QR 체크인 검증에는 관여하지 않는다.
+    @Column(name = "operating_start_time")
+    private LocalTime operatingStartTime;
+
+    @Column(name = "operating_end_time")
+    private LocalTime operatingEndTime;
 
 
     //columnDefinition을 명시하지 않으면 Hibernate가 MySQL 네이티브 ENUM(...) 컬럼을 생성해,

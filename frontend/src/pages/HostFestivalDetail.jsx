@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { CalendarIcon, ImageIcon, LockIcon, MapPinIcon, ScanLineIcon, TicketIcon } from 'lucide-react'
 import { fetchMyFestivalDetail } from '../api/hostFestivalApi'
-import { FESTIVAL_CATEGORY_LABELS, toAbsoluteImageUrl } from '../api/festivalApi'
+import { FESTIVAL_CATEGORY_LABELS, formatLocation, toAbsoluteImageUrl } from '../api/festivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
 import HostHelperAccounts from '../components/HostHelperAccounts'
@@ -26,6 +26,14 @@ function formatDateTime(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+//LocalDate("YYYY-MM-DD") 문자열을 "8월 15일"처럼 보여준다 — 이틀 이상 지속되는 페스티벌의 날짜별 티켓 표시용.
+function formatDayLabel(value) {
+  if (!value) return ''
+  const date = new Date(`${value}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
 }
 
 /** 백엔드 스펙(GET /api/host/festivals/{id}) 기준 주최자 본인 페스티벌 상세 화면. */
@@ -172,7 +180,7 @@ function HostFestivalDetail() {
           </span>
           <span className={styles.metaRow}>
             <MapPinIcon size={16} aria-hidden="true" />
-            {festival.location}
+            {formatLocation(festival)}
           </span>
         </div>
 
@@ -204,7 +212,11 @@ function HostFestivalDetail() {
               {festival.ticketTypes.map((ticketType) => (
                 <li key={ticketType.id} className={styles.ticketCard}>
                   <div>
-                    <p className={styles.ticketName}>{ticketType.name}</p>
+                    <p className={styles.ticketName}>
+                      {ticketType.name}
+                      {ticketType.ticketDate && ` · ${formatDayLabel(ticketType.ticketDate)}`}
+                    </p>
+                    {ticketType.description && <p className={styles.ticketStock}>{ticketType.description}</p>}
                     <p className={styles.ticketStock}>
                       잔여 {ticketType.remainQuantity} / {ticketType.totalQuantity}
                     </p>

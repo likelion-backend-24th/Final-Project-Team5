@@ -1,29 +1,19 @@
 package org.example.festivalservice.domain.helper;
 
+import jakarta.validation.constraints.*;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
-/** Festival-Service ↔ Auth-Service 도우미 계정 내부 계약에 쓰는 DTO 모음. */
 public final class HelperAccountDto {
-
-    private HelperAccountDto() {
+    private HelperAccountDto() { }
+    public record InviteRequest(@NotBlank @Email @Size(max = 254) String email) {
+        public InviteRequest { email = email == null ? null : email.trim().toLowerCase(Locale.ROOT); }
     }
-
-    /** POST /internal/v1/helper-accounts 요청. */
-    public record CreateRequest(Long festivalId, LocalDateTime festivalEndAt) {
-    }
-
-    /**
-     * 계정 발급·재발급 응답. 평문 비밀번호가 노출되는 유일한 지점이며 저장되지 않으므로,
-     * 호스트가 이 값을 놓치면 재발급을 받아야 한다.
-     */
-    public record CredentialResponse(Long helperUserId, String username, String password) {
-    }
-
-    /** 발급된 계정 목록(개수 확인용). 비밀번호는 복원할 수 없어 포함되지 않는다. */
-    public record SummaryResponse(int totalCount, List<HelperAccount> helpers) {
-
-        public record HelperAccount(Long helperUserId, String username, LocalDateTime createdAt) {
-        }
-    }
+    public record CreateRequest(Long festivalId, String festivalName, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDateTime festivalStartAt, @JsonFormat(shape = JsonFormat.Shape.STRING) LocalDateTime festivalEndAt, String email) { }
+    public record HelperAccount(Long helperUserId, String username, String email, String status,
+        String deliveryStatus, LocalDateTime sentAt, LocalDateTime lastSentAt, LocalDateTime expiresAt,
+        LocalDateTime createdAt, boolean legacy) { }
+    public record SummaryResponse(int totalCount, List<HelperAccount> helpers) { }
 }

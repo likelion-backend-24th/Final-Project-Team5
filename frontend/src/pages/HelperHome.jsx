@@ -18,17 +18,18 @@ function HelperHome() {
   const { user } = useAuth()
   const festivalId = user?.festivalId
 
-  const [festival, setFestival] = useState(null)
+  const [publicFestival, setPublicFestival] = useState(null)
+  const festival = publicFestival?.id === festivalId ? publicFestival : user?.assignedFestival
 
   useEffect(() => {
     if (!festivalId) return
     let cancelled = false
     fetchFestivalDetail(festivalId)
       .then((response) => {
-        if (!cancelled) setFestival(response.data.data)
+        if (!cancelled) setPublicFestival({ ...response.data.data, id: festivalId })
       })
       .catch(() => {
-        //행사 이름을 못 불러와도 두 버튼은 그대로 쓸 수 있으므로 조용히 넘어간다.
+        // 공개 전 행사이거나 조회에 실패해도 초대에 저장된 행사명과 일정을 보여준다.
       })
     return () => {
       cancelled = true
@@ -48,14 +49,14 @@ function HelperHome() {
               <CalendarIcon className="h-4 w-4" />
               {formatDateTime(festival.startAt)} ~ {formatDateTime(festival.endAt)}
             </p>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
+            {festival.location && <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500">
               <MapPinIcon className="h-4 w-4" />
               {festival.location}
-            </p>
+            </p>}
           </div>
         ) : (
           <p className="mt-5 text-sm text-gray-500">
-            {festivalId ? '담당 행사 정보를 불러오는 중이에요…' : '담당 행사가 지정되지 않았어요. 주최자에게 계정 재발급을 요청해주세요.'}
+            {festivalId ? '담당 행사 정보를 불러오는 중이에요…' : '담당 행사가 지정되지 않았어요. 주최자에게 계정 초대를 문의해주세요.'}
           </p>
         )}
 

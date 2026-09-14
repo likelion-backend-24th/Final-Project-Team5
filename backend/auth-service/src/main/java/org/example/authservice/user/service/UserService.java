@@ -23,6 +23,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
+    private final org.example.authservice.helper.repository.HelperInvitationRepository helperInvitations;
+    private final org.example.authservice.auth.service.AccountAccessPolicy accountAccessPolicy;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenRevocationService refreshTokenRevocationService;
@@ -33,6 +35,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(UserErrorCode.USER_NOT_FOUND));
 
+        accountAccessPolicy.check(user);
         return UserResponse.builder()
                 .id(user.getId())
                 .username(user.getUsername())
@@ -43,6 +46,7 @@ public class UserService {
                 .createdAt(user.getCreatedAt())
                 //도우미가 로그인한 뒤 자기가 어느 페스티벌 담당인지 알아야 해당 화면을 열 수 있다.
                 .festivalId(user.getFestivalId())
+                .assignedFestival(assignedFestival(user))
                 //프론트가 소셜 계정의 비밀번호 변경 폼을 숨길 수 있도록 연결된 소셜 제공자와 비밀번호 유무를 내려준다.
                 .socialProviders(oauthAccountRepository.findAllByUser_Id(userId).stream().map(OauthAccount::getProvider).toList())
                 .hasPassword(user.getPassword() != null)
@@ -52,6 +56,13 @@ public class UserService {
                 //도우미는 주최자가 발급하는 임시 계정이라 제외한다.
                 .profileSetupRequired(user.getTermsAgreeAt() == null && user.getPassword() == null && user.getRole() != Role.HELPER)
                 .build();
+    }
+
+    private UserResponse.AssignedFestival assignedFestival(User user) {
+        if (user.getRole() != Role.HELPER) return null;
+        return helperInvitations.findByHelperUser_Id(user.getId())
+            .map(invitation -> new UserResponse.AssignedFestival(user.getFestivalId(), invitation.getFestivalName(),
+                invitation.getFestivalStartAt(), user.getFestivalEndAt())).orElse(null);
     }
 
     //Gateway가 넘겨준 access token 발급 시각(epoch 초)이 마지막 비밀번호 변경보다 앞서면 거부한다.
@@ -114,7 +125,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(UserErrorCode.USER_NOT_FOUND));
         //도우미 계정은 주최자가 발급·회수하는 임시 계정이라 알바가 임의로 비밀번호를 바꿀 수 없다.
-        //비밀번호를 분실하면 주최자가 재발급해준다(Gateway에서도 이 경로를 막지만 여기서 한 번 더 확인한다).
+        //비밀번호 설정은 주최자가 보낸 계정 활성화 링크에서 진행한다(Gateway에서도 이 경로를 막지만 여기서 한 번 더 확인한다).
         if (user.getRole() == Role.HELPER) {
             throw new ApiException(UserErrorCode.HELPER_PASSWORD_CHANGE_NOT_ALLOWED);
         }

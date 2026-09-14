@@ -68,8 +68,10 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
     private final SecretKey secretKey;
+    private final HelperSessionClient helperSessionClient;
 
-    public JwtAuthenticationGlobalFilter(@Value("${jwt.secret}") String secret) {
+    public JwtAuthenticationGlobalFilter(@Value("${jwt.secret}") String secret, HelperSessionClient helperSessionClient) {
+        this.helperSessionClient = helperSessionClient;
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -117,7 +119,16 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
                 authenticatedRequest.header(FESTIVAL_ID_HEADER, String.valueOf(festivalId));
             }
 
-            return chain.filter(exchange.mutate().request(authenticatedRequest.build()).build());
+            ServerWebExchange authenticated = exchange.mutate().request(authenticatedRequest.build()).build();
+            if (HELPER_ROLE.equals(role)) {
+                Number userId = claims.get(USER_ID_CLAIM, Number.class);
+                Number assignedFestival = claims.get(FESTIVAL_ID_CLAIM, Number.class);
+                Number version = claims.get("helperSessionVersion", Number.class);
+                if (userId == null || assignedFestival == null) return unauthorized(exchange);
+                return helperSessionClient.isValid(userId.longValue(), assignedFestival.longValue(), version == null ? 0 : version.longValue())
+                    .flatMap(valid -> valid ? chain.filter(authenticated) : unauthorized(exchange));
+            }
+            return chain.filter(authenticated);
         } catch (JwtException | IllegalArgumentException e) {
             return unauthorized(exchange);
         }

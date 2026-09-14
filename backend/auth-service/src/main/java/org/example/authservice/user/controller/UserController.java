@@ -27,7 +27,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserResponse>> getMyInfo(
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader(value = "X-Token-Iat", required = false) Long tokenIssuedAt) {
-        //비밀번호가 바뀐 뒤에도 남아 있는 기기(도우미 비밀번호 재발급 등)를 걸러낸다 — 이전 토큰이면 401
+        // 비밀번호 변경 이전에 발급된 토큰을 거부한다.
         userService.rejectIfTokenPredatesPasswordChange(userId, tokenIssuedAt);
         UserResponse response = userService.getMyInfo(userId);
         return ResponseEntity.ok(ApiResponse.success("내 정보 조회 성공", response ));

@@ -17,7 +17,7 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -31,6 +31,9 @@ spring:
     properties:
       mail:
         smtp:
+          connectiontimeout: 1000
+          timeout: 2000
+          writetimeout: 2000
           auth: true
           starttls:
             enable: true
@@ -38,11 +41,13 @@ spring:
 #로그 설정
 logging:
   level:
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.hibernate.SQL: INFO
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+    org.hibernate.engine.jdbc.spi.SqlExceptionHelper: OFF
     org:
       springframework:
-        security: trace
+        security: INFO
 
 
 jwt:

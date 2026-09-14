@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import ScrollToTop from './components/ScrollToTop'
 import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
@@ -7,6 +7,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import CheckIn from './pages/CheckIn'
 import FestivalDetail from './pages/FestivalDetail'
 import HelperHome from './pages/HelperHome'
+import HelperInvite from './pages/HelperInvite'
 import Festivals from './pages/Festivals'
 import Home from './pages/Home'
 import HostApplication from './pages/HostApplication'
@@ -26,6 +27,10 @@ import SignUp from './pages/SignUp'
 /** 상단바·푸터는 모든 화면에 고정, 가운데만 라우팅으로 갈아끼운다. */
 function App() {
   const { user, isLoading } = useAuth()
+  const location = useLocation()
+  if (location.pathname.startsWith('/helper-invite/')) {
+    return <Routes><Route path="/helper-invite/:token" element={<HelperInvite key={location.pathname} />} /></Routes>
+  }
 
   //도우미(HELPER)는 배정된 행사 하나에서 현장 입장 검증만 담당하는 계정이라, 일반 회원 화면 대신
   //전용 메인(담당 행사 정보 / 현장 입장 검사)을 보여준다. 페스티벌 목록·예매·주최자·운영자 화면은

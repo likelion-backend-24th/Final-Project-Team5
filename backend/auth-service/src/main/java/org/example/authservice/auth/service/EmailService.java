@@ -37,6 +37,34 @@ public class EmailService {
         send(toEmail, subject, buildPlainText(code), buildHtml(code));
     }
 
+    // 호출자는 DB 커밋을 끝낸 뒤 호출하고, 실패 상태를 별도 트랜잭션으로 기록한다.
+    public void sendHelperInvitation(String email, String festivalName, String username,
+            java.time.LocalDateTime expiresAt, String link) {
+        String escapedName = org.springframework.web.util.HtmlUtils.htmlEscape(festivalName);
+        String escapedUsername = org.springframework.web.util.HtmlUtils.htmlEscape(username);
+        String escapedLink = org.springframework.web.util.HtmlUtils.htmlEscape(link);
+        String plain = "FevalGo 도우미 초대\n" + festivalName + "\n로그인 아이디: " + username
+            + "\n만료: " + expiresAt + "\n비밀번호 설정하기: " + link
+            + "\n링크는 1회만 사용 가능합니다. 예상하지 못한 메일이면 무시해주세요.";
+        String html = "<html><body><h1>FevalGo 도우미 초대</h1><h2>" + escapedName
+            + "</h2><p>로그인 아이디: " + escapedUsername + "</p><p>만료: " + expiresAt
+            + "</p><p><a style=\"display:inline-block;padding:14px;background:#2563eb;color:white\" href=\""
+            + escapedLink + "\">비밀번호 설정하기</a></p><p>링크는 1회만 사용 가능합니다.</p>"
+            + "<p>예상하지 못한 메일이면 무시해주세요.</p></body></html>";
+        try {
+            MimeMessage message = javaMailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(new InternetAddress(fromEmail, SENDER_NAME, "UTF-8"));
+            helper.setTo(email);
+            helper.setSubject("[FevalGo] 도우미 초대");
+            helper.setText(plain, html);
+            javaMailSender.send(message);
+        } catch (MessagingException | UnsupportedEncodingException | RuntimeException e) {
+            // 전송 예외에 수신 주소나 본문이 포함될 수 있어 전달하거나 기록하지 않는다.
+            throw new IllegalStateException("도우미 초대 메일 발송 실패");
+        }
+    }
+
     //순수 텍스트만 보내면 스팸 판정을 받기 쉬워서, 텍스트+HTML을 함께 담은 multipart/alternative로 보낸다.
     //텍스트 본문은 HTML을 못 여는 메일 클라이언트용 대체본이다.
     private void send(String toEmail, String subject, String plainText, String html) {
@@ -50,7 +78,7 @@ public class EmailService {
             javaMailSender.send(message);
         } catch (MessagingException | UnsupportedEncodingException | RuntimeException e) {
             // 비동기라 호출자에게 예외가 전달되지 않는다. 추적 수단은 이 로그뿐이다.
-            log.error("메일 발송 실패. to={}, subject={}", toEmail, subject, e);
+            log.error("메일 발송 실패. 수신 주소와 본문은 기록하지 않습니다.");
         }
     }
 

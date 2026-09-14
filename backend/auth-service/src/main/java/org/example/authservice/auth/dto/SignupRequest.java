@@ -26,7 +26,7 @@ public class SignupRequest {
 
     @Schema(description = "비밀번호 (최소 8자)", example = "test1234")
     @NotBlank(message = "비밀번호는 필수입니다.")
-    @Size(min = 8, message = "비밀번호는 최소 8자 ")
+    @Size(min = org.example.authservice.auth.dto.PasswordPolicy.MIN_LENGTH, message = "비밀번호는 최소 8자 ")
     private String password;
 
     @Schema(description = "이용약관 및 개인정보처리방침 동의 여부 (필수 동의)", example = "true")

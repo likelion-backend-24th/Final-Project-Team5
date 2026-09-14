@@ -157,6 +157,8 @@ export async function reviewFestivalSubmission(id, decision, rejectReason) {
 
 export const ACCOUNT_STATUS_META = {
   ACTIVE: { label: '활동중', cls: 'bg-emerald-100 text-emerald-700' },
+  PENDING_ACTIVATION: { label: '활성화 대기', cls: 'bg-amber-100 text-amber-700' },
+  REVOKED: { label: '해지', cls: 'bg-gray-200 text-gray-600' },
   SUSPENDED: { label: '정지됨', cls: 'bg-gray-200 text-gray-600' },
   WITHDRAWN: { label: '탈퇴', cls: 'bg-red-100 text-red-600' },
 }

@@ -34,6 +34,10 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
+    @org.junit.jupiter.api.BeforeEach
+    void configureAccountPolicy() {
+        org.springframework.test.util.ReflectionTestUtils.setField(userService, "accountAccessPolicy", new org.example.authservice.auth.service.AccountAccessPolicy());
+    }
 
     @Mock
     private UserRepository userRepository;

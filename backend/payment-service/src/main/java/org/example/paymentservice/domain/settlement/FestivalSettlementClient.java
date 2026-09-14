@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -16,48 +17,50 @@ public class FestivalSettlementClient {
 
     private final RestClient client;
 
-    public record Context(Long festivalId, Long hostUserId, String name, Instant eligibleAt, String status) {}
+    public record Context(Long festivalId, Long hostUserId, String name, Instant eligibleAt, String status) {
+    }
 
     public FestivalSettlementClient(
-        @Value("${festival-service.base-url:http://localhost:8082}") String url,
-        @Value("${internal.auth-token}") String token
+            @Value("${festival-service.base-url:http://localhost:8082}") String url,
+            @Value("${internal.auth-token}") String token
     ) {
         var factory = new JdkClientHttpRequestFactory(
-            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
         );
         factory.setReadTimeout(Duration.ofSeconds(5));
         client = RestClient.builder()
-            .baseUrl(url)
-            .requestFactory(factory)
-            .defaultHeader("Authorization", "Bearer " + token)
-            .build();
+                .baseUrl(url)
+                .requestFactory(factory)
+                .defaultHeader("Authorization", "Bearer " + token)
+                .build();
     }
 
     public List<Context> candidates(int page) {
         return Arrays.asList(
-            Objects.requireNonNull(
-                client
-                    .get()
-                    .uri("/internal/v1/festivals/settlement-candidates?page={page}", page)
-                    .retrieve()
-                    .body(Context[].class)
-            )
+                Objects.requireNonNull(
+                        client.get()
+                                .uri("/internal/v1/festivals/settlement-candidates?page={page}", page)
+                                .retrieve()
+                                .body(Context[].class)
+                )
         );
     }
 
     public Context context(Long id) {
         return Objects.requireNonNull(
-            client.get().uri("/internal/v1/festivals/{id}/settlement-context", id).retrieve().body(Context.class)
+                client.get().uri("/internal/v1/festivals/{id}/settlement-context", id).retrieve().body(Context.class)
         );
     }
 
-    public record RefundCandidate(Long festivalId, Long hostUserId, Long initiatedBy, String reason) {}
+    public record RefundCandidate(Long festivalId, Long hostUserId, Long initiatedBy, String reason) {
+    }
 
     public List<RefundCandidate> refundCandidates() {
         return Arrays.asList(
-            Objects.requireNonNull(
-                client.get().uri("/internal/v1/festivals/refund-candidates").retrieve().body(RefundCandidate[].class)
-            )
+                Objects.requireNonNull(
+                        client.get().uri("/internal/v1/festivals/refund-candidates").retrieve()
+                                .body(RefundCandidate[].class)
+                )
         );
     }
 

@@ -17,16 +17,15 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "festival-refund.scheduling-enabled", matchIfMissing = true)
 public class FestivalRefundScheduler {
 
+    //승인된 취소 결제만 환불 대상이다 — READY/FAILED 결제는 돌려줄 돈이 없다.
+    private static final Set<PaymentStatus> REFUNDABLE_STATUSES =
+            Set.of(PaymentStatus.PAID, PaymentStatus.PARTIAL_CANCELLED, PaymentStatus.CANCELLED);
+
     private final FestivalSettlementClient festivals;
-
     private final ReservationServiceClient reservations;
-
     private final PaymentRepository payments;
-
     private final FestivalRefundBatchRepository batches;
-
     private final FestivalRefundItemRepository items;
-
     private final PaymentCancellationService cancellations;
 
     @Scheduled(fixedDelayString = "${festival-refund.delay-ms:60000}")
@@ -41,54 +40,44 @@ public class FestivalRefundScheduler {
     }
 
     public void process(FestivalSettlementClient.RefundCandidate candidate) {
-        var batch = batches
-            .findByFestivalId(candidate.festivalId())
-            .orElseGet(() ->
-                batches.save(
-                    new FestivalRefundBatch(candidate.festivalId(), candidate.initiatedBy(), candidate.reason())
-                )
-            );
+        var batch = batches.findByFestivalId(candidate.festivalId())
+                .orElseGet(() -> batches.save(
+                        new FestivalRefundBatch(candidate.festivalId(), candidate.initiatedBy(), candidate.reason())));
         var rows = reservations.settlementContext(candidate.festivalId());
-        var paymentRows = payments.findByReservationIdIn(
-            rows
-                .stream()
-                .map(r -> r.reservationId())
-                .toList()
-        );
+        var paymentRows = payments.findByReservationIdIn(rows.stream().map(r -> r.reservationId()).toList());
         var previous = items.findByBatchId(batch.getId());
         for (var p : paymentRows) {
-            if (
-                !Set.of(PaymentStatus.PAID, PaymentStatus.PARTIAL_CANCELLED, PaymentStatus.CANCELLED).contains(
-                    p.getStatus()
-                )
-            ) continue;
-            if (previous.stream().noneMatch(i -> i.getPaymentId().equals(p.getPaymentId()))) items.save(
-                new FestivalRefundItem(batch.getId(), p.getPaymentId(), p.getReservationId())
-            );
+            if (!REFUNDABLE_STATUSES.contains(p.getStatus())) {
+                continue;
+            }
+            if (previous.stream().noneMatch(i -> i.getPaymentId().equals(p.getPaymentId()))) {
+                items.save(
+                        new FestivalRefundItem(batch.getId(), p.getPaymentId(), p.getReservationId())
+                );
+            }
         }
         var work = items.findByBatchId(batch.getId());
         for (var item : work) {
-            if (item.getStatus() == FestivalRefundItemStatus.SUCCEEDED) continue;
+            if (item.getStatus() == FestivalRefundItemStatus.SUCCEEDED) {
+                continue;
+            }
             try {
-                if (
-                    cancellations.organizerRefund(
-                        item.getPaymentId(),
-                        item.getIdempotencyKey(),
-                        batch.getInitiatedBy(),
-                        batch.getReason()
-                    )
-                ) item.success();
-                else item.fail();
+                boolean refunded = cancellations.organizerRefund(
+                        item.getPaymentId(), item.getIdempotencyKey(), batch.getInitiatedBy(), batch.getReason());
+                if (refunded) {
+                    item.success();
+                } else {
+                    item.fail();
+                }
             } catch (RuntimeException e) {
                 item.fail();
                 log.warn("환불 항목 재시도: item={}", item.getId(), e);
             }
             items.save(item);
         }
-        int succeeded = (int) work
-            .stream()
-            .filter(i -> i.getStatus() == FestivalRefundItemStatus.SUCCEEDED)
-            .count();
+        int succeeded = (int) work.stream()
+                .filter(i -> i.getStatus() == FestivalRefundItemStatus.SUCCEEDED)
+                .count();
         batch.progress(work.size(), succeeded, work.size() - succeeded);
         batches.save(batch);
         var latest = reservations.settlementContext(candidate.festivalId());

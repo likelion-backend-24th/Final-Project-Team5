@@ -9,7 +9,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+
 import java.time.Instant;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -25,7 +27,6 @@ public class FestivalRefundBatch {
 
     @Column(name = "festival_id", nullable = false)
     private Long festivalId;
-
     private Long initiatedBy;
 
     @Column(length = 500)
@@ -34,15 +35,10 @@ public class FestivalRefundBatch {
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "VARCHAR(30)")
     private FestivalRefundBatchStatus status = FestivalRefundBatchStatus.RUNNING;
-
     private Instant createdAt = Instant.now();
-
     private Instant completedAt;
-
     private int totalCount;
-
     private int succeededCount;
-
     private int failedCount;
 
     public FestivalRefundBatch(Long festivalId, Long actor, String reason) {

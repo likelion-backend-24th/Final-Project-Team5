@@ -12,7 +12,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+
 import java.time.Instant;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.example.paymentservice.domain.payment.PaymentMethodCategory;
@@ -21,8 +23,8 @@ import org.example.paymentservice.domain.payment.PaymentMethodCategory;
 @Getter
 @NoArgsConstructor
 @Table(
-    name = "settlement_lines",
-    uniqueConstraints = @UniqueConstraint(columnNames = { "settlement_id", "payment_id" })
+        name = "settlement_lines",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"settlement_id", "payment_id"})
 )
 public class SettlementLine {
 
@@ -36,43 +38,31 @@ public class SettlementLine {
 
     @Column(name = "payment_id", nullable = false)
     private Long paymentId;
-
     private Long reservationId;
-
     private Long ticketTypeId;
-
     private Instant paidAt;
 
     @Enumerated(EnumType.STRING)
     @Column(columnDefinition = "VARCHAR(30)")
     private PaymentMethodCategory paymentMethod;
-
     private int feeRateBps;
-
     private long grossAmount;
-
     private long refundedFaceAmount;
-
     private long customerRefundAmount;
-
     private long penaltyAmount;
-
     private long initialFeeAmount;
-
     private long feeReversalAmount;
-
     private long finalFeeAmount;
-
     private long payoutAmount;
 
     public SettlementLine(
-        Settlement settlement,
-        Long paymentId,
-        Long reservationId,
-        Long ticketTypeId,
-        Instant paidAt,
-        PaymentMethodCategory method,
-        SettlementCalculator.Result result
+            Settlement settlement,
+            Long paymentId,
+            Long reservationId,
+            Long ticketTypeId,
+            Instant paidAt,
+            PaymentMethodCategory method,
+            SettlementCalculator.Result result
     ) {
         this.settlement = settlement;
         this.paymentId = paymentId;

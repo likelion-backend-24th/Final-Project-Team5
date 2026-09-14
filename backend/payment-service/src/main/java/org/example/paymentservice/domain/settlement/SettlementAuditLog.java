@@ -7,7 +7,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+
 import java.time.Instant;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -20,15 +22,10 @@ public class SettlementAuditLog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     private Long settlementId;
-
     private String action;
-
     private String previousStatus;
-
     private String nextStatus;
-
     private Long actorUserId;
 
     @Column(length = 1000)
@@ -36,19 +33,17 @@ public class SettlementAuditLog {
 
     @Column(name = "command_key", length = 100)
     private String commandKey;
-
     private String commandFingerprint;
-
     private Instant createdAt = Instant.now();
 
     public SettlementAuditLog(
-        Settlement settlement,
-        String action,
-        SettlementStatus previous,
-        Long actor,
-        String memo,
-        String key,
-        String fingerprint
+            Settlement settlement,
+            String action,
+            SettlementStatus previous,
+            Long actor,
+            String memo,
+            String key,
+            String fingerprint
     ) {
         settlementId = settlement.getId();
         this.action = action;

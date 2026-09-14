@@ -14,8 +14,8 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @Table(
-    name = "settlement_adjustment_allocations",
-    uniqueConstraints = @UniqueConstraint(columnNames = { "adjustment_id", "settlement_id" })
+        name = "settlement_adjustment_allocations",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"adjustment_id", "settlement_id"})
 )
 public class SettlementAdjustmentAllocation {
 
@@ -28,7 +28,6 @@ public class SettlementAdjustmentAllocation {
 
     @Column(name = "settlement_id")
     private Long settlementId;
-
     private long amount;
 
     public SettlementAdjustmentAllocation(Long adjustment, Long settlement, long amount) {
@@ -38,7 +37,9 @@ public class SettlementAdjustmentAllocation {
     }
 
     public void releaseDebt(long value) {
-        if (value < 0 || amount >= 0 || value > -amount) throw new IllegalArgumentException("INVALID_DEBT_RELEASE");
+        if (value < 0 || amount >= 0 || value > -amount) {
+            throw new IllegalArgumentException("INVALID_DEBT_RELEASE");
+        }
         amount = Math.addExact(amount, value);
     }
 }

@@ -3,6 +3,7 @@ package org.example.festivalservice.controller;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.exception.ApiException;
 import org.example.festivalservice.domain.festival.FestivalCancellationService;
@@ -22,7 +23,6 @@ import org.springframework.web.bind.annotation.*;
 public class InternalFestivalController {
 
     private static final String BEARER_PREFIX = "Bearer ";
-
     private final FestivalCancellationService festivalCancellationService;
 
     @Value("${internal.auth-token:CHANGE_ME_IN_ENV}")

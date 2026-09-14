@@ -12,16 +12,18 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
 @NoArgsConstructor
-@Table(name = "settlements", uniqueConstraints = @UniqueConstraint(columnNames = { "festival_id", "test_payment" }))
+@Table(name = "settlements", uniqueConstraints = @UniqueConstraint(columnNames = {"festival_id", "test_payment"}))
 public class Settlement {
 
     @Id
@@ -36,9 +38,7 @@ public class Settlement {
 
     @Column(nullable = false)
     private Long hostUserId;
-
     private String festivalName;
-
     private String hostName;
 
     @Column(unique = true)
@@ -49,48 +49,28 @@ public class Settlement {
 
     @Column(name = "test_payment", nullable = false)
     private boolean testPayment;
-
     private String currency = "KRW";
-
     private String feePolicyVersion = "2026-09-v1";
-
     private Instant eligibleAt;
-
     private Instant calculatedAt;
-
     private Instant confirmedAt;
-
     private Instant paidAt;
-
     private Instant reapprovedAt;
-
     private long confirmedAdjustmentAmount;
-
     private Long paidPayoutAmount;
-
     private String paymentReference;
 
     @Column(length = 1000)
     private String adminMemo;
-
     private String holdReason;
-
     private boolean manualHold;
-
     private long grossPaymentAmount;
-
     private long grossRefundedFaceAmount;
-
     private long customerRefundAmount;
-
     private long cancellationPenaltyAmount;
-
     private long netTicketSalesAmount;
-
     private long platformFeeAmount;
-
     private long adjustmentAmount;
-
     private long payoutAmount;
 
     @Enumerated(EnumType.STRING)
@@ -123,11 +103,15 @@ public class Settlement {
     }
 
     public void snapshotHostName(String name) {
-        if (hostName == null && name != null && !name.isBlank()) hostName = name;
+        if (hostName == null && name != null && !name.isBlank()) {
+            hostName = name;
+        }
     }
 
     public void transition(SettlementStatus next) {
-        if (!status.permits(next)) throw new IllegalStateException("SETTLEMENT_STATE_CONFLICT");
+        if (!status.permits(next)) {
+            throw new IllegalStateException("SETTLEMENT_STATE_CONFLICT");
+        }
         status = next;
     }
 
@@ -138,12 +122,16 @@ public class Settlement {
     }
 
     public void release() {
-        if (status != SettlementStatus.HELD) throw new IllegalStateException("SETTLEMENT_STATE_CONFLICT");
+        if (status != SettlementStatus.HELD) {
+            throw new IllegalStateException("SETTLEMENT_STATE_CONFLICT");
+        }
         manualHold = false;
     }
 
     public void calculate(List<SettlementLine> newLines, long adjustment) {
-        if (!status.recalculable() || manualHold) throw new IllegalStateException("RECALCULATION_BLOCKED");
+        if (!status.recalculable() || manualHold) {
+            throw new IllegalStateException("RECALCULATION_BLOCKED");
+        }
         lines.addAll(newLines);
         grossPaymentAmount = 0;
         grossRefundedFaceAmount = 0;
@@ -158,8 +146,8 @@ public class Settlement {
             customerRefundAmount = Math.addExact(customerRefundAmount, line.getCustomerRefundAmount());
             cancellationPenaltyAmount = Math.addExact(cancellationPenaltyAmount, line.getPenaltyAmount());
             netTicketSalesAmount = Math.addExact(
-                netTicketSalesAmount,
-                line.getGrossAmount() - line.getRefundedFaceAmount()
+                    netTicketSalesAmount,
+                    line.getGrossAmount() - line.getRefundedFaceAmount()
             );
             platformFeeAmount = Math.addExact(platformFeeAmount, line.getFinalFeeAmount());
             payoutAmount = Math.addExact(payoutAmount, line.getPayoutAmount());
@@ -172,20 +160,24 @@ public class Settlement {
     }
 
     public void clearLines() {
-        if (!status.recalculable()) throw new IllegalStateException("RECALCULATION_BLOCKED");
+        if (!status.recalculable()) {
+            throw new IllegalStateException("RECALCULATION_BLOCKED");
+        }
         lines.clear();
     }
 
     public void confirm() {
-        if (payoutAmount < 0) throw new IllegalStateException("NEGATIVE_PAYOUT_RECEIVABLE");
+        if (payoutAmount < 0) {
+            throw new IllegalStateException("NEGATIVE_PAYOUT_RECEIVABLE");
+        }
         transition(SettlementStatus.CONFIRMED);
         confirmedAt = Instant.now();
     }
 
     public void markPaid(Instant at, String reference, String memo) {
-        if (
-            at == null || at.isAfter(Instant.now()) || reference == null || reference.isBlank()
-        ) throw new IllegalArgumentException("PAYMENT_REFERENCE_REQUIRED");
+        if (at == null || at.isAfter(Instant.now()) || reference == null || reference.isBlank()) {
+            throw new IllegalArgumentException("PAYMENT_REFERENCE_REQUIRED");
+        }
         transition(SettlementStatus.PAID);
         paidAt = at;
         paymentReference = reference;
@@ -194,11 +186,10 @@ public class Settlement {
     }
 
     public void reapprove(long adjustment) {
-        if (
-            paidAt != null ||
-            status != SettlementStatus.ADJUSTMENT_REQUIRED ||
-            Math.addExact(payoutAmount, adjustment) < 0
-        ) throw new IllegalStateException("REAPPROVAL_BLOCKED");
+        if (paidAt != null || status != SettlementStatus.ADJUSTMENT_REQUIRED
+                || Math.addExact(payoutAmount, adjustment) < 0) {
+            throw new IllegalStateException("REAPPROVAL_BLOCKED");
+        }
         transition(SettlementStatus.CONFIRMED);
         confirmedAdjustmentAmount = adjustment;
         reapprovedAt = Instant.now();

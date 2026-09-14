@@ -1,7 +1,9 @@
 package org.example.paymentservice.domain.settlement;
 
 import jakarta.persistence.LockModeType;
+
 import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 
@@ -10,9 +12,9 @@ public interface SettlementAdjustmentRepository extends JpaRepository<Settlement
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     List<SettlementAdjustment> findByHostUserIdAndTestPaymentAndRemainingAmountNot(
-        Long host,
-        boolean test,
-        long remaining
+            Long host,
+            boolean test,
+            long remaining
     );
 
     List<SettlementAdjustment> findBySourceSettlementId(Long source);

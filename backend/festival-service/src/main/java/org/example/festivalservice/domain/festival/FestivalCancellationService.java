@@ -3,6 +3,7 @@ package org.example.festivalservice.domain.festival;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.exception.ApiException;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,7 +26,8 @@ public class FestivalCancellationService {
     //정산 가능 시각 = 행사 종료 + 24시간. 그 사이 환불·취소가 정리될 시간을 둔다.
     private static final int SETTLEMENT_GRACE_HOURS = 24;
     private static final List<FestivalStatus> SETTLEMENT_STATUSES = List.of(
-            FestivalStatus.PUBLISHED, FestivalStatus.CLOSED, FestivalStatus.CANCELLATION_PENDING, FestivalStatus.CANCELLED);
+            FestivalStatus.PUBLISHED, FestivalStatus.CLOSED, FestivalStatus.CANCELLATION_PENDING,
+            FestivalStatus.CANCELLED);
 
     private final FestivalRepository festivalRepository;
 
@@ -92,8 +94,8 @@ public class FestivalCancellationService {
     //payment-service 환불 배치용 — 승인이 끝난 취소 요청만 전액 환불 대상이다
     @Transactional(readOnly = true)
     public List<RefundCandidateDto> refundCandidates() {
-        return festivalRepository
-                .findByFestivalStatusAndCancellationApprovedAtIsNotNull(FestivalStatus.CANCELLATION_PENDING).stream()
+        return festivalRepository.findByFestivalStatusAndCancellationApprovedAtIsNotNull(
+                        FestivalStatus.CANCELLATION_PENDING).stream()
                 .map(festival -> new RefundCandidateDto(
                         festival.getId(),
                         festival.getHostUserId(),
@@ -124,8 +126,8 @@ public class FestivalCancellationService {
         }
         ZoneId timezone = ZoneId.of(appTimezone);
         LocalDateTime cutoff = LocalDateTime.now(timezone).minusHours(SETTLEMENT_GRACE_HOURS);
-        return festivalRepository
-                .findSettlementCandidates(cutoff, SETTLEMENT_STATUSES, PageRequest.of(page, SETTLEMENT_CANDIDATE_PAGE_SIZE))
+        return festivalRepository.findSettlementCandidates(cutoff, SETTLEMENT_STATUSES,
+                        PageRequest.of(page, SETTLEMENT_CANDIDATE_PAGE_SIZE))
                 .stream()
                 .map(festival -> SettlementContextDto.from(festival, timezone))
                 .toList();

@@ -22,7 +22,9 @@ public enum SettlementAction {
 
     public static SettlementAction fromPath(String path) {
         for (var action : values()) {
-            if (action.pathValue.equals(path)) return action;
+            if (action.pathValue.equals(path)) {
+                return action;
+            }
         }
         throw new ApiException(SettlementErrorCode.UNKNOWN_ACTION);
     }

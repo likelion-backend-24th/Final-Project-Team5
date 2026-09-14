@@ -1,24 +1,33 @@
 package org.example.festivalservice.domain.festival;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.example.festivalservice.domain.tickettype.TicketType;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-@Entity@Builder
+@Entity
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
 @Table(name = "festivals")
 public class Festival {
-    @Id@GeneratedValue(strategy = GenerationType.IDENTITY)
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     //주최자(Host) id
@@ -29,15 +38,17 @@ public class Festival {
     private String name;
     //페스티벌 설명
     private String description;
+
     //개최 일자 및 시각
     @Column(name = "start_at")
     private LocalDateTime startAt;
+
     //페스티벌 종료 일자 및 시각
     @Column(name = "end_at")
     private LocalDateTime endAt;
+
     //개최 장소
     private String location;
-
 
     //columnDefinition을 명시하지 않으면 Hibernate가 MySQL 네이티브 ENUM(...) 컬럼을 생성해,
     //Java enum에 값을 추가해도 ddl-auto: update가 DB의 허용값 목록을 넓혀주지 않는다.
@@ -49,29 +60,40 @@ public class Festival {
     @Column(name = "festival_status", columnDefinition = "VARCHAR(30)")
     private FestivalStatus festivalStatus;
 
-    @Version @Column(columnDefinition = "BIGINT DEFAULT 0") private Long version;
-    @Column(length = 500) private String cancelReason;
+    @Version
+    @Column(columnDefinition = "BIGINT DEFAULT 0")
+    private Long version;
+
+    // 귀책 환불의 승인 근거를 보존하므로 요청자와 운영 승인자를 분리한다.
+    @Column(name = "cancel_reason", length = 500)
+    private String cancelReason;
+
+    @Column(name = "cancelled_by_user_id")
     private Long cancelledByUserId;
-    private java.time.Instant cancelledAt;
-    private java.time.Instant cancellationApprovedAt;
+
+    @Column(name = "cancelled_at")
+    private Instant cancelledAt;
+
+    @Column(name = "cancellation_approved_at")
+    private Instant cancellationApprovedAt;
+
+    @Column(name = "cancellation_approved_by_user_id")
     private Long cancellationApprovedByUserId;
 
     public void requestCancellation(Long actor, String reason) {
-        if (festivalStatus == FestivalStatus.CANCELLATION_PENDING || festivalStatus == FestivalStatus.CANCELLED) return;
-        if (festivalStatus != FestivalStatus.PUBLISHED && festivalStatus != FestivalStatus.CLOSED)
-            throw new IllegalStateException("FESTIVAL_NOT_CANCELLABLE");
-        if (reason == null || reason.isBlank() || reason.length() > 500) throw new IllegalArgumentException("REASON_REQUIRED");
-        festivalStatus = FestivalStatus.CANCELLATION_PENDING; cancelledByUserId = actor; cancelReason = reason;
+        festivalStatus = FestivalStatus.CANCELLATION_PENDING;
+        cancelledByUserId = actor;
+        cancelReason = reason;
     }
+
     public void approveCancellation(Long actor) {
-        if (festivalStatus != FestivalStatus.CANCELLATION_PENDING) throw new IllegalStateException("CANCELLATION_NOT_REQUESTED");
-        if (cancellationApprovedAt == null) { cancellationApprovedAt = java.time.Instant.now(); cancellationApprovedByUserId = actor; }
+        cancellationApprovedAt = Instant.now();
+        cancellationApprovedByUserId = actor;
     }
+
     public void completeCancellation() {
-        if (festivalStatus == FestivalStatus.CANCELLED) return;
-        if (cancellationApprovedAt == null || festivalStatus != FestivalStatus.CANCELLATION_PENDING)
-            throw new IllegalStateException("CANCELLATION_NOT_APPROVED");
-        festivalStatus = FestivalStatus.CANCELLED; cancelledAt = java.time.Instant.now();
+        festivalStatus = FestivalStatus.CANCELLED;
+        cancelledAt = Instant.now();
     }
 
     @CreationTimestamp

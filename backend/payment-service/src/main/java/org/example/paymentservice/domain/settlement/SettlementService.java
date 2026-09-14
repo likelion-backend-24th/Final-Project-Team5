@@ -9,8 +9,7 @@ import org.example.paymentservice.infrastructure.portone.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
+import org.example.paymentservice.common.exception.ApiException;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,7 +33,7 @@ public class SettlementService {
 
     public record Actor(Long id, String role) {
         public void require(String expected) {
-            if (id == null || !expected.equals(role)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FORBIDDEN_ROLE");
+            if (id == null || !expected.equals(role)) throw new ApiException(SettlementErrorCode.FORBIDDEN_ROLE);
         }
     }
     public record Filter(Instant from, Instant to, SettlementStatus status, Long festivalId,
@@ -47,8 +46,8 @@ public class SettlementService {
             this(from, to, status, festivalId, hostUserId, paymentMethod, testPayment, "SETTLEMENT_AT");
         }
         public Filter {
-            if (!Set.of("PAID_AT", "SETTLEMENT_AT").contains(dateBasis)) throw new IllegalArgumentException("INVALID_DATE_BASIS");
-            if (from != null && to != null && from.isAfter(to)) throw new IllegalArgumentException("INVALID_DATE_RANGE");
+            if (!Set.of("PAID_AT", "SETTLEMENT_AT").contains(dateBasis)) throw new ApiException(SettlementErrorCode.INVALID_FILTER);
+            if (from != null && to != null && from.isAfter(to)) throw new ApiException(SettlementErrorCode.INVALID_FILTER);
         }
     }
     public record Command(Instant paidAt, String paymentReference, String memo) { }
@@ -59,7 +58,7 @@ public class SettlementService {
     public Page<Map<String, Object>> list(Actor actor, boolean host, Filter filter, int page, int size) {
         actor.require(host ? "HOST" : "ADMIN");
         if (page < 0 || size < 1 || size > 100 || (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_FILTER");
+            throw new ApiException(SettlementErrorCode.INVALID_FILTER);
         return new TransactionTemplate(transactionManager).execute(tx -> repository.findAll(spec(actor, host, filter),
                 PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))).map(this::publicView));
     }
@@ -136,9 +135,9 @@ public class SettlementService {
         });
     }
     private Settlement owned(Actor actor, boolean host, Long id) {
-        Settlement s = repository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        if (host && !actor.id().equals(s.getHostUserId())) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-        if (s.isRetired() || s.getActiveFestivalId() == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        Settlement s = repository.findById(id).orElseThrow(() -> new ApiException(SettlementErrorCode.SETTLEMENT_NOT_FOUND));
+        if (host && !actor.id().equals(s.getHostUserId())) throw new ApiException(SettlementErrorCode.SETTLEMENT_NOT_FOUND);
+        if (s.isRetired() || s.getActiveFestivalId() == null) throw new ApiException(SettlementErrorCode.SETTLEMENT_NOT_FOUND);
         return s;
     }
     private static String contains(String value) {
@@ -218,6 +217,7 @@ public class SettlementService {
                 evidence.add(new Evidence(payment, reservation, method, remote.paidAt(), result));
             }
             return new Calculation(context, evidence, null);
+        // 산출 중 발견한 불일치는 예외가 아니라 보류 사유로 변환한다.
         } catch (IllegalArgumentException e) { return new Calculation(context, List.of(), e.getMessage()); }
     }
     public void calculateFestival(Long festivalId, boolean test) {
@@ -225,7 +225,7 @@ public class SettlementService {
         if (existing.isPresent() && (!existing.get().getStatus().recalculable() || existing.get().isManualHold())) return;
         Calculation calculation = gather(festivalId, test);
         if (calculation.festival().eligibleAt() == null || calculation.festival().hostUserId() == null)
-            throw new IllegalStateException("MISSING_FESTIVAL_CONTEXT");
+            throw new ApiException(SettlementErrorCode.MISSING_FESTIVAL_CONTEXT);
         var hostNames = hosts.names(List.of(calculation.festival().hostUserId()));
         if (calculation.festival().eligibleAt().isAfter(Instant.now())) return;
         new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
@@ -258,26 +258,26 @@ public class SettlementService {
     }
     public Map<String, Object> command(Actor actor, Long id, String action, String key, Command command) {
         actor.require("ADMIN");
-        if (key == null || key.isBlank() || key.length() > 100) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "IDEMPOTENCY_KEY_REQUIRED");
+        if (key == null || key.isBlank() || key.length() > 100) throw new ApiException(SettlementErrorCode.IDEMPOTENCY_KEY_REQUIRED);
         String fingerprint = UUID.nameUUIDFromBytes((id + ":" + actor.id() + ":" + action + ":" + command).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
         var prior = audits.findByCommandKey(key);
         if (prior.isPresent()) {
-            if (!fingerprint.equals(prior.get().getCommandFingerprint())) throw new ResponseStatusException(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_CONFLICT");
+            if (!fingerprint.equals(prior.get().getCommandFingerprint())) throw new ApiException(SettlementErrorCode.IDEMPOTENCY_KEY_CONFLICT);
             return detail(actor, false, id);
         }
         if ("reapprove".equals(action)) reconcileFrozen(id);
         Settlement before = owned(actor, false, id);
         if ("recalculate".equals(action)) {
-            if (!before.getStatus().recalculable() || before.isManualHold()) throw new IllegalStateException("RECALCULATION_BLOCKED");
+            if (!before.getStatus().recalculable() || before.isManualHold()) throw new ApiException(SettlementErrorCode.RECALCULATION_BLOCKED);
             calculateFestival(before.getFestivalId(), before.isTestPayment()); return detail(actor, false, id);
         }
         Calculation check = Set.of("confirm", "mark-paid", "reapprove").contains(action) ? gather(before.getFestivalId(), before.isTestPayment()) : null;
         new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
             Settlement s = repository.findById(id).orElseThrow();
-            if (!Objects.equals(before.getVersion(), s.getVersion())) throw new IllegalStateException("SETTLEMENT_VERSION_CONFLICT");
+            if (!Objects.equals(before.getVersion(), s.getVersion())) throw new ApiException(SettlementErrorCode.SETTLEMENT_VERSION_CONFLICT);
             if (check != null) {
-                if (check.festival().eligibleAt().isAfter(Instant.now())) throw new IllegalStateException("SETTLEMENT_NOT_ELIGIBLE");
-                if (check.hold() != null || check.evidence().size() < s.getLines().size()) throw new IllegalStateException("RECONCILIATION_REQUIRED");
+                if (check.festival().eligibleAt().isAfter(Instant.now())) throw new ApiException(SettlementErrorCode.SETTLEMENT_NOT_ELIGIBLE);
+                if (check.hold() != null || check.evidence().size() < s.getLines().size()) throw new ApiException(SettlementErrorCode.RECONCILIATION_REQUIRED);
                 for (var current : check.evidence()) {
                     var line = s.getLines().stream().filter(l -> l.getPaymentId().equals(current.payment().getId())).findFirst();
                     var changes = adjustments.findBySourceSettlementIdAndPaymentId(id, current.payment().getId());
@@ -286,18 +286,19 @@ public class SettlementService {
                     long expectedFace = latest.map(SettlementAdjustment::getRefundedFaceAmount).orElse(line.map(SettlementLine::getRefundedFaceAmount).orElse(0L));
                     long expectedCash = latest.map(SettlementAdjustment::getCustomerRefundAmount).orElse(line.map(SettlementLine::getCustomerRefundAmount).orElse(0L));
                     var locked = payments.findLockedById(current.payment().getId()).orElseThrow();
-                    if (!Objects.equals(locked.getVersion(), current.payment().getVersion())) throw new IllegalStateException("PAYMENT_CHANGED");
+                    if (!Objects.equals(locked.getVersion(), current.payment().getVersion())) throw new ApiException(SettlementErrorCode.PAYMENT_CHANGED);
                     var localRefunds = cancellations.findByPayment(locked);
                     if (localRefunds.stream().anyMatch(c -> c.getStatus() == CancellationStatus.PENDING || c.getStatus() == CancellationStatus.REQUESTED)
                             || localRefunds.stream().filter(c -> c.getStatus() == CancellationStatus.SUCCEEDED)
-                                .mapToLong(Cancellation::getAmount).sum() != current.result().cash()) throw new IllegalStateException("REFUND_CHANGED");
+                                .mapToLong(Cancellation::getAmount).sum() != current.result().cash()) throw new ApiException(SettlementErrorCode.REFUND_CHANGED);
                     if (current.result().payout() != expectedPayout || current.result().face() != expectedFace
-                            || current.result().cash() != expectedCash) throw new IllegalStateException("RECONCILIATION_REQUIRED");
+                            || current.result().cash() != expectedCash) throw new ApiException(SettlementErrorCode.RECONCILIATION_REQUIRED);
                 }
                 long adjustment = adjustments.findBySourceSettlementId(id).stream().filter(a -> "PRE_PAYMENT".equals(a.getKind()))
                         .mapToLong(SettlementAdjustment::getAmount).sum();
-                if ("mark-paid".equals(action) && adjustment != s.getConfirmedAdjustmentAmount()) throw new IllegalStateException("REAPPROVAL_REQUIRED");
+                if ("mark-paid".equals(action) && adjustment != s.getConfirmedAdjustmentAmount()) throw new ApiException(SettlementErrorCode.REAPPROVAL_REQUIRED);
             }
+            validateCommand(s, action, command);
             var previous = s.getStatus();
             switch (action) {
                 case "confirm" -> s.confirm();
@@ -305,7 +306,7 @@ public class SettlementService {
                 case "mark-paid" -> s.markPaid(command.paidAt(), command.paymentReference(), command.memo());
                 case "hold" -> { restoreAllocations(s.getId()); s.hold("MANUAL_REVIEW", true); }
                 case "release" -> s.release();
-                default -> throw new IllegalArgumentException("UNKNOWN_ACTION");
+                default -> throw new ApiException(SettlementErrorCode.UNKNOWN_ACTION);
             }
             audits.save(new SettlementAuditLog(s, action, previous, actor.id(), command.memo(), key, fingerprint));
         });
@@ -315,7 +316,7 @@ public class SettlementService {
     public void reconcileFrozen(Long id) {
         Settlement before = repository.findById(id).orElseThrow();
         if (before.isRetired()) return;
-        if (before.getStatus().recalculable()) throw new IllegalStateException("SETTLEMENT_NOT_FROZEN");
+        if (before.getStatus().recalculable()) throw new ApiException(SettlementErrorCode.SETTLEMENT_NOT_FROZEN);
         Calculation calculation = gather(before.getFestivalId(), before.isTestPayment());
         if (calculation.hold() != null) return;
         new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
@@ -340,9 +341,28 @@ public class SettlementService {
         for (var allocation : previous) adjustments.findById(allocation.getAdjustmentId()).orElseThrow().restore(allocation.getAmount());
         allocations.deleteAll(previous); allocations.flush();
     }
+    // 엔티티의 최후 방어선에 도달하기 전에 운영자가 이해할 수 있는 업무 오류로 응답한다.
+    private void validateCommand(Settlement s, String action, Command command) {
+        boolean allowed = switch (action) {
+            case "confirm" -> s.getStatus() == SettlementStatus.CALCULATED;
+            case "reapprove" -> s.getStatus() == SettlementStatus.ADJUSTMENT_REQUIRED && s.getPaidAt() == null;
+            case "mark-paid" -> s.getStatus() == SettlementStatus.CONFIRMED;
+            case "hold" -> s.getStatus().permits(SettlementStatus.HELD);
+            case "release" -> s.getStatus() == SettlementStatus.HELD;
+            default -> throw new ApiException(SettlementErrorCode.UNKNOWN_ACTION);
+        };
+        if (!allowed) throw new ApiException("reapprove".equals(action)
+                ? SettlementErrorCode.REAPPROVAL_BLOCKED : SettlementErrorCode.SETTLEMENT_STATE_CONFLICT);
+        if ("confirm".equals(action) && s.getPayoutAmount() < 0)
+            throw new ApiException(SettlementErrorCode.NEGATIVE_PAYOUT_REVIEW_REQUIRED);
+        if ("mark-paid".equals(action) && (command.paidAt() == null || command.paidAt().isAfter(Instant.now())
+                || command.paymentReference() == null || command.paymentReference().isBlank()))
+            throw new ApiException(SettlementErrorCode.PAYMENT_REFERENCE_REQUIRED);
+    }
+
     private void reapprove(Settlement s) {
         if (s.getPaidAt() != null || s.getStatus() != SettlementStatus.ADJUSTMENT_REQUIRED)
-            throw new IllegalStateException("REAPPROVAL_BLOCKED");
+            throw new ApiException(SettlementErrorCode.REAPPROVAL_BLOCKED);
         long correction = adjustments.findBySourceSettlementId(s.getId()).stream()
                 .filter(a -> "PRE_PAYMENT".equals(a.getKind())).mapToLong(SettlementAdjustment::getAmount).sum();
         long deficit = Math.max(0, -Math.addExact(s.getPayoutAmount(), correction));
@@ -354,7 +374,7 @@ public class SettlementService {
             adjustments.findById(allocation.getAdjustmentId()).orElseThrow().restore(-restore);
             allocation.releaseDebt(restore); released = Math.addExact(released, restore); deficit -= restore;
         }
-        if (deficit != 0) throw new IllegalStateException("NEGATIVE_PAYOUT_REVIEW_REQUIRED");
+        if (deficit != 0) throw new ApiException(SettlementErrorCode.NEGATIVE_PAYOUT_REVIEW_REQUIRED);
         if (released > 0) adjustments.save(new SettlementAdjustment(s, null, 0, 0, released));
         s.reapprove(Math.addExact(correction, released));
     }

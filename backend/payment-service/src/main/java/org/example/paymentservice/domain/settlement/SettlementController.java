@@ -1,6 +1,7 @@
 package org.example.paymentservice.domain.settlement;
 
 import lombok.RequiredArgsConstructor;
+import org.example.paymentservice.common.exception.ApiException;
 import org.example.paymentservice.common.dto.*;
 import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
@@ -46,7 +47,7 @@ public class SettlementController {
     public ApiResponse<?> command(@PathVariable String audience, @PathVariable Long id, @PathVariable String action,
             @RequestHeader("X-User-Id") Long user, @RequestHeader("X-User-Role") String role,
             @RequestHeader("Idempotency-Key") String key, @RequestBody SettlementService.Command command) {
-        if (!"admin".equals(audience)) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN);
+        if (!"admin".equals(audience)) throw new ApiException(SettlementErrorCode.FORBIDDEN_ROLE);
         return ApiResponse.success("정산 처리", service.command(new SettlementService.Actor(user, role), id, action, key, command));
     }
 }

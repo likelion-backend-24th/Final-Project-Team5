@@ -1,6 +1,7 @@
 package org.example.paymentservice.domain.settlement;
 
 import org.example.paymentservice.domain.payment.*;
+import org.example.paymentservice.common.exception.ApiException;
 import org.example.paymentservice.infrastructure.portone.*;
 import org.example.paymentservice.infrastructure.portone.dto.*;
 import org.example.paymentservice.infrastructure.reservation.*;
@@ -82,7 +83,7 @@ class SettlementAcceptanceTest {
         service.command(admin, id, "confirm", "confirm-1", new SettlementService.Command(null, null, "check"));
         assertThat(audits.findByCommandKey("confirm-1")).isPresent();
         assertThatThrownBy(() -> service.command(admin, id, "recalculate", "again", new SettlementService.Command(null, null, null)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ApiException.class).hasFieldOrPropertyWithValue("errorCode", SettlementErrorCode.RECALCULATION_BLOCKED);
     }
     @Test void optimisticLockRejectsConcurrentConfirm() throws Exception {
         var s = new Settlement(50L, 10L, "concurrent", approved, false); s.calculate(List.of(), 0); repository.save(s);
@@ -170,7 +171,7 @@ class SettlementAcceptanceTest {
                 100000, 1L, 2, null, 42L, 10L, 50000L, 1, p.getPaymentId())));
         service.reconcileFrozen(id);
         assertThatThrownBy(() -> service.command(admin, id, "mark-paid", "too-early", new SettlementService.Command(approved, "BANK-2", null)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ApiException.class).hasFieldOrPropertyWithValue("errorCode", SettlementErrorCode.REAPPROVAL_REQUIRED);
         service.command(admin, id, "reapprove", "reapprove-1", new SettlementService.Command(null, null, "차액 확인"));
         service.command(admin, id, "reapprove", "reapprove-1", new SettlementService.Command(null, null, "차액 확인"));
         service.command(admin, id, "mark-paid", "paid-corrected", new SettlementService.Command(approved, "BANK-2", null));
@@ -180,7 +181,7 @@ class SettlementAcceptanceTest {
         assertThat(result.getPaidPayoutAmount()).isEqualTo(46250);
         assertThat(adjustments.findAll().getFirst().getRemainingAmount()).isZero();
         assertThatThrownBy(() -> service.command(admin, id, "reapprove", "after-paid", new SettlementService.Command(null, null, null)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(ApiException.class).hasFieldOrPropertyWithValue("errorCode", SettlementErrorCode.REAPPROVAL_BLOCKED);
     }
     @Test void unknownMethodHoldsAndExternalFailureDoesNotConfirm() {
         Long id = calculate(); var p = payments.findAll().getFirst(); var remote = portone.getPayment(p.getPaymentId());
@@ -235,7 +236,7 @@ class SettlementAcceptanceTest {
         assertThat(repository.findByActiveFestivalId(88L).orElseThrow().getId()).isEqualTo(keep.getId());
         assertThat(repository.findById(keep.getId()).orElseThrow().getStatus()).isEqualTo(SettlementStatus.CONFIRMED);
         assertThat(repository.findById(empty.getId()).orElseThrow().isRetired()).isTrue();
-        assertThatThrownBy(() -> service.detail(admin, false, empty.getId())).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        assertThatThrownBy(() -> service.detail(admin, false, empty.getId())).isInstanceOf(ApiException.class).hasFieldOrPropertyWithValue("errorCode", SettlementErrorCode.SETTLEMENT_NOT_FOUND);
     }
 
     @Test void twoFrozenLegacyLedgersRequireReviewWithoutSilentMerge() {

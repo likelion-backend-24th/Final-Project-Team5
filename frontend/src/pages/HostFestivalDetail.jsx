@@ -6,7 +6,7 @@ import { FESTIVAL_CATEGORY_LABELS, toAbsoluteImageUrl } from '../api/festivalApi
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
 import HostHelperAccounts from '../components/HostHelperAccounts'
-import FestivalCancellation from '../components/FestivalCancellation'
+import HostFestivalCancellation from '../components/HostFestivalCancellation'
 import styles from './FestivalDetail.module.css'
 
 const STATUS_LABELS = {
@@ -232,7 +232,7 @@ function HostFestivalDetail() {
         </Link>
 
         <HostHelperAccounts festivalId={id} />
-        {['PUBLISHED', 'CLOSED'].includes(festival.festivalStatus) && <FestivalCancellation festivalId={id} />}
+        {['PUBLISHED', 'CLOSED'].includes(festival.festivalStatus) && <HostFestivalCancellation festivalId={id} />}
       </div>
     </main>
   )

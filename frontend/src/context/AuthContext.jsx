@@ -4,8 +4,10 @@ import {
   clearAccessToken,
   getAccessToken,
   setAccessToken,
+  startTabHeartbeat,
   subscribeAccessToken,
   subscribeExternalTokenChange,
+  wasSessionContinuous,
 } from '../api/tokenStore'
 
 const AuthContext = createContext(null)
@@ -27,8 +29,12 @@ export function AuthProvider({ children }) {
   const [accessToken, setAccessTokenState] = useState(getAccessToken())
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  // 렌더링 시점(하트비트를 남기기 전)에 한 번만 확인해야 "이 탭이 방금 남긴 하트비트"를
+  // 자기 자신의 근거로 잘못 쓰지 않는다.
+  const [continuousSession] = useState(() => wasSessionContinuous())
 
   useEffect(() => subscribeAccessToken(setAccessTokenState), [])
+  useEffect(() => startTabHeartbeat(), [])
 
   // 다른 탭에서 로그인/로그아웃하면 이 탭의 로그인 상태도 바로 맞춘다.
   // 로그아웃(토큰 null) → user 비움. 로그인(토큰 생김) → 그 토큰으로 내 정보를 다시 불러온다.
@@ -53,6 +59,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let cancelled = false
 
+    // 이 브라우저에 열려 있던 탭이 하나도 없다가 새로 열린 경우 — refreshToken 쿠키로 조용히
+    // 재로그인하지 않고, 로그아웃 상태로 시작한다(서버의 refreshToken도 함께 무효화한다).
+    if (!continuousSession) {
+      clearAccessToken()
+      logoutRequest().catch(() => {})
+      setUser(null)
+      setIsLoading(false)
+      return undefined
+    }
+
     if (!bootstrapRequestRef.current) {
       bootstrapRequestRef.current = bootstrapSession()
     }
@@ -74,7 +90,7 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [continuousSession])
 
   //도우미(HELPER) 계정은 주최자가 비밀번호를 재발급하면 즉시 쓸 수 없어야 한다. access token은 만료 전까지
   //스스로 무효화되지 않으므로, 주기적으로 내 정보를 다시 조회해 서버가 거부(비밀번호 변경 이전 토큰)하면
@@ -105,6 +121,13 @@ const refreshUser = useCallback(async () => {
   setUser(meResponse.data.data)
 }, [])
 
+  // 소셜 로그인 전환 동의(oauth/confirm-link) 응답으로 받은 accessToken을 그대로 로그인 상태에 반영한다.
+  const applySocialLogin = useCallback(async (accessToken) => {
+    setAccessToken(accessToken)
+    const meResponse = await fetchMyInfo()
+    setUser(meResponse.data.data)
+  }, [])
+
   const logout = useCallback(async () => {
     try {
       await logoutRequest()
@@ -125,8 +148,9 @@ const refreshUser = useCallback(async () => {
       login,
       logout,
       refreshUser,
+      applySocialLogin,
     }),
-    [accessToken, user, isLoading, login, logout,refreshUser],
+    [accessToken, user, isLoading, login, logout, refreshUser, applySocialLogin],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -7,7 +7,7 @@ function OrganizerCta({ isFirst = false }) {
   const isHost = user?.role === 'HOST'
 
   return (
-    <section className={`mx-auto mb-4 max-w-[1440px] px-6 ${isFirst ? '' : 'mt-[44px]'}`}>
+    <section className={`mx-auto mb-4 max-w-[1440px] px-6 ${isFirst ? 'mt-4 sm:mt-6' : 'mt-[44px]'}`}>
       <div className="flex flex-col items-start gap-8 rounded-3xl bg-gradient-to-br from-brand-blue to-brand-magenta px-6 py-10 md:flex-row md:items-center md:justify-between md:px-10">
         <div>
           <h2 className="text-balance text-2xl font-extrabold tracking-tight text-white">

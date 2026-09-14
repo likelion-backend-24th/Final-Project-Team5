@@ -1,6 +1,7 @@
 package org.example.authservice.auth.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
@@ -65,6 +66,36 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+
+    private static final String OAUTH_LINK_PURPOSE = "OAUTH_LINK";
+    private static final long OAUTH_LINK_TOKEN_EXPIRATION_MS = 5 * 60 * 1000; // 5분 — 전환 동의 창을 오래 열어두지 않는다
+
+    // 기존 비밀번호 계정과 이메일이 같은 소셜 로그인이 들어왔을 때, 전환 동의를 받는 동안만 짧게 쓰는 토큰.
+    // 이 토큰에 담긴 provider/providerId는 실제 구글 인증을 거쳐 서버가 서명한 값이라, 클라이언트가
+    // 임의의 값으로 위조해 다른 계정에 소셜 로그인을 연결시킬 수 없다.
+    public String generateOauthLinkToken(String username, String provider, String providerId) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + OAUTH_LINK_TOKEN_EXPIRATION_MS);
+
+        return Jwts.builder()
+                .subject(username)
+                .claim("purpose", OAUTH_LINK_PURPOSE)
+                .claim("provider", provider)
+                .claim("providerId", providerId)
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(key)
+                .compact();
+    }
+
+    // 서명/만료 검증은 parseClaims가 하고, 여기서는 다른 용도로 발급된 토큰이 재사용되지 않도록 용도만 확인한다.
+    public Claims parseOauthLinkToken(String token) {
+        Claims claims = parseClaims(token);
+        if (!OAUTH_LINK_PURPOSE.equals(claims.get("purpose", String.class))) {
+            throw new JwtException("잘못된 토큰 용도입니다.");
+        }
+        return claims;
+    }
 
     // 토큰에서 username(이메일) 추출
     public String getUsernameFromToken(String token) {

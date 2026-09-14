@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.authservice.auth.dto.LoginRequest;
+import org.example.authservice.auth.dto.OauthLinkConfirmRequest;
 import org.example.authservice.auth.dto.SignupRequest;
 import org.example.authservice.auth.dto.TokenResponse;
 import org.example.authservice.auth.dto.emailverification.ResetPasswordRequest;
@@ -75,10 +76,21 @@ public class AuthController {
     }
 
     // Google 로그인 콜백
-    @Operation(summary = "구글 로그인 콜백", description = "구글이 발급한 인가 코드(code)를 받아 로그인 처리합니다. 최초 로그인 시 자동 회원가입되며, 기존 일반 가입 계정과 이메일이 같으면 자동 연동됩니다.")
+    @Operation(summary = "구글 로그인 콜백", description = "구글이 발급한 인가 코드(code)를 받아 로그인 처리합니다. 최초 로그인 시 자동 회원가입되며, 기존 일반 가입 계정과 이메일이 같으면 전환 동의 화면(/oauth/link-confirm)으로 안내합니다.")
     @GetMapping("/google/callback")
     public ResponseEntity<Void> googleLoginCallback(@RequestParam("code") String code) {
-        TokenResponse response = authService.googleLogin(code);
-        return authCookieResponseBuilder.buildRedirectWithCookie(response);
+        AuthService.GoogleLoginResult result = authService.googleLogin(code);
+        if (result.needsLinkConfirmation()) {
+            return authCookieResponseBuilder.buildLinkConfirmRedirect(result.pendingLinkToken(), result.pendingEmail());
+        }
+        return authCookieResponseBuilder.buildRedirectWithCookie(result.tokenResponse());
+    }
+
+    // 소셜 로그인 전환 동의
+    @Operation(summary = "소셜 로그인 전환 동의", description = "기존 아이디/비밀번호 계정을 소셜 로그인 전용으로 전환하는 데 동의했을 때 호출합니다. 비밀번호는 삭제되고 이후 해당 소셜 계정으로만 로그인할 수 있습니다.")
+    @PostMapping("/oauth/confirm-link")
+    public ResponseEntity<ApiResponse<TokenResponse>> confirmOauthLink(@Valid @RequestBody OauthLinkConfirmRequest request) {
+        TokenResponse response = authService.confirmOauthLink(request.getToken());
+        return authCookieResponseBuilder.buildWithCookie(response, "소셜 로그인으로 전환되었습니다.");
     }
 }

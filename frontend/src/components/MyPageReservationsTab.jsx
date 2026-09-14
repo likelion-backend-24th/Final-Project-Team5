@@ -15,7 +15,6 @@ const STATUS_META = {
   입장완료: 'bg-green-50 text-green-700',
   환불: 'bg-orange-50 text-orange-700',
   완료: 'bg-gray-100 text-gray-600',
-  취소: 'bg-red-50 text-red-600',
 }
 
 function formatDate(value) {
@@ -143,7 +142,6 @@ function QrModal({ reservationId, onClose }) {
               alt={qr.checkedInAt ? '입장 완료된 티켓' : '입장용 QR 코드'}
               className="mx-auto mt-4 h-48 w-48"
             />
-            <p className="mt-2 font-mono text-sm font-bold text-gray-700">{clock.toLocaleTimeString('ko-KR')}</p>
 
             {qr.checkedInAt && (
               <p className="mt-3 text-sm font-bold text-gray-500">
@@ -272,9 +270,12 @@ function MyPageReservationsTab() {
     setRefundTarget(null)
   }
 
-  const filterTabs = ['전체', '결제대기', '예정', '입장완료', '완료', '환불', '취소']
+  const filterTabs = ['전체', '결제대기', '예정', '입장완료', '완료', '환불']
 
-  const visible = reservations
+  //결제 전 취소(CANCELLED)는 볼 필요가 없는 내역이라 목록에서 제외한다.
+  const activeReservations = reservations.filter((r) => r.reservationStatus !== 'CANCELLED')
+
+  const visible = activeReservations
     .filter((r) => filter === '전체' || r.statusLabel === filter)
     .sort((a, b) => (sort === 'latest' ? b.createdAt.localeCompare(a.createdAt) : a.createdAt.localeCompare(b.createdAt)))
 
@@ -317,7 +318,7 @@ function MyPageReservationsTab() {
         <div className="mt-4 flex flex-wrap gap-2">
           {filterTabs.map((f) => {
             const on = filter === f
-            const count = f === '전체' ? reservations.length : reservations.filter((r) => r.statusLabel === f).length
+            const count = f === '전체' ? activeReservations.length : activeReservations.filter((r) => r.statusLabel === f).length
             return (
               <button
                 key={f}

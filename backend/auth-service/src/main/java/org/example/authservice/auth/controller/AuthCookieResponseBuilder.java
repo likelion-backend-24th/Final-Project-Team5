@@ -9,6 +9,8 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 
@@ -65,6 +67,18 @@ public class AuthCookieResponseBuilder {
         return ResponseEntity.status(HttpStatus.FOUND)
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .header(HttpHeaders.LOCATION, frontendUrl)
+                .build();
+    }
+
+    // 이미 비밀번호로 쓰이던 이메일로 소셜 로그인이 들어왔을 때 — 로그인을 완료하지 않고(쿠키 없음)
+    // 전환 동의 화면으로 보낸다. 동의는 이 토큰을 그대로 들고 /api/auth/oauth/confirm-link를 호출해야 한다.
+    public ResponseEntity<Void> buildLinkConfirmRedirect(String pendingLinkToken, String email) {
+        String location = frontendUrl + "/oauth/link-confirm"
+                + "?token=" + URLEncoder.encode(pendingLinkToken, StandardCharsets.UTF_8)
+                + "&email=" + URLEncoder.encode(email, StandardCharsets.UTF_8);
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, location)
                 .build();
     }
 }

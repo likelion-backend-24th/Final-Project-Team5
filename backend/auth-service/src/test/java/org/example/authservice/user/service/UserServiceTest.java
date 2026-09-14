@@ -397,10 +397,24 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("약관 동의 시각이 비어 있는 일반 회원은 profileSetupRequired가 true다")
-    void getMyInfo_profileSetupRequired_whenTermsNotAgreed() {
+    @DisplayName("비밀번호가 있는 일반 회원은 약관 동의 시각이 비어 있어도 소셜 최초 가입자가 아니므로 profileSetupRequired가 false다")
+    void getMyInfo_profileSetupNotRequired_forPasswordUserEvenIfTermsNull() {
         User user = createActiveUser();
         user.setId(1L);
+        user.setTermsAgreeAt(null);
+        given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+        UserResponse response = userService.getMyInfo(1L);
+
+        assertThat(response.isProfileSetupRequired()).isFalse();
+    }
+
+    @Test
+    @DisplayName("비밀번호가 없고(소셜 전용) 약관 동의 시각도 비어 있는 회원은 profileSetupRequired가 true다")
+    void getMyInfo_profileSetupRequired_whenSocialOnlyAndTermsNotAgreed() {
+        User user = createActiveUser();
+        user.setId(1L);
+        user.setPassword(null);
         user.setTermsAgreeAt(null);
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
 

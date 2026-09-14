@@ -1,4 +1,4 @@
-package org.example.reservationservice.domain.refund;
+package org.example.reservationservice.reservation.entity.refund;
 
 /**
  * 환불 견적. Payment-Service가 PortOne에 취소를 넣기 전에 "얼마를 돌려줄 수 있는지"를 이 값으로 판단한다.

@@ -1,6 +1,7 @@
-package org.example.reservationservice.domain;
+package org.example.reservationservice.reservation.dto;
 
-import org.example.reservationservice.domain.refund.RefundQuote;
+import org.example.reservationservice.reservation.entity.refund.RefundQuote;
+import org.example.reservationservice.reservation.entity.Reservation;
 
 /**
  * Payment-Service → Reservation-Service 내부 호출: 환불 견적 조회 응답.

@@ -1,4 +1,4 @@
-package org.example.reservationservice.domain.refund;
+package org.example.reservationservice.reservation.entity.refund;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -7,7 +7,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.example.reservationservice.infrastructure.festival.FestivalServiceClient;
+import org.example.reservationservice.reservation.infrastructure.festival.FestivalServiceClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

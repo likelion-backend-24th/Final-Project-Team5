@@ -1,9 +1,9 @@
-package org.example.reservationservice.infrastructure.festival;
+package org.example.reservationservice.reservation.infrastructure.festival;
 
 import lombok.RequiredArgsConstructor;
-import org.example.reservationservice.infrastructure.festival.dto.FestivalApiEnvelope;
-import org.example.reservationservice.infrastructure.festival.dto.FestivalDetailResponseDto;
-import org.example.reservationservice.infrastructure.festival.dto.StockAdjustRequestDto;
+import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalApiEnvelope;
+import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalDetailResponseDto;
+import org.example.reservationservice.reservation.infrastructure.festival.dto.StockAdjustRequestDto;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;

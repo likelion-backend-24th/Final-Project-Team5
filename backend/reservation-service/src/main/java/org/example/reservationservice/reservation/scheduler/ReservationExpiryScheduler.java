@@ -1,9 +1,10 @@
-package org.example.reservationservice.domain;
+package org.example.reservationservice.reservation.scheduler;
 
 import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.example.reservationservice.infrastructure.festival.FestivalServiceClient;
+import org.example.reservationservice.reservation.entity.CancelReason;
+import org.example.reservationservice.reservation.infrastructure.festival.FestivalServiceClient;
 import org.example.reservationservice.reservation.entity.Reservation;
 import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.example.reservationservice.reservation.repository.ReservationRepository;

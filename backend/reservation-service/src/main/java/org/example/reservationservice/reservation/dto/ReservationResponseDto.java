@@ -1,4 +1,8 @@
-package org.example.reservationservice.domain;
+package org.example.reservationservice.reservation.dto;
+
+import org.example.reservationservice.reservation.entity.CancelReason;
+import org.example.reservationservice.reservation.entity.Reservation;
+import org.example.reservationservice.reservation.entity.ReservationStatus;
 
 import java.time.Instant;
 import java.time.LocalDateTime;

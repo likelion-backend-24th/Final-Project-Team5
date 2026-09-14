@@ -1,4 +1,4 @@
-package org.example.reservationservice.controller;
+package org.example.reservationservice.reservation.controller;
 
 import jakarta.validation.Valid;
 import java.util.List;

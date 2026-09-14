@@ -1,4 +1,4 @@
-package org.example.reservationservice.domain;
+package org.example.reservationservice.reservation.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

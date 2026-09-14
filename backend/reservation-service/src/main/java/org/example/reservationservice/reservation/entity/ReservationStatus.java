@@ -1,4 +1,4 @@
-package org.example.reservationservice.domain;
+package org.example.reservationservice.reservation.entity;
 
 /** 결제 진행 중(Story 7)·환불(Story 9)까지 아우르는 상태. REFUNDED/PARTIALLY_REFUNDED는 값만 두고 로직은 Story 9에서 채운다. */
 public enum ReservationStatus {

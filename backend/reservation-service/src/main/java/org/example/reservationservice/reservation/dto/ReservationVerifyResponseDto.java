@@ -1,4 +1,6 @@
-package org.example.reservationservice.domain;
+package org.example.reservationservice.reservation.dto;
+
+import org.example.reservationservice.reservation.entity.Reservation;
 
 import java.time.Instant;
 

@@ -1,10 +1,10 @@
-package org.example.reservationservice.controller;
+package org.example.reservationservice.reservation.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.dto.ApiResponse;
 import org.example.reservationservice.common.exception.ApiException;
-import org.example.reservationservice.domain.CheckInStatsResponseDto;
+import org.example.reservationservice.reservation.dto.CheckInStatsResponseDto;
 import org.example.reservationservice.reservation.exception.ReservationErrorCode;
 import org.example.reservationservice.reservation.service.ReservationService;
 import org.example.reservationservice.reservation.dto.ReservationVerifyByCodeRequestDto;

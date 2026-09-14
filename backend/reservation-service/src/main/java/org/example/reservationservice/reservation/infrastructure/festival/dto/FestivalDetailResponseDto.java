@@ -1,4 +1,4 @@
-package org.example.reservationservice.infrastructure.festival.dto;
+package org.example.reservationservice.reservation.infrastructure.festival.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

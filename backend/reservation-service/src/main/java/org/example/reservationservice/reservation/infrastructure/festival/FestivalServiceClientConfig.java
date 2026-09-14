@@ -1,4 +1,4 @@
-package org.example.reservationservice.infrastructure.festival;
+package org.example.reservationservice.reservation.infrastructure.festival;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

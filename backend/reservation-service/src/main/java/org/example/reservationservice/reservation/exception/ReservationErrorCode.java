@@ -1,4 +1,4 @@
-package org.example.reservationservice.domain;
+package org.example.reservationservice.reservation.exception;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

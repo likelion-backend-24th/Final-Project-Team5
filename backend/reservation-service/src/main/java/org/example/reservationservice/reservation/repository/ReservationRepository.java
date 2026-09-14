@@ -1,5 +1,7 @@
-package org.example.reservationservice.domain;
+package org.example.reservationservice.reservation.repository;
 
+import org.example.reservationservice.reservation.entity.Reservation;
+import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.Instant;

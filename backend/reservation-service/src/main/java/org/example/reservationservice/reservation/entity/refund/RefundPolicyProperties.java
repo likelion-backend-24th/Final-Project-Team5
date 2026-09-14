@@ -1,4 +1,4 @@
-package org.example.reservationservice.domain.refund;
+package org.example.reservationservice.reservation.entity.refund;
 
 import java.util.List;
 import lombok.Getter;

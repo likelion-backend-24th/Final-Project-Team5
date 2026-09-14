@@ -1,6 +1,7 @@
 package org.example.festivalservice.domain.festival;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,11 +13,16 @@ import org.example.festivalservice.domain.tickettype.TicketMode;
 import org.example.festivalservice.domain.tickettype.TicketType;
 import org.example.festivalservice.domain.tickettype.TicketTypeRepository;
 import org.example.festivalservice.domain.tickettype.TicketTypeRequestDto;
+import org.example.festivalservice.infrastructure.reservation.ReservationServiceClient;
+import org.example.festivalservice.infrastructure.reservation.dto.SeatGenerationRequestDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 @RequiredArgsConstructor
@@ -26,11 +32,13 @@ public class FestivalService {
     private static final String ADMIN_ROLE = "ADMIN";
 
     private static final int MAX_DETAIL_IMAGE_COUNT = 2;
+    private static final Logger log = LoggerFactory.getLogger(FestivalService.class);
 
     private final FestivalRepository festivalRepository;
     private final TicketTypeRepository ticketTypeRepository;
     private final FestivalImageRepository festivalImageRepository;
     private final UserLookupClient userLookupClient;
+    private final ReservationServiceClient reservationServiceClient;
 
     //승인된 주최자가 새 페스티벌(및 티켓 종류·이미지)을 등록한다
     @Transactional
@@ -225,7 +233,20 @@ public class FestivalService {
         }
 
         if (request.decision() == FestivalStatus.PUBLISHED) {
-            festival.publish();
+            //PENDING이면 먼저 PUBLISH_PENDING으로 확정 저장한 뒤 reservation-service에 좌석 생성을 요청한다.
+            //HostApplicationService.review()의 APPROVAL_PENDING 패턴과 동일하다.
+            festival.markPublishPending();
+            festivalRepository.save(festival);
+            try {
+                generateSeatsForFestival(festival);
+                festival.publish();
+                festivalRepository.save(festival);
+            } catch (RestClientException e) {
+                //reservation-service 응답 유실·Timeout — PUBLISH_PENDING 상태로 안전하게 남겨두고
+                //FestivalPublishRetryScheduler가 자동으로 재시도한다.
+                log.warn("좌석 생성 응답을 받지 못해 페스티벌 {}을 PUBLISH_PENDING으로 둔다(자동 재시도 예정)",
+                        festival.getId(), e);
+            }
         } else {
             if (request.rejectReason() == null || request.rejectReason().isBlank()) {
                 throw new ApiException(FestivalErrorCode.REJECT_REASON_REQUIRED);
@@ -234,6 +255,44 @@ public class FestivalService {
         }
         return toResponseDto(festival);
     }
+
+    //PUBLISH_PENDING에 머문 페스티벌을 다시 승인 처리한다. 좌석 생성은 ticketTypeId 단위로 멱등하므로
+    //이미 생성된 티켓타입에 재요청해도 안전하다.
+    public int retryPendingPublishes(LocalDateTime olderThan) {
+        int healed = 0;
+        for (Festival festival : festivalRepository.findByFestivalStatusAndUpdatedAtBefore(
+                FestivalStatus.PUBLISH_PENDING, olderThan)) {
+            try {
+                generateSeatsForFestival(festival);
+                festival.publish();
+                festivalRepository.save(festival);
+                healed++;
+                log.info("PUBLISH_PENDING 페스티벌 {} 승인 확정(재시도 성공)", festival.getId());
+            } catch (RestClientException e) {
+                log.warn("PUBLISH_PENDING 페스티벌 {} 재시도 실패 — 다음 회차에 다시 시도", festival.getId(), e);
+            }
+        }
+        return healed;
+    }
+
+    //Festival-Service → Reservation-Service 내부 호출(내부 메서드): SEATED 티켓타입에 대해서만
+    //좌석 생성을 요청한다. STANDING은 좌석 개념이 없으므로 호출하지 않는다.
+    private void generateSeatsForFestival(Festival festival) {
+        List<TicketType> seatedTicketTypes = ticketTypeRepository.findByFestivalId(festival.getId()).stream()
+                .filter(ticketType -> ticketType.getTicketMode() == TicketMode.SEATED)
+                .toList();
+        for (TicketType ticketType : seatedTicketTypes) {
+            reservationServiceClient.generateSeats(new SeatGenerationRequestDto(
+                    festival.getId(),
+                    ticketType.getId(),
+                    ticketType.getZone(),
+                    ticketType.getRows(),
+                    ticketType.getSeatsPerRow()
+            ));
+        }
+    }
+
+
 
     //Festival을 응답 DTO로 조립(내부 메서드) — 티켓 종류·이미지를 함께 조회해 붙인다
     private FestivalResponseDto toResponseDto(Festival festival) {

@@ -43,7 +43,8 @@ public class TicketType {
     @Column(name = "zone")
     private String zone;
     //좌석 배치 — SEATED일 때만 값이 있다. rows × seatsPerRow = totalQuantity
-    @Column(name = "rows")
+    //주의: 컬럼명을 "rows"로 하면 MySQL 8 예약어(ROWS)와 충돌해 DDL이 실패한다 — "seat_rows"로 명시
+    @Column(name = "seat_rows")
     private Integer rows;
 
     @Column(name = "seats_per_row")

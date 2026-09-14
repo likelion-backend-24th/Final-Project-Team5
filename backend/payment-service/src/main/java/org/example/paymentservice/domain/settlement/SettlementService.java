@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
@@ -63,24 +64,6 @@ public class SettlementService {
 
     @Value("${portone.store-id}")
     private String storeId;
-
-    public record Actor(Long id, String role) {}
-
-    public record Command(Instant paidAt, String paymentReference, String memo) {}
-
-    public SettlementDetailResponse detail(Actor actor, boolean host, Long id) {
-        return queries.detail(new SettlementActor(actor.id(), actor.role()), host, id);
-    }
-
-    public SettlementDetailResponse command(Actor actor, Long id, String action, String key, Command command) {
-        return command(
-            new SettlementActor(actor.id(), actor.role()),
-            id,
-            action,
-            key,
-            new SettlementCommandRequest(command.paidAt(), command.paymentReference(), command.memo())
-        );
-    }
 
     private record Evidence(
         Payment payment,
@@ -311,13 +294,14 @@ public class SettlementService {
         SettlementCommandRequest command
     ) {
         actor.require("ADMIN");
-        var operation = SettlementAction.fromPath(action);
+        SettlementAction operation = SettlementAction.fromPath(action);
         if (key == null || key.isBlank() || key.length() > 100) throw new ApiException(
             SettlementErrorCode.IDEMPOTENCY_KEY_REQUIRED
         );
-        // 같은 멱등 키의 재시도와 다른 내용의 재사용을 구별하며 기존 입력 형식을 유지한다.
+        // 같은 멱등 키의 "재시도"(같은 내용)와 "재사용"(다른 내용)을 구별한다 — 후자는 거부해야 실수로 다른 처리가 되지 않는다.
         String fingerprint = UUID.nameUUIDFromBytes(
-            (id + ":" + actor.id() + ":" + action + ":" + command.fingerprintValue()).getBytes(StandardCharsets.UTF_8)
+            (id + ":" + actor.id() + ":" + operation.pathValue() + ":" + command.fingerprintValue())
+                .getBytes(StandardCharsets.UTF_8)
         ).toString();
         var prior = audits.findByCommandKey(key);
         if (prior.isPresent()) {
@@ -326,16 +310,18 @@ public class SettlementService {
             );
             return queries.detail(actor, false, id);
         }
-        if ("reapprove".equals(action)) reconcileFrozen(id);
+        if (operation == SettlementAction.REAPPROVE) reconcileFrozen(id);
         Settlement before = queries.owned(actor, false, id);
-        if ("recalculate".equals(action)) {
+        if (operation == SettlementAction.RECALCULATE) {
             if (!before.getStatus().recalculable() || before.isManualHold()) throw new ApiException(
                 SettlementErrorCode.RECALCULATION_BLOCKED
             );
             calculateFestival(before.getFestivalId(), before.isTestPayment());
             return queries.detail(actor, false, id);
         }
-        Calculation check = Set.of("confirm", "mark-paid", "reapprove").contains(action)
+        // 금액이 확정·지급되는 처리 전에는 결제·환불 근거를 다시 모아 저장된 라인과 대조한다.
+        Calculation check = EnumSet.of(SettlementAction.CONFIRM, SettlementAction.MARK_PAID, SettlementAction.REAPPROVE)
+            .contains(operation)
             ? gather(before.getFestivalId(), before.isTestPayment())
             : null;
         new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
@@ -399,10 +385,10 @@ public class SettlementService {
                     .mapToLong(SettlementAdjustment::getAmount)
                     .sum();
                 if (
-                    "mark-paid".equals(action) && adjustment != s.getConfirmedAdjustmentAmount()
+                    operation == SettlementAction.MARK_PAID && adjustment != s.getConfirmedAdjustmentAmount()
                 ) throw new ApiException(SettlementErrorCode.REAPPROVAL_REQUIRED);
             }
-            validateCommand(s, action, command);
+            validateCommand(s, operation, command);
             var previous = s.getStatus();
             switch (operation) {
                 case CONFIRM -> s.confirm();
@@ -419,7 +405,7 @@ public class SettlementService {
                 new SettlementAuditLog(s, operation.pathValue(), previous, actor.id(), command.memo(), key, fingerprint)
             );
         });
-        if ("release".equals(action)) calculateFestival(before.getFestivalId(), before.isTestPayment());
+        if (operation == SettlementAction.RELEASE) calculateFestival(before.getFestivalId(), before.isTestPayment());
         return queries.detail(actor, false, id);
     }
 
@@ -480,8 +466,8 @@ public class SettlementService {
     }
 
     // 엔티티의 최후 방어선에 도달하기 전에 운영자가 이해할 수 있는 업무 오류로 응답한다.
-    private void validateCommand(Settlement s, String action, SettlementCommandRequest command) {
-        boolean allowed = switch (SettlementAction.fromPath(action)) {
+    private void validateCommand(Settlement s, SettlementAction operation, SettlementCommandRequest command) {
+        boolean allowed = switch (operation) {
             case CONFIRM -> s.getStatus() == SettlementStatus.CALCULATED;
             case REAPPROVE -> s.getStatus() == SettlementStatus.ADJUSTMENT_REQUIRED && s.getPaidAt() == null;
             case MARK_PAID -> s.getStatus() == SettlementStatus.CONFIRMED;
@@ -490,15 +476,15 @@ public class SettlementService {
             default -> throw new ApiException(SettlementErrorCode.UNKNOWN_ACTION);
         };
         if (!allowed) throw new ApiException(
-            "reapprove".equals(action)
+            operation == SettlementAction.REAPPROVE
                 ? SettlementErrorCode.REAPPROVAL_BLOCKED
                 : SettlementErrorCode.SETTLEMENT_STATE_CONFLICT
         );
-        if ("confirm".equals(action) && s.getPayoutAmount() < 0) throw new ApiException(
+        if (operation == SettlementAction.CONFIRM && s.getPayoutAmount() < 0) throw new ApiException(
             SettlementErrorCode.NEGATIVE_PAYOUT_REVIEW_REQUIRED
         );
         if (
-            "mark-paid".equals(action) &&
+            operation == SettlementAction.MARK_PAID &&
             (command.paidAt() == null ||
                 command.paidAt().isAfter(Instant.now()) ||
                 command.paymentReference() == null ||

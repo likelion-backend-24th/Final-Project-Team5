@@ -2,6 +2,8 @@ package org.example.paymentservice.domain.settlement;
 
 import org.example.paymentservice.domain.payment.*;
 import org.example.paymentservice.common.exception.ApiException;
+import org.example.paymentservice.domain.settlement.dto.SettlementActor;
+import org.example.paymentservice.domain.settlement.dto.SettlementCommandRequest;
 import org.example.paymentservice.infrastructure.portone.*;
 import org.example.paymentservice.infrastructure.portone.dto.*;
 import org.example.paymentservice.infrastructure.reservation.*;
@@ -26,6 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest @AutoConfigureMockMvc
 class SettlementAcceptanceTest {
     @Autowired SettlementService service;
+    @Autowired SettlementQueryService queries;
     @Autowired SettlementRepository repository;
     @Autowired SettlementAdjustmentRepository adjustments;
     @Autowired SettlementAdjustmentAllocationRepository allocations;
@@ -40,7 +43,7 @@ class SettlementAcceptanceTest {
     @MockitoBean PortOnePaymentClient portone;
     @MockitoBean SettlementHostClient hosts;
     @Autowired SettlementLedgerInitializer ledgerInitializer;
-    private final SettlementService.Actor admin = new SettlementService.Actor(1L, "ADMIN");
+    private final SettlementActor admin = new SettlementActor(1L, "ADMIN");
     private final Instant approved = Instant.parse("2026-01-01T00:00:00Z");
     @BeforeEach void setup() {
         allocations.deleteAll(); adjustments.deleteAll(); audits.deleteAll(); repository.deleteAll();
@@ -78,11 +81,11 @@ class SettlementAcceptanceTest {
     @Test void repeatedCalculationAndConfirmationAreIdempotent() {
         Long id = calculate(); service.calculateFestival(42L, false);
         assertThat(repository.count()).isEqualTo(1);
-        assertThat(service.detail(admin, false, id).get("payoutAmount")).isEqualTo(92500L);
-        service.command(admin, id, "confirm", "confirm-1", new SettlementService.Command(null, null, "check"));
-        service.command(admin, id, "confirm", "confirm-1", new SettlementService.Command(null, null, "check"));
+        assertThat(queries.detail(admin, false, id).payoutAmount()).isEqualTo(92500L);
+        service.command(admin, id, "confirm", "confirm-1", new SettlementCommandRequest(null, null, "check"));
+        service.command(admin, id, "confirm", "confirm-1", new SettlementCommandRequest(null, null, "check"));
         assertThat(audits.findByCommandKey("confirm-1")).isPresent();
-        assertThatThrownBy(() -> service.command(admin, id, "recalculate", "again", new SettlementService.Command(null, null, null)))
+        assertThatThrownBy(() -> service.command(admin, id, "recalculate", "again", new SettlementCommandRequest(null, null, null)))
                 .isInstanceOf(ApiException.class).hasFieldOrPropertyWithValue("errorCode", SettlementErrorCode.RECALCULATION_BLOCKED);
     }
     @Test void optimisticLockRejectsConcurrentConfirm() throws Exception {
@@ -106,8 +109,8 @@ class SettlementAcceptanceTest {
 
     @Test void paidRefundCreatesOneReceivableAndPreservesSnapshot() {
         Long id = calculate();
-        service.command(admin, id, "confirm", "confirm-paid", new SettlementService.Command(null, null, null));
-        service.command(admin, id, "mark-paid", "pay-1", new SettlementService.Command(approved.plusSeconds(1), "BANK-1", "송금 확인"));
+        service.command(admin, id, "confirm", "confirm-paid", new SettlementCommandRequest(null, null, null));
+        service.command(admin, id, "mark-paid", "pay-1", new SettlementCommandRequest(approved.plusSeconds(1), "BANK-1", "송금 확인"));
         var p = payments.findAll().getFirst();
         var remote = portone.getPayment(p.getPaymentId());
         var cancellation = new PortOnePaymentResponse.Cancellation("cancel-paid", "SUCCEEDED", "귀책 환불", 100000, approved, approved);
@@ -140,7 +143,7 @@ class SettlementAcceptanceTest {
         assertThat(target.getAdjustmentAmount()).isEqualTo(-18500);
         assertThat(adjustments.findAll().getFirst().getRemainingAmount()).isEqualTo(-74000);
         assertThat(allocations.count()).isEqualTo(1);
-        service.command(admin, target.getId(), "confirm", "next-confirm", new SettlementService.Command(null, null, null));
+        service.command(admin, target.getId(), "confirm", "next-confirm", new SettlementCommandRequest(null, null, null));
         var nextCancel = new PortOnePaymentResponse.Cancellation("next-cancel", "SUCCEEDED", "취소", 20000, approved, approved);
         cancellations.save(org.example.paymentservice.domain.cancellation.Cancellation.builder().payment(next)
                 .cancellationId(nextCancel.id()).status(org.example.paymentservice.domain.cancellation.CancellationStatus.SUCCEEDED)
@@ -151,13 +154,13 @@ class SettlementAcceptanceTest {
                 "KRW", "order", approved, approved, approved, approved, null, null, "tx", List.of(nextCancel)));
         when(reservations.settlementContext(43L)).thenReturn(List.of(new ReservationForPaymentResponse(1000L, 30L, "REFUNDED",
                 20000, 2L, 1, null, 43L, 10L, 20000L, 1, next.getPaymentId())));
-        service.command(admin, target.getId(), "reapprove", "next-reapprove", new SettlementService.Command(null, null, null));
+        service.command(admin, target.getId(), "reapprove", "next-reapprove", new SettlementCommandRequest(null, null, null));
         assertThat(adjustments.findBySourceSettlementId(id).getFirst().getRemainingAmount()).isEqualTo(-92500);
         assertThat(repository.findById(target.getId()).orElseThrow().getConfirmedAdjustmentAmount()).isZero();
     }
     @Test void prePaymentRefundRequiresReapprovalAndPreservesOriginalSnapshot() {
         Long id = calculate();
-        service.command(admin, id, "confirm", "first-confirm", new SettlementService.Command(null, null, null));
+        service.command(admin, id, "confirm", "first-confirm", new SettlementCommandRequest(null, null, null));
         var p = payments.findAll().getFirst(); var remote = portone.getPayment(p.getPaymentId());
         var cancel = new PortOnePaymentResponse.Cancellation("before-paid", "SUCCEEDED", "행사 취소", 50000, approved, approved);
         cancellations.save(org.example.paymentservice.domain.cancellation.Cancellation.builder().payment(p)
@@ -170,17 +173,17 @@ class SettlementAcceptanceTest {
         when(reservations.settlementContext(42L)).thenReturn(List.of(new ReservationForPaymentResponse(999L, 30L, "PARTIALLY_REFUNDED",
                 100000, 1L, 2, null, 42L, 10L, 50000L, 1, p.getPaymentId())));
         service.reconcileFrozen(id);
-        assertThatThrownBy(() -> service.command(admin, id, "mark-paid", "too-early", new SettlementService.Command(approved, "BANK-2", null)))
+        assertThatThrownBy(() -> service.command(admin, id, "mark-paid", "too-early", new SettlementCommandRequest(approved, "BANK-2", null)))
                 .isInstanceOf(ApiException.class).hasFieldOrPropertyWithValue("errorCode", SettlementErrorCode.REAPPROVAL_REQUIRED);
-        service.command(admin, id, "reapprove", "reapprove-1", new SettlementService.Command(null, null, "차액 확인"));
-        service.command(admin, id, "reapprove", "reapprove-1", new SettlementService.Command(null, null, "차액 확인"));
-        service.command(admin, id, "mark-paid", "paid-corrected", new SettlementService.Command(approved, "BANK-2", null));
+        service.command(admin, id, "reapprove", "reapprove-1", new SettlementCommandRequest(null, null, "차액 확인"));
+        service.command(admin, id, "reapprove", "reapprove-1", new SettlementCommandRequest(null, null, "차액 확인"));
+        service.command(admin, id, "mark-paid", "paid-corrected", new SettlementCommandRequest(approved, "BANK-2", null));
         var result = repository.findById(id).orElseThrow();
         assertThat(result.getPayoutAmount()).isEqualTo(92500);
         assertThat(result.getConfirmedAdjustmentAmount()).isEqualTo(-46250);
         assertThat(result.getPaidPayoutAmount()).isEqualTo(46250);
         assertThat(adjustments.findAll().getFirst().getRemainingAmount()).isZero();
-        assertThatThrownBy(() -> service.command(admin, id, "reapprove", "after-paid", new SettlementService.Command(null, null, null)))
+        assertThatThrownBy(() -> service.command(admin, id, "reapprove", "after-paid", new SettlementCommandRequest(null, null, null)))
                 .isInstanceOf(ApiException.class).hasFieldOrPropertyWithValue("errorCode", SettlementErrorCode.REAPPROVAL_BLOCKED);
     }
     @Test void unknownMethodHoldsAndExternalFailureDoesNotConfirm() {
@@ -191,7 +194,7 @@ class SettlementAcceptanceTest {
         service.calculateFestival(42L, false);
         assertThat(repository.findById(id).orElseThrow().getStatus()).isEqualTo(SettlementStatus.HELD);
         when(portone.getPayment(p.getPaymentId())).thenThrow(new org.springframework.web.client.ResourceAccessException("offline"));
-        assertThatThrownBy(() -> service.command(admin, id, "confirm", "offline", new SettlementService.Command(null, null, null)))
+        assertThatThrownBy(() -> service.command(admin, id, "confirm", "offline", new SettlementCommandRequest(null, null, null)))
                 .isInstanceOf(org.springframework.web.client.ResourceAccessException.class);
         assertThat(repository.findById(id).orElseThrow().getStatus()).isEqualTo(SettlementStatus.HELD);
     }
@@ -236,7 +239,7 @@ class SettlementAcceptanceTest {
         assertThat(repository.findByActiveFestivalId(88L).orElseThrow().getId()).isEqualTo(keep.getId());
         assertThat(repository.findById(keep.getId()).orElseThrow().getStatus()).isEqualTo(SettlementStatus.CONFIRMED);
         assertThat(repository.findById(empty.getId()).orElseThrow().isRetired()).isTrue();
-        assertThatThrownBy(() -> service.detail(admin, false, empty.getId())).isInstanceOf(ApiException.class).hasFieldOrPropertyWithValue("errorCode", SettlementErrorCode.SETTLEMENT_NOT_FOUND);
+        assertThatThrownBy(() -> queries.detail(admin, false, empty.getId())).isInstanceOf(ApiException.class).hasFieldOrPropertyWithValue("errorCode", SettlementErrorCode.SETTLEMENT_NOT_FOUND);
     }
 
     @Test void twoFrozenLegacyLedgersRequireReviewWithoutSilentMerge() {

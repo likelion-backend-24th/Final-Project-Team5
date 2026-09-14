@@ -38,16 +38,27 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class SettlementService {
 
     private final SettlementQueryService queries;
+
     private final SettlementRepository repository;
+
     private final SettlementAdjustmentRepository adjustments;
+
     private final SettlementAdjustmentAllocationRepository allocations;
+
     private final SettlementAuditLogRepository audits;
+
     private final PaymentRepository payments;
+
     private final CancellationRepository cancellations;
+
     private final ReservationServiceClient reservations;
+
     private final FestivalSettlementClient festivals;
+
     private final PortOnePaymentClient portone;
+
     private final PlatformTransactionManager transactionManager;
+
     private final SettlementHostClient hosts;
 
     @Value("${portone.store-id}")

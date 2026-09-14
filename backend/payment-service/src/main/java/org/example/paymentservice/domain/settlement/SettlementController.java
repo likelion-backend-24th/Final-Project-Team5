@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SettlementController {
 
     private final SettlementService service;
+
     private final SettlementQueryService queries;
 
     @GetMapping

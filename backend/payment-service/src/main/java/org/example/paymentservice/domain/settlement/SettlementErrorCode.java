@@ -30,5 +30,6 @@ public enum SettlementErrorCode implements ErrorCode {
     MISSING_FESTIVAL_CONTEXT(HttpStatus.CONFLICT, "정산에 필요한 행사 정보를 확인할 수 없습니다.");
 
     private final HttpStatus httpStatus;
+
     private final String message;
 }

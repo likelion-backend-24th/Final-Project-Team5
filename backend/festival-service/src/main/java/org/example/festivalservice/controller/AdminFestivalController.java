@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminFestivalController {
 
     private final FestivalCancellationService cancellationService;
+
     private final FestivalService festivalService;
 
     //운영자가 심사 대기 중인 페스티벌 목록을 조회한다

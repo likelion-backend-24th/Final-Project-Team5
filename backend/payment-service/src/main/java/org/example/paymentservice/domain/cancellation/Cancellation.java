@@ -82,8 +82,11 @@ public class Cancellation {
     private String reason;
 
     private Long grossAmount;
+
     private Integer penaltyRatePercent;
+
     private Long penaltyAmount;
+
     private Long feeReversalAmount;
 
     @Enumerated(EnumType.STRING)
@@ -91,7 +94,9 @@ public class Cancellation {
     private CancellationBusinessReason businessReason;
 
     private Long requestedByUserId;
+
     private String requestedByRole;
+
     private Instant reservationAppliedAt;
 
     @Column(unique = true)

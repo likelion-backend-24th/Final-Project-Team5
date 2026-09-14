@@ -38,7 +38,9 @@ public class FestivalRefundItem {
     private FestivalRefundItemStatus status = FestivalRefundItemStatus.PENDING;
 
     private int retryCount;
+
     private String lastError;
+
     private String idempotencyKey;
 
     public FestivalRefundItem(Long batch, String payment, Long reservation) {

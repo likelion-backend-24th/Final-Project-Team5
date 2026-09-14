@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TicketTypeService {
     private final TicketTypeRepository ticketTypeRepository;
+
     private static final Logger log = LoggerFactory.getLogger(TicketTypeService.class);
 
     //재고 차감 메서드

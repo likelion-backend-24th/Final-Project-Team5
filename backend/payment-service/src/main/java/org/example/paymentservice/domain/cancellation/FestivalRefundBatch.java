@@ -36,9 +36,13 @@ public class FestivalRefundBatch {
     private FestivalRefundBatchStatus status = FestivalRefundBatchStatus.RUNNING;
 
     private Instant createdAt = Instant.now();
+
     private Instant completedAt;
+
     private int totalCount;
+
     private int succeededCount;
+
     private int failedCount;
 
     public FestivalRefundBatch(Long festivalId, Long actor, String reason) {

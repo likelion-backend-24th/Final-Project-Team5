@@ -55,8 +55,11 @@ public class ReservationService {
     private EntityManager entityManager;
 
     private static final String PUBLISHED = "PUBLISHED";
+
     private static final String HELPER_ROLE = "HELPER";
+
     private static final Duration RESERVATION_HOLD_DURATION = Duration.ofMinutes(10);
+
     private static final int MAX_CHECK_IN_CODE_ATTEMPTS = 5;
     //취소되지 않은 것으로 보고 구매 제한에 합산할 상태들 (만료·취소 건은 다시 살 수 있어야 하므로 제외)
     private static final List<ReservationStatus> HELD_STATUSES = List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED);
@@ -69,10 +72,15 @@ public class ReservationService {
             List.of(ReservationStatus.CONFIRMED, ReservationStatus.PARTIALLY_REFUNDED);
 
     private final ReservationRepository reservationRepository;
+
     private final FestivalServiceClient festivalServiceClient;
+
     private final CheckInCodeGenerator checkInCodeGenerator;
+
     private final RefundPolicy refundPolicy;
+
     private final StockReleaseQueueRepository stockReleaseQueueRepository;
+
     private final StockReleaseScheduler stockReleaseScheduler;
 
     private static final Logger log = LoggerFactory.getLogger(ReservationService.class);

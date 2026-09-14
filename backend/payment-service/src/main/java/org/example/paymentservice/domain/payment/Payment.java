@@ -70,8 +70,11 @@ public class Payment {
     private String payMethod;
 
     private Long festivalId;
+
     private Long hostUserId;
+
     private Long unitPrice;
+
     private Instant paidAt;
 
     @Enumerated(EnumType.STRING)
@@ -79,9 +82,13 @@ public class Payment {
     private PaymentMethodCategory payMethodCategory;
 
     private String easyPayProvider;
+
     private Integer platformFeeRateBps;
+
     private String feePolicyVersion;
+
     private Boolean testPayment;
+
     private Instant reservationConfirmedAt;
 
     public void markReservationConfirmed() {

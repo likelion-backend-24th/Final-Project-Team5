@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalFestivalController {
 
     private final FestivalRepository repository;
+
     private final FestivalCancellationService cancellations;
 
     @Value("${internal.auth-token:CHANGE_ME_IN_ENV}")

@@ -16,6 +16,8 @@ public record SettlementLineResponse(
     long feeReversalAmount,
     long finalFeeAmount,
     long payoutAmount,
-    @JsonInclude(JsonInclude.Include.NON_NULL) Long paymentId,
-    @JsonInclude(JsonInclude.Include.NON_NULL) Long reservationId
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    Long paymentId,
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    Long reservationId
 ) {}

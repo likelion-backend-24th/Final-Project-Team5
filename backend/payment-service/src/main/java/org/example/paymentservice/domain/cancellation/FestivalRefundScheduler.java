@@ -18,10 +18,15 @@ import org.springframework.stereotype.Component;
 public class FestivalRefundScheduler {
 
     private final FestivalSettlementClient festivals;
+
     private final ReservationServiceClient reservations;
+
     private final PaymentRepository payments;
+
     private final FestivalRefundBatchRepository batches;
+
     private final FestivalRefundItemRepository items;
+
     private final PaymentCancellationService cancellations;
 
     @Scheduled(fixedDelayString = "${festival-refund.delay-ms:60000}")

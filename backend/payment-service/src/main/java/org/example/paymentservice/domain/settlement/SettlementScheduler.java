@@ -14,7 +14,9 @@ import org.springframework.stereotype.Component;
 public class SettlementScheduler {
 
     private final SettlementService service;
+
     private final SettlementRepository repository;
+
     private final FestivalSettlementClient festivals;
 
     @Scheduled(cron = "${settlement.cron:0 0 2 * * *}", zone = "Asia/Seoul")

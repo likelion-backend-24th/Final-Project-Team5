@@ -27,15 +27,23 @@ import org.springframework.web.client.RestClientException;
 public class PaymentService {
 
     private static final String RESERVATION_PAYABLE_STATUS = "PENDING";
+
     private static final String PORTONE_STATUS_PAID = "PAID";
+
     private static final String PORTONE_STATUS_FAILED = "FAILED";
+
     private static final String PORTONE_STATUS_VIRTUAL_ACCOUNT_ISSUED = "VIRTUAL_ACCOUNT_ISSUED";
+
     private static final String PORTONE_CHANNEL_TYPE_TEST = "TEST";
+
     private static final String CANCEL_REASON_PAYMENT_FAILED = "PAYMENT_FAILED";
 
     private final PaymentRepository paymentRepository;
+
     private final PaymentTransactionRepository paymentTransactionRepository;
+
     private final ReservationServiceClient reservationServiceClient;
+
     private final PortOnePaymentClient portOnePaymentClient;
 
     @Value("${payment.id-prefix}")

@@ -22,9 +22,13 @@ public class SettlementAuditLog {
     private Long id;
 
     private Long settlementId;
+
     private String action;
+
     private String previousStatus;
+
     private String nextStatus;
+
     private Long actorUserId;
 
     @Column(length = 1000)
@@ -34,6 +38,7 @@ public class SettlementAuditLog {
     private String commandKey;
 
     private String commandFingerprint;
+
     private Instant createdAt = Instant.now();
 
     public SettlementAuditLog(

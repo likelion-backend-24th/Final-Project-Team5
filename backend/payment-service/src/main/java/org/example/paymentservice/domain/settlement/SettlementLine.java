@@ -38,7 +38,9 @@ public class SettlementLine {
     private Long paymentId;
 
     private Long reservationId;
+
     private Long ticketTypeId;
+
     private Instant paidAt;
 
     @Enumerated(EnumType.STRING)
@@ -46,13 +48,21 @@ public class SettlementLine {
     private PaymentMethodCategory paymentMethod;
 
     private int feeRateBps;
+
     private long grossAmount;
+
     private long refundedFaceAmount;
+
     private long customerRefundAmount;
+
     private long penaltyAmount;
+
     private long initialFeeAmount;
+
     private long feeReversalAmount;
+
     private long finalFeeAmount;
+
     private long payoutAmount;
 
     public SettlementLine(

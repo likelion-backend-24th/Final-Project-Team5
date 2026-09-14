@@ -18,8 +18,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class SettlementLedgerInitializer {
 
     private final SettlementRepository repository;
+
     private final SettlementAdjustmentRepository adjustments;
+
     private final SettlementAdjustmentAllocationRepository allocations;
+
     private final PlatformTransactionManager manager;
 
     @PostConstruct

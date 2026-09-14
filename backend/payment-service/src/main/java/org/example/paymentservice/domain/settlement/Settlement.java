@@ -38,6 +38,7 @@ public class Settlement {
     private Long hostUserId;
 
     private String festivalName;
+
     private String hostName;
 
     @Column(unique = true)
@@ -50,28 +51,46 @@ public class Settlement {
     private boolean testPayment;
 
     private String currency = "KRW";
+
     private String feePolicyVersion = "2026-09-v1";
+
     private Instant eligibleAt;
+
     private Instant calculatedAt;
+
     private Instant confirmedAt;
+
     private Instant paidAt;
+
     private Instant reapprovedAt;
+
     private long confirmedAdjustmentAmount;
+
     private Long paidPayoutAmount;
+
     private String paymentReference;
 
     @Column(length = 1000)
     private String adminMemo;
 
     private String holdReason;
+
     private boolean manualHold;
+
     private long grossPaymentAmount;
+
     private long grossRefundedFaceAmount;
+
     private long customerRefundAmount;
+
     private long cancellationPenaltyAmount;
+
     private long netTicketSalesAmount;
+
     private long platformFeeAmount;
+
     private long adjustmentAmount;
+
     private long payoutAmount;
 
     @Enumerated(EnumType.STRING)

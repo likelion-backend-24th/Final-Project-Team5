@@ -36,6 +36,7 @@ public class SettlementAdjustment {
     private Long paymentId;
 
     private Long hostUserId;
+
     private boolean testPayment;
 
     @Column(name = "refunded_face_amount")

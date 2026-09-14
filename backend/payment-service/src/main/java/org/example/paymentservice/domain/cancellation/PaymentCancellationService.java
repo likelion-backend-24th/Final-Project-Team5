@@ -34,8 +34,11 @@ import org.springframework.web.client.RestClientException;
 public class PaymentCancellationService {
 
     private final PaymentRepository paymentRepository;
+
     private final CancellationRepository cancellationRepository;
+
     private final PortOnePaymentClient portOnePaymentClient;
+
     private final ReservationServiceClient reservationServiceClient;
 
     /**

@@ -36,10 +36,14 @@ public record SettlementDetailResponse(
     List<SettlementAdjustmentResponse> adjustments,
     long proposedPayoutAmount,
     List<SettlementLineResponse> lines,
-    @JsonInclude(JsonInclude.Include.NON_NULL) List<SettlementAuditLog> auditLogs,
-    @JsonInclude(JsonInclude.Include.NON_NULL) String adminMemo,
-    @JsonInclude(JsonInclude.Include.NON_NULL) String paymentReference,
-    @JsonInclude(JsonInclude.Include.NON_NULL) String holdReason
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    List<SettlementAuditLog> auditLogs,
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    String adminMemo,
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    String paymentReference,
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    String holdReason
 ) {
     // 기존 서비스 호출자의 문자열 키 조회를 유지하면서 HTTP 응답은 record로 직렬화한다.
     public Object get(String key) {

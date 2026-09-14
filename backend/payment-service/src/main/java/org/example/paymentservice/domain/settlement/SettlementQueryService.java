@@ -25,8 +25,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class SettlementQueryService {
 
     private final SettlementRepository repository;
+
     private final SettlementAdjustmentRepository adjustments;
+
     private final SettlementAuditLogRepository audits;
+
     private final PlatformTransactionManager transactionManager;
 
     public Page<SettlementResponse> list(

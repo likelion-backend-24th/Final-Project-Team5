@@ -30,7 +30,9 @@ import org.springframework.web.multipart.MultipartFile;
 public class HostController {
 
     private final FestivalCancellationService cancellationService;
+
     private final FestivalService festivalService;
+
     private final FestivalImageUploadService festivalImageUploadService;
 
     //승인된 주최자가 페스티벌 등록 전 이미지를 먼저 업로드하고 URL을 받는다.

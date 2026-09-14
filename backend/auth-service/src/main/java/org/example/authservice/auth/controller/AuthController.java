@@ -11,6 +11,7 @@ import org.example.authservice.auth.dto.TokenResponse;
 import org.example.authservice.auth.dto.emailverification.ResetPasswordRequest;
 import org.example.authservice.auth.service.AuthService;
 import org.example.authservice.common.dto.ApiResponse;
+import org.example.authservice.common.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -71,19 +72,29 @@ public class AuthController {
     @Operation(summary = "카카오 로그인 콜백", description = "카카오가 발급한 인가 코드(code)를 받아 로그인 처리합니다. 최초 로그인 시 자동 회원가입됩니다.")
     @GetMapping("/kakao/callback")
     public ResponseEntity<Void> kakaoLoginCallback(@RequestParam("code") String code) {
-        TokenResponse response = authService.kakaoLogin(code);
-        return authCookieResponseBuilder.buildRedirectWithCookie(response);
+        //이 엔드포인트는 브라우저가 직접 이동하는 리다이렉트 콜백이라, 실패해도 API 에러를 JSON 그대로
+        //보여주면 안 된다(탈퇴·정지 계정 등). 로그인 화면으로 에러코드와 함께 돌려보낸다.
+        try {
+            TokenResponse response = authService.kakaoLogin(code);
+            return authCookieResponseBuilder.buildRedirectWithCookie(response);
+        } catch (ApiException e) {
+            return authCookieResponseBuilder.buildLoginErrorRedirect(e.getErrorCode().name());
+        }
     }
 
     // Google 로그인 콜백
     @Operation(summary = "구글 로그인 콜백", description = "구글이 발급한 인가 코드(code)를 받아 로그인 처리합니다. 최초 로그인 시 자동 회원가입되며, 기존 일반 가입 계정과 이메일이 같으면 전환 동의 화면(/oauth/link-confirm)으로 안내합니다.")
     @GetMapping("/google/callback")
     public ResponseEntity<Void> googleLoginCallback(@RequestParam("code") String code) {
-        AuthService.GoogleLoginResult result = authService.googleLogin(code);
-        if (result.needsLinkConfirmation()) {
-            return authCookieResponseBuilder.buildLinkConfirmRedirect(result.pendingLinkToken(), result.pendingEmail());
+        try {
+            AuthService.GoogleLoginResult result = authService.googleLogin(code);
+            if (result.needsLinkConfirmation()) {
+                return authCookieResponseBuilder.buildLinkConfirmRedirect(result.pendingLinkToken(), result.pendingEmail());
+            }
+            return authCookieResponseBuilder.buildRedirectWithCookie(result.tokenResponse());
+        } catch (ApiException e) {
+            return authCookieResponseBuilder.buildLoginErrorRedirect(e.getErrorCode().name());
         }
-        return authCookieResponseBuilder.buildRedirectWithCookie(result.tokenResponse());
     }
 
     // 소셜 로그인 전환 동의

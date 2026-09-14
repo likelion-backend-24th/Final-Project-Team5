@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { TriangleAlertIcon } from 'lucide-react'
 import { fetchCancellationRequests, approveFestivalCancellation } from '../../api/adminApi'
-import { secondaryButton } from '../settlementPresentation'
+import { SECONDARY_BUTTON } from '../settlementPresentation'
 
 const CANCELLATION_ERROR_MESSAGES = {
   CANCELLATION_NOT_REQUESTED: '취소 요청이 없는 페스티벌입니다.',
@@ -81,7 +81,7 @@ export default function CancellationRequests() {
               {r.name} · #{r.festivalId} · {r.reason}
             </p>
             <button
-              className={secondaryButton}
+              className={SECONDARY_BUTTON}
               disabled={busy || r.approved}
               onClick={() => submit(r.festivalId)}
             >

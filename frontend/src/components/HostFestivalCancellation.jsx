@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { TriangleAlertIcon } from 'lucide-react'
 import { requestFestivalCancellation } from '../api/hostFestivalApi'
-import { inputClass, primaryButton } from './settlementPresentation'
+import { INPUT_CLASS, PRIMARY_BUTTON } from './settlementPresentation'
 
 const CANCELLATION_ERROR_MESSAGES = {
   FESTIVAL_NOT_CANCELLABLE: '공개 또는 종료 상태의 페스티벌만 취소할 수 있습니다.',
@@ -56,14 +56,14 @@ export default function HostFestivalCancellation({ festivalId }) {
       <label className="block space-y-2 text-sm font-semibold text-amber-900">
         취소 사유
         <input
-          className={inputClass}
+          className={INPUT_CLASS}
           maxLength={500}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />
       </label>
       <button
-        className={primaryButton}
+        className={PRIMARY_BUTTON}
         disabled={busy || !reason.trim()}
         onClick={submit}
       >

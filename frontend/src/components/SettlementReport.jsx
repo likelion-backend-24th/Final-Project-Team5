@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, CheckCircle2, Clock3, RefreshCw, Search, Wallet } from 'lucide-react'
 import { listSettlements, settlementSummary, settlementDetail, settlementCommand } from '../api/settlementApi'
 import SettlementDetail from './SettlementDetail'
-import { money, states, primaryButton, secondaryButton, inputClass } from './settlementPresentation'
+import {
+  formatMoney,
+  SETTLEMENT_STATES,
+  PRIMARY_BUTTON,
+  SECONDARY_BUTTON,
+  INPUT_CLASS,
+} from './settlementPresentation'
 
 const LIST_ERROR_MESSAGE = '정산 내역을 불러오지 못했습니다. 다시 시도해 주세요.'
 const DETAIL_ERROR_MESSAGE = '정산 상세를 불러오지 못했습니다. 다시 시도해 주세요.'
@@ -107,14 +113,14 @@ export default function SettlementReport({ host = false }) {
   const metrics = [
     {
       label: host ? '받을 예정인 금액' : '지급 예정액',
-      value: money(summary?.scheduledAmount),
+      value: formatMoney(summary?.scheduledAmount),
       hint: '검토 대기와 지급 대기 정산',
       Icon: Wallet,
       style: 'text-blue-600 bg-blue-50',
     },
     {
       label: host ? '지급받은 금액' : '지급 완료액',
-      value: money(summary?.paidAmount),
+      value: formatMoney(summary?.paidAmount),
       hint: '지급 완료로 기록한 금액',
       Icon: CheckCircle2,
       style: 'text-emerald-600 bg-emerald-50',
@@ -234,7 +240,7 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
         <label className="min-w-40 flex-1 space-y-1.5 text-xs font-semibold text-gray-500">
           페스티벌 이름
           <input
-            className={inputClass}
+            className={INPUT_CLASS}
             maxLength={100}
             value={draft.festivalName}
             onChange={(e) => setDraft((old) => ({ ...old, festivalName: e.target.value }))}
@@ -245,7 +251,7 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
           <label className="min-w-36 flex-1 space-y-1.5 text-xs font-semibold text-gray-500">
             주최자 이름
             <input
-              className={inputClass}
+              className={INPUT_CLASS}
               maxLength={100}
               value={draft.hostName}
               onChange={(e) => setDraft((old) => ({ ...old, hostName: e.target.value }))}
@@ -256,12 +262,12 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
         <label className="min-w-32 space-y-1.5 text-xs font-semibold text-gray-500">
           정산 상태
           <select
-            className={inputClass}
+            className={INPUT_CLASS}
             value={draft.status}
             onChange={(e) => status(e.target.value)}
           >
             <option value="">전체 상태</option>
-            {Object.entries(states).map(([key, state]) => (
+            {Object.entries(SETTLEMENT_STATES).map(([key, state]) => (
               <option
                 key={key}
                 value={key}
@@ -272,7 +278,7 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
           </select>
         </label>
         <button
-          className={primaryButton}
+          className={PRIMARY_BUTTON}
           type="submit"
         >
           <Search
@@ -284,7 +290,7 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
         <button
           aria-label="새로고침"
           title="새로고침"
-          className={secondaryButton}
+          className={SECONDARY_BUTTON}
           type="button"
           onClick={() => setRefresh((v) => v + 1)}
         >
@@ -301,7 +307,7 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
             <label className="space-y-1">
               시작일
               <input
-                className={inputClass}
+                className={INPUT_CLASS}
                 type="date"
                 value={draft.from}
                 onChange={(e) => setDraft((old) => ({ ...old, from: e.target.value }))}
@@ -310,7 +316,7 @@ function SettlementFilters({ host, draft, setDraft, filters, search, status, res
             <label className="space-y-1">
               종료일
               <input
-                className={inputClass}
+                className={INPUT_CLASS}
                 type="date"
                 min={draft.from || undefined}
                 value={draft.to}
@@ -392,7 +398,7 @@ function SettlementTable({ loading, error, rows, host, busy, open }) {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {rows.map((row) => {
-                const state = states[row.status]
+                const state = SETTLEMENT_STATES[row.status]
                 const unknown = row.status === 'PENDING' || (row.status === 'HELD' && !row.calculatedAt)
                 const value = row.paidAt
                   ? (row.paidPayoutAmount ?? row.payoutAmount)
@@ -418,7 +424,7 @@ function SettlementTable({ loading, error, rows, host, busy, open }) {
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-right">
                       <strong className="tabular-nums text-brand-navy">
-                        {unknown ? '확인 중' : money(value)}
+                        {unknown ? '확인 중' : formatMoney(value)}
                       </strong>
                       {row.status === 'ADJUSTMENT_REQUIRED' && !row.paidAt && (
                         <p className="mt-1 text-xs text-gray-400">재승인 전 금액</p>
@@ -483,7 +489,7 @@ function StatusGuide() {
     <details className="rounded-xl text-sm text-gray-500">
       <summary className="cursor-pointer font-medium">정산 상태가 궁금하신가요?</summary>
       <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-        {Object.values(states).map((state) => (
+        {Object.values(SETTLEMENT_STATES).map((state) => (
           <div
             key={state.label}
             className="rounded-xl bg-white p-4"

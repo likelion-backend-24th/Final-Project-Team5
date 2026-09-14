@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowRight, Check, Info, X } from 'lucide-react'
-import { money, date, states, primaryButton, secondaryButton, inputClass } from './settlementPresentation'
+import {
+  formatMoney,
+  formatDate,
+  SETTLEMENT_STATES,
+  PRIMARY_BUTTON,
+  SECONDARY_BUTTON,
+  INPUT_CLASS,
+} from './settlementPresentation'
 
 const ACTION_LABELS = {
   confirm: '금액 확정',
@@ -52,7 +59,7 @@ export default function SettlementDetail({ detail, host, busy, error, onClose, o
       previous?.focus?.()
     }
   }, [])
-  const status = states[detail.status]
+  const status = SETTLEMENT_STATES[detail.status]
   const paid = Boolean(detail.paidAt)
   const proposed = detail.status === 'ADJUSTMENT_REQUIRED' && !paid
   const unsettled = detail.status === 'PENDING' || (detail.status === 'HELD' && !detail.lines?.length)
@@ -194,7 +201,7 @@ function MoneyRow({ label, amount, strong }) {
       className={`flex items-center justify-between gap-3 py-3 ${strong ? 'font-extrabold text-blue-700' : 'text-gray-600'}`}
     >
       <dt>{label}</dt>
-      <dd className="shrink-0 tabular-nums">{money(amount)}</dd>
+      <dd className="shrink-0 tabular-nums">{formatMoney(amount)}</dd>
     </div>
   )
 }
@@ -210,7 +217,7 @@ function PayoutSummary({ paid, proposed, status, unsettled, value }) {
           <span className={`rounded-full px-3 py-1 text-xs font-bold ${status.style}`}>{status.label}</span>
         </div>
         <p className="mt-3 text-3xl font-extrabold tracking-tight text-brand-navy">
-          {unsettled ? '금액 확인 중' : money(value)}
+          {unsettled ? '금액 확인 중' : formatMoney(value)}
         </p>
         <p className="mt-3 text-sm leading-relaxed text-gray-600">{status.description}</p>
       </section>
@@ -230,7 +237,7 @@ function HoldNotice({ host, detail, paid, debt, proposed, correction }) {
       )}
       {paid && debt < 0 && (
         <section className="rounded-2xl border border-orange-100 bg-orange-50 p-4">
-          <h3 className="font-bold text-orange-900">다음 정산에서 차감할 금액 {money(-debt)}</h3>
+          <h3 className="font-bold text-orange-900">다음 정산에서 차감할 금액 {formatMoney(-debt)}</h3>
           <p className="mt-1 text-sm leading-relaxed text-orange-800">
             {host
               ? '이미 지급받은 금액 중 환불로 반환해야 하는 금액이에요.'
@@ -245,7 +252,7 @@ function HoldNotice({ host, detail, paid, debt, proposed, correction }) {
             size={18}
             className="mt-0.5 shrink-0"
           />
-          최초 확정액 {money(detail.payoutAmount)}에서 환불 조정 {money(correction)}을 반영했어요.{' '}
+          최초 확정액 {formatMoney(detail.payoutAmount)}에서 환불 조정 {formatMoney(correction)}을 반영했어요.{' '}
           {host ? '관리자의 재승인을 기다리고 있어요.' : '변경된 금액을 승인한 뒤 지급해 주세요.'}
         </p>
       )}
@@ -297,8 +304,8 @@ function PayoutBreakdown({ unsettled, paid, detail, correction, value }) {
           </dl>
           {detail.cancellationPenaltyAmount > 0 && (
             <p className="mt-3 rounded-xl bg-gray-50 p-3 text-xs leading-relaxed text-gray-600">
-              취소 위약금 {money(detail.cancellationPenaltyAmount)}은 주최자에게 돌아가며, 위 지급액에 이미
-              포함되어 있어요.
+              취소 위약금 {formatMoney(detail.cancellationPenaltyAmount)}은 주최자에게 돌아가며, 위 지급액에
+              이미 포함되어 있어요.
             </p>
           )}
         </section>
@@ -326,12 +333,12 @@ function ProgressSteps({ detail }) {
               {at ? <Check size={14} /> : '·'}
             </span>
             <strong>{label}</strong>
-            <p className="mt-1 leading-relaxed text-gray-500">{at ? date(at) : '대기 중'}</p>
+            <p className="mt-1 leading-relaxed text-gray-500">{at ? formatDate(at) : '대기 중'}</p>
           </li>
         ))}
       </ol>
       {detail.status === 'PENDING' && (
-        <p className="text-sm text-gray-600">정산 가능 시각: {date(detail.eligibleAt)}</p>
+        <p className="text-sm text-gray-600">정산 가능 시각: {formatDate(detail.eligibleAt)}</p>
       )}
     </>
   )
@@ -364,7 +371,7 @@ function ActionPanel({
               {mainAction && (
                 <button
                   disabled={busy}
-                  className={primaryButton}
+                  className={PRIMARY_BUTTON}
                   onClick={() => begin(mainAction)}
                 >
                   {ACTION_LABELS[mainAction]}
@@ -374,7 +381,7 @@ function ActionPanel({
               {canRecalculate && (
                 <button
                   disabled={busy}
-                  className={secondaryButton}
+                  className={SECONDARY_BUTTON}
                   onClick={() => begin('recalculate')}
                 >
                   다시 계산
@@ -383,7 +390,7 @@ function ActionPanel({
               {detail.status === 'CALCULATED' && (
                 <button
                   disabled={busy}
-                  className={secondaryButton}
+                  className={SECONDARY_BUTTON}
                   onClick={() => begin('hold')}
                 >
                   정산 보류
@@ -399,14 +406,14 @@ function ActionPanel({
               <h3 className="font-bold">{ACTION_LABELS[action]}할까요?</h3>
               <p className="text-sm leading-relaxed text-gray-600">{ACTION_EXPLANATIONS[action]}</p>
               {['confirm', 'reapprove', 'mark-paid'].includes(action) && (
-                <p className="text-xl font-extrabold text-brand-navy">{money(value)}</p>
+                <p className="text-xl font-extrabold text-brand-navy">{formatMoney(value)}</p>
               )}
               {action === 'mark-paid' && (
                 <>
                   <label className="block space-y-1 text-sm font-medium">
                     송금 확인 번호
                     <input
-                      className={inputClass}
+                      className={INPUT_CLASS}
                       required
                       maxLength={200}
                       value={reference}
@@ -417,7 +424,7 @@ function ActionPanel({
                   <label className="block space-y-1 text-sm font-medium">
                     실제 지급 시각
                     <input
-                      className={inputClass}
+                      className={INPUT_CLASS}
                       required
                       type="datetime-local"
                       value={paidAt}
@@ -429,7 +436,7 @@ function ActionPanel({
               <label className="block space-y-1 text-sm font-medium">
                 관리자 메모 (선택)
                 <input
-                  className={inputClass}
+                  className={INPUT_CLASS}
                   maxLength={1000}
                   value={memo}
                   onChange={(e) => setMemo(e.target.value)}
@@ -439,14 +446,14 @@ function ActionPanel({
               <div className="flex gap-2">
                 <button
                   disabled={busy}
-                  className={primaryButton}
+                  className={PRIMARY_BUTTON}
                   type="submit"
                 >
                   {busy ? '처리 중…' : '확인하고 실행'}
                 </button>
                 <button
                   disabled={busy}
-                  className={secondaryButton}
+                  className={SECONDARY_BUTTON}
                   type="button"
                   onClick={() => setAction('')}
                 >
@@ -473,8 +480,8 @@ function FeeBreakdown({ detail, methods }) {
           구매자에게 수수료를 추가 청구하지 않아요.
         </p>
         <p className="mb-3 text-xs text-gray-600">
-          환불한 티켓 금액 {money(detail.grossRefundedFaceAmount)} · 실제 환급{' '}
-          {money(detail.customerRefundAmount)} · 위약금 {money(detail.cancellationPenaltyAmount)}
+          환불한 티켓 금액 {formatMoney(detail.grossRefundedFaceAmount)} · 실제 환급{' '}
+          {formatMoney(detail.customerRefundAmount)} · 위약금 {formatMoney(detail.cancellationPenaltyAmount)}
         </p>
         <ul
           aria-label="결제수단별 합계"
@@ -485,8 +492,8 @@ function FeeBreakdown({ detail, methods }) {
               key={group.method}
               className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600"
             >
-              <strong>{METHOD_LABELS[group.method] || '확인 중'}</strong> · 결제액 {money(group.gross)} ·
-              수수료 {money(group.fee)}
+              <strong>{METHOD_LABELS[group.method] || '확인 중'}</strong> · 결제액 {formatMoney(group.gross)}{' '}
+              · 수수료 {formatMoney(group.fee)}
             </li>
           ))}
         </ul>
@@ -518,7 +525,7 @@ function FeeBreakdown({ detail, methods }) {
                       key={k}
                       className="p-2 tabular-nums"
                     >
-                      {money(line[k])}
+                      {formatMoney(line[k])}
                     </td>
                   ))}
                 </tr>
@@ -544,9 +551,9 @@ function AdjustmentList({ detail }) {
             >
               <div>
                 <p>{a.kind === 'PRE_PAYMENT' ? '지급 전 금액 변경' : '지급 후 정산 조정'}</p>
-                <p className="text-xs text-gray-500">{date(a.createdAt)}</p>
+                <p className="text-xs text-gray-500">{formatDate(a.createdAt)}</p>
               </div>
-              <strong>{money(a.amount)}</strong>
+              <strong>{formatMoney(a.amount)}</strong>
             </div>
           ))}
         </details>
@@ -573,7 +580,7 @@ function AuditTrail({ host, detail }) {
               >
                 <p className="font-semibold">{actionLabel(log.action)}</p>
                 <p className="mt-1 text-xs text-gray-500">
-                  {date(log.createdAt)} · {log.actorUserId ? `담당자 #${log.actorUserId}` : '자동 처리'}
+                  {formatDate(log.createdAt)} · {log.actorUserId ? `담당자 #${log.actorUserId}` : '자동 처리'}
                 </p>
                 {log.memo && <p className="mt-1 break-words text-gray-600">{log.memo}</p>}
               </li>

@@ -13,7 +13,7 @@ const LOGIN_ERROR_MESSAGES = {
   ACCOUNT_LOCKED: '비밀번호를 5회 연속 틀려 로그인이 10분간 제한됐어요. 잠시 후 다시 시도해주세요.',
   ACCOUNT_SUSPENDED: '정지된 계정이에요. 고객센터에 문의해주세요.',
   ACCOUNT_WITHDRAWN: '탈퇴한 계정이에요.',
-  SOCIAL_LOGIN_REQUIRED: '이 계정은 소셜 로그인으로 전환됐어요. 아래 소셜 로그인으로 로그인해주세요.',
+  SOCIAL_LOGIN_REQUIRED: '이 계정은 비밀번호로 로그인할 수 없어요. 아래 소셜 로그인을 이용해주세요.',
   OAUTH_TOKEN_INVALID: '소셜 로그인 인증에 실패했어요. 다시 시도해주세요.',
 }
 

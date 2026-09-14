@@ -17,6 +17,12 @@ public class ReservationServiceClient {
 
     private final RestClient reservationServiceRestClient;
 
+    public java.util.List<ReservationForPaymentResponse> settlementContext(Long festivalId) {
+        return java.util.Arrays.asList(java.util.Objects.requireNonNull(reservationServiceRestClient.get()
+                .uri("/internal/v1/reservations/settlement-context?festivalId={id}", festivalId)
+                .retrieve().body(ReservationForPaymentResponse[].class)));
+    }
+
     public ReservationForPaymentResponse getReservation(Long reservationId) {
         return reservationServiceRestClient.get()
                 .uri("/internal/v1/reservations/{id}", reservationId)
@@ -66,5 +72,9 @@ public class ReservationServiceClient {
                 .body(request)
                 .retrieve()
                 .toBodilessEntity();
+    }
+    public ReservationRefundQuoteResponse getOrganizerRefundQuote(Long id) {
+        return reservationServiceRestClient.get().uri("/internal/v1/reservations/{id}/organizer-refund-quote", id)
+                .retrieve().body(ReservationRefundQuoteResponse.class);
     }
 }

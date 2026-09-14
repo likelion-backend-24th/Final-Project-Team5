@@ -46,8 +46,33 @@ public class Festival {
     private FestivalCategory festivalCategory;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "festival_status", columnDefinition = "VARCHAR(20)")
+    @Column(name = "festival_status", columnDefinition = "VARCHAR(30)")
     private FestivalStatus festivalStatus;
+
+    @Version @Column(columnDefinition = "BIGINT DEFAULT 0") private Long version;
+    @Column(length = 500) private String cancelReason;
+    private Long cancelledByUserId;
+    private java.time.Instant cancelledAt;
+    private java.time.Instant cancellationApprovedAt;
+    private Long cancellationApprovedByUserId;
+
+    public void requestCancellation(Long actor, String reason) {
+        if (festivalStatus == FestivalStatus.CANCELLATION_PENDING || festivalStatus == FestivalStatus.CANCELLED) return;
+        if (festivalStatus != FestivalStatus.PUBLISHED && festivalStatus != FestivalStatus.CLOSED)
+            throw new IllegalStateException("FESTIVAL_NOT_CANCELLABLE");
+        if (reason == null || reason.isBlank() || reason.length() > 500) throw new IllegalArgumentException("REASON_REQUIRED");
+        festivalStatus = FestivalStatus.CANCELLATION_PENDING; cancelledByUserId = actor; cancelReason = reason;
+    }
+    public void approveCancellation(Long actor) {
+        if (festivalStatus != FestivalStatus.CANCELLATION_PENDING) throw new IllegalStateException("CANCELLATION_NOT_REQUESTED");
+        if (cancellationApprovedAt == null) { cancellationApprovedAt = java.time.Instant.now(); cancellationApprovedByUserId = actor; }
+    }
+    public void completeCancellation() {
+        if (festivalStatus == FestivalStatus.CANCELLED) return;
+        if (cancellationApprovedAt == null || festivalStatus != FestivalStatus.CANCELLATION_PENDING)
+            throw new IllegalStateException("CANCELLATION_NOT_APPROVED");
+        festivalStatus = FestivalStatus.CANCELLED; cancelledAt = java.time.Instant.now();
+    }
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

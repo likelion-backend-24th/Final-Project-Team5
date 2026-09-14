@@ -114,7 +114,7 @@ class PortOnePaymentClientTest {
                           "transactionId": "01a07ac8-8308-5d81-c148-a45d91bd77af",
                           "storeId": "store-04f7a059-9b5d-4bb8-ac93-f35434438216",
                           "method": {
-                            "type": "PaymentMethodVirtualAccount",
+                            "type": "VIRTUAL_ACCOUNT",
                             "bank": "KOOKMIN",
                             "accountNumber": "X5909014350743",
                             "accountType": "NORMAL",

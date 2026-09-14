@@ -86,7 +86,7 @@ class PaymentServiceTest {
 
     private PortOnePaymentResponse paidResponse(long total) {
         return new PortOnePaymentResponse(PAYMENT_ID, "PAID", "TX-1", "store-test", channel(),
-                new PortOnePaymentResponse.Method("PaymentMethodCard", null, null, null, null, null, null),
+                new PortOnePaymentResponse.Method("CARD", null, null, null, null, null, null),
                 amount(total), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), Instant.now(), null, null, "pgtx-1", null);
     }
 
@@ -98,7 +98,7 @@ class PaymentServiceTest {
 
     private PortOnePaymentResponse virtualAccountIssuedResponse(Instant expiredAt) {
         return new PortOnePaymentResponse(PAYMENT_ID, "VIRTUAL_ACCOUNT_ISSUED", "TX-3", "store-test", channel(),
-                new PortOnePaymentResponse.Method("PaymentMethodVirtualAccount", "KOOKMIN", "X590901", "NORMAL", "조민규", expiredAt, Instant.now()),
+                new PortOnePaymentResponse.Method("VIRTUAL_ACCOUNT", "KOOKMIN", "X590901", "NORMAL", "조민규", expiredAt, Instant.now()),
                 amount(10_000L), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), null, null, null, "pgtx-3", null);
     }
 
@@ -319,5 +319,16 @@ class PaymentServiceTest {
 
     private org.example.paymentservice.infrastructure.reservation.dto.CancelReservationRequest argThatReasonIsPaymentFailed() {
         return org.mockito.ArgumentMatchers.argThat(req -> req != null && "PAYMENT_FAILED".equals(req.reasonCode()));
+    }
+    @Test
+    void 가상계좌_발급_거래는_입금_승인시_결제수단을_보강한다() {
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment(10L, PaymentStatus.VIRTUAL_ACCOUNT_ISSUED)));
+        when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(paidResponse(10_000L));
+        var transaction = PaymentTransaction.builder().transactionId("TX-1").status(PaymentStatus.VIRTUAL_ACCOUNT_ISSUED).amount(10000).build();
+        when(paymentTransactionRepository.findByTransactionId("TX-1")).thenReturn(Optional.of(transaction));
+        paymentService.complete(10L, PAYMENT_ID);
+        verify(paymentTransactionRepository).save(transaction);
+        assertThat(transaction.getPayMethodCategory()).isEqualTo(PaymentMethodCategory.CARD);
+        assertThat(transaction.getApprovedAt()).isNotNull();
     }
 }

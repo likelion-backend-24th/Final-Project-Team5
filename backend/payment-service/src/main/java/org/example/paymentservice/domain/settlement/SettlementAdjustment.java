@@ -1,0 +1,35 @@
+package org.example.paymentservice.domain.settlement;
+
+import jakarta.persistence.*;
+import lombok.*;
+import java.time.Instant;
+
+@Entity @Getter @NoArgsConstructor
+@Table(name = "settlement_adjustments", uniqueConstraints = @UniqueConstraint(columnNames = {"source_settlement_id", "payment_id", "refunded_face_amount", "customer_refund_amount"}))
+public class SettlementAdjustment {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
+    @Column(name = "source_settlement_id") private Long sourceSettlementId;
+    @Column(name = "payment_id") private Long paymentId;
+    private Long hostUserId;
+    private boolean testPayment;
+    @Column(name = "refunded_face_amount") private long refundedFaceAmount;
+    @Column(name = "customer_refund_amount") private long customerRefundAmount;
+    private long amount;
+    private String kind;
+    private long remainingAmount;
+    @Version private Long version;
+    private Instant createdAt = Instant.now();
+    public SettlementAdjustment(Settlement source, Long paymentId, long face, long cash, long amount) {
+        sourceSettlementId = source.getId(); hostUserId = source.getHostUserId(); testPayment = source.isTestPayment();
+        this.paymentId = paymentId; refundedFaceAmount = face; customerRefundAmount = cash; this.amount = amount;
+        kind = source.getPaidAt() == null ? "PRE_PAYMENT" : "POST_PAYMENT";
+        remainingAmount = source.getPaidAt() == null ? 0 : amount;
+    }
+    public void allocate(long applied) {
+        if (applied != 0 && (Long.signum(applied) != Long.signum(remainingAmount) || Math.abs(applied) > Math.abs(remainingAmount)))
+            throw new IllegalArgumentException("INVALID_ADJUSTMENT_ALLOCATION");
+        remainingAmount = Math.subtractExact(remainingAmount, applied);
+    }
+    public void restore(long applied) { remainingAmount = Math.addExact(remainingAmount, applied); }
+    public String getStatus() { return "PRE_PAYMENT".equals(kind) ? "PRE_PAYMENT" : remainingAmount != 0 ? "RECEIVABLE" : "ALLOCATED"; }
+}

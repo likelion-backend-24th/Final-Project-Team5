@@ -29,6 +29,8 @@ public class Reservation {
     @Column(name = "festival_id")
     private Long festivalId;
 
+    private Long hostUserId;
+
     @Column(name = "ticket_type_id")
     private Long ticketTypeId;
 

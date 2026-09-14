@@ -8,6 +8,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FestivalRepository extends JpaRepository<Festival, Long> {
+    java.util.List<Festival> findByFestivalStatusAndCancellationApprovedAtIsNotNull(FestivalStatus status);
+    @org.springframework.data.jpa.repository.Query("select f from Festival f where f.endAt <= :cutoff and f.festivalStatus in (org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED, org.example.festivalservice.domain.festival.FestivalStatus.CLOSED, org.example.festivalservice.domain.festival.FestivalStatus.CANCELLATION_PENDING, org.example.festivalservice.domain.festival.FestivalStatus.CANCELLED) order by f.id")
+    java.util.List<Festival> findSettlementCandidates(java.time.LocalDateTime cutoff, org.springframework.data.domain.Pageable pageable);
 
     List<Festival> findByHostUserId(Long hostUserId);
 

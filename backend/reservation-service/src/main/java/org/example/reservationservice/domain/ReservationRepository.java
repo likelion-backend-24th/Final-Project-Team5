@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
+    List<Reservation> findByFestivalId(Long festivalId);
 
     //참가자 본인의 예매 목록 조회
     List<Reservation> findByUserId(Long userId);

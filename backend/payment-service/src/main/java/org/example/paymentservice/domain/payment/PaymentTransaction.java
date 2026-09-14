@@ -44,12 +44,22 @@ public class PaymentTransaction {
     @Column(name = "pay_method", length = 30)
     private String payMethod;
 
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(30)")
+    private PaymentMethodCategory payMethodCategory;
+    private String easyPayProvider;
+
     // FAILED일 때만 채워지는 실패 사유. 카드번호·CVC 등 민감정보는 저장하지 않는다.
     @Column(name = "failure_reason", length = 255)
     private String failureReason;
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
+
+    public void approve(String rawMethod, String provider, LocalDateTime at) {
+        status = PaymentStatus.PAID; payMethod = rawMethod;
+        payMethodCategory = PaymentMethodCategory.fromRaw(rawMethod); easyPayProvider = provider; approvedAt = at;
+    }
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

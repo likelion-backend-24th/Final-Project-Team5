@@ -33,6 +33,13 @@ public class InternalReservationController {
     @Value("${internal.auth-token:CHANGE_ME_IN_ENV}")
     private String internalAuthToken;
 
+    @GetMapping("/settlement-context")
+    public java.util.List<ReservationForPaymentResponseDto> settlementContext(
+            @RequestParam Long festivalId, @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+        verifyInternalToken(authorization);
+        return reservationService.settlementReservations(festivalId);
+    }
+
     //Payment-Service → Reservation-Service: 결제 시작 전 예매 정보 조회(getReservationForPayment)
     @GetMapping("/{id}")
     public ResponseEntity<ReservationForPaymentResponseDto> getReservationForPayment(
@@ -106,5 +113,10 @@ public class InternalReservationController {
         if (!authorization.equals(BEARER_PREFIX + internalAuthToken)) {
             throw new ApiException(ReservationErrorCode.INVALID_INTERNAL_TOKEN);
         }
+    }
+    @GetMapping("/{id}/organizer-refund-quote")
+    public ReservationRefundQuoteResponseDto organizerQuote(@PathVariable Long id,
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization) {
+        verifyInternalToken(authorization); return reservationService.getOrganizerRefundQuote(id);
     }
 }

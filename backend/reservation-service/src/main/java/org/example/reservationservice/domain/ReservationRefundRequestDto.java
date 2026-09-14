@@ -9,6 +9,8 @@ import jakarta.validation.constraints.NotBlank;
  */
 public record ReservationRefundRequestDto(
         @NotBlank String paymentId,
-        @Min(1) int quantity
+        @Min(1) int quantity,
+        String cancellationId
 ) {
+    public ReservationRefundRequestDto(String paymentId, int quantity) { this(paymentId, quantity, null); }
 }

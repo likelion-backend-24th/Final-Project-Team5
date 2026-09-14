@@ -92,7 +92,7 @@ class PaymentAcceptanceTest {
 
     private PortOnePaymentResponse paidResponse(String paymentId, String transactionId, long total) {
         return new PortOnePaymentResponse(paymentId, "PAID", transactionId, "store-test", channel(),
-                new PortOnePaymentResponse.Method("PaymentMethodCard", null, null, null, null, null, null),
+                new PortOnePaymentResponse.Method("CARD", null, null, null, null, null, null),
                 amount(total), "KRW", "테스트 결제", Instant.now(), Instant.now(), Instant.now(), Instant.now(), null, null, "pgtx-1", null);
     }
 

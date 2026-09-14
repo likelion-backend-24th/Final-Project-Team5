@@ -66,6 +66,9 @@ public class PaymentService {
                 .reservationId(reservation.reservationId())
                 .userId(userId)
                 .ticketAmount(reservation.totalAmount())
+                .festivalId(reservation.festivalId())
+                .hostUserId(reservation.hostUserId())
+                .unitPrice(reservation.unitPrice())
                 .platformFee(0L)
                 .currency("KRW")
                 .status(PaymentStatus.READY)
@@ -98,6 +101,11 @@ public class PaymentService {
 
     private PaymentCompleteResponse syncPayment(Payment payment) {
         if (isFinalized(payment.getStatus())) {
+            if (payment.getStatus() == PaymentStatus.PAID && payment.getPaidAt() != null && payment.getReservationConfirmedAt() == null) {
+                reservationServiceClient.confirmReservation(payment.getReservationId(), new ConfirmReservationRequest(
+                        payment.getPaymentId(), payment.totalAmount(), payment.getPayMethod(), payment.getPaidAt()));
+                payment.markReservationConfirmed(); paymentRepository.save(payment);
+            }
             // 완료 API가 반복 호출돼도 오류 대신 현재 성공 상태를 그대로 반환한다(멱등).
             return toCompleteResponse(payment);
         }
@@ -124,14 +132,19 @@ public class PaymentService {
     }
 
     private void handlePaid(Payment payment, PortOnePaymentResponse remote) {
+        payment.snapshotApproval(remote.method() == null ? null : remote.method().type(),
+                remote.method() == null ? null : remote.method().provider(), remote.paidAt(),
+                remote.channel() == null ? null : "TEST".equals(remote.channel().type()));
         payment.transitionTo(PaymentStatus.PAID);
-        paymentRepository.save(payment);
+        Payment saved = paymentRepository.save(payment);
+        if (saved != null) payment = saved;
 
         String payMethod = remote.method() != null ? remote.method().type() : null;
         ConfirmReservationRequest request = new ConfirmReservationRequest(
                 payment.getPaymentId(), remote.amount().total(), payMethod, remote.paidAt());
         try {
             reservationServiceClient.confirmReservation(payment.getReservationId(), request);
+            payment.markReservationConfirmed(); paymentRepository.save(payment);
         } catch (HttpClientErrorException.Conflict e) {
             // 결제는 확정됐지만 예매가 배치로 이미 만료·취소된 엣지 케이스. 자동 환불(PortOne 취소 API)은
             // Story9 범위라 아직 구현 전이므로, 지금은 예외로 드러내고 정합성 배치(추후 구현)가 발견하도록 남긴다.
@@ -176,8 +189,16 @@ public class PaymentService {
 
     // 같은 PortOne 거래(transactionId)는 완료 API·웹훅이 중복 호출돼도 한 번만 기록한다.
     private void recordTransaction(Payment payment, PortOnePaymentResponse remote) {
-        if (remote.transactionId() == null
-                || paymentTransactionRepository.findByTransactionId(remote.transactionId()).isPresent()) {
+        if (remote.transactionId() == null) return;
+        var existing = paymentTransactionRepository.findByTransactionId(remote.transactionId());
+        if (existing.isPresent()) {
+            if (PORTONE_STATUS_PAID.equals(remote.status()) && existing.get().getStatus() != PaymentStatus.PAID) {
+                var transaction = existing.get();
+                transaction.approve(remote.method() == null ? null : remote.method().type(),
+                        remote.method() == null ? null : remote.method().provider(),
+                        remote.paidAt() == null ? null : LocalDateTime.ofInstant(remote.paidAt(), ZoneOffset.UTC));
+                paymentTransactionRepository.save(transaction);
+            }
             return;
         }
 
@@ -192,6 +213,9 @@ public class PaymentService {
                 .payment(payment)
                 .transactionId(remote.transactionId())
                 .status(transactionStatus)
+                .payMethod(remote.method() == null ? null : remote.method().type())
+                .payMethodCategory(PaymentMethodCategory.fromRaw(remote.method() == null ? null : remote.method().type()))
+                .easyPayProvider(remote.method() == null ? null : remote.method().provider())
                 .amount(remote.amount() != null ? remote.amount().total() : 0L)
                 .failureReason(remote.failure() != null ? remote.failure().reason() : null)
                 .approvedAt(remote.paidAt() != null ? LocalDateTime.ofInstant(remote.paidAt(), ZoneOffset.UTC) : null)
@@ -199,7 +223,8 @@ public class PaymentService {
     }
 
     private boolean isFinalized(PaymentStatus status) {
-        return status == PaymentStatus.PAID || status == PaymentStatus.FAILED || status == PaymentStatus.CANCELLED;
+        return status == PaymentStatus.PAID || status == PaymentStatus.FAILED || status == PaymentStatus.CANCELLED
+                || status == PaymentStatus.PARTIAL_CANCELLED;
     }
 
     private PaymentCompleteResponse toCompleteResponse(Payment payment) {

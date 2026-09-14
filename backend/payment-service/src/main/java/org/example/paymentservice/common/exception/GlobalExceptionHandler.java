@@ -10,6 +10,19 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleStatus(org.springframework.web.server.ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(ApiResponse.error("REQUEST_REJECTED", e.getReason()));
+    }
+    @ExceptionHandler({IllegalStateException.class, org.springframework.dao.OptimisticLockingFailureException.class,
+            org.springframework.dao.DataIntegrityViolationException.class})
+    public ResponseEntity<ApiResponse<Void>> handleConflict(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error("STATE_CONFLICT", "상태가 변경되었거나 대사가 필요합니다. 새로고침해 주세요."));
+    }
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleArgument(IllegalArgumentException e) {
+        return ResponseEntity.badRequest().body(ApiResponse.error("INVALID_REQUEST", "요청 값을 확인해 주세요."));
+    }
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(ApiException e) {

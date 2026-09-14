@@ -27,6 +27,8 @@ import org.springframework.web.client.RestClientException;
 @Service
 @RequiredArgsConstructor
 public class ReservationService {
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
 
     private static final String PUBLISHED = "PUBLISHED";
     private static final String HELPER_ROLE = "HELPER";
@@ -83,6 +85,7 @@ public class ReservationService {
         Reservation reservation = Reservation.builder()
                 .userId(userId)
                 .festivalId(festival.id())
+                .hostUserId(festival.hostUserId())
                 .ticketTypeId(request.ticketTypeId())
                 .quantity(request.quantity())
                 .price(ticketType.price())
@@ -224,6 +227,10 @@ public class ReservationService {
         return ReservationForPaymentResponseDto.from(reservation);
     }
 
+    public List<ReservationForPaymentResponseDto> settlementReservations(Long festivalId) {
+        return reservationRepository.findByFestivalId(festivalId).stream().map(ReservationForPaymentResponseDto::from).toList();
+    }
+
     //Payment-Service → Reservation-Service 내부 호출: 결제 성공 확정
     @Transactional
     public void confirmReservation(Long id, ReservationConfirmRequestDto request) {
@@ -284,6 +291,14 @@ public class ReservationService {
         return quoteFor(reservation, requestedQuantity);
     }
 
+    public ReservationRefundQuoteResponseDto getOrganizerRefundQuote(Long id) {
+        Reservation r = reservationRepository.findById(id).orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
+        if (!r.isAdmittable()) return ReservationRefundQuoteResponseDto.of(r,
+                RefundQuote.rejected("RESERVATION_NOT_REFUNDABLE", r.remainingQuantity()));
+        return ReservationRefundQuoteResponseDto.of(r, RefundQuote.allowed(r.remainingQuantity(), 0,
+                Math.multiplyExact((long) r.getPrice(), r.remainingQuantity())));
+    }
+
     //참가자가 환불 버튼을 누르기 전에 "얼마를 돌려받는지"를 미리 보여주기 위한 본인 조회.
     //위약금을 모르고 환불을 확정하게 두면 안 되므로 화면에서 먼저 이 견적을 띄운다.
     public ReservationRefundQuoteResponseDto getMyRefundQuote(Long id, Long userId, Integer requestedQuantity) {
@@ -303,6 +318,19 @@ public class ReservationService {
     public void applyRefund(Long id, ReservationRefundRequestDto request) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
+
+        entityManager.lock(reservation, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (!java.util.Objects.equals(reservation.getPaymentId(), request.paymentId())) {
+            throw new ApiException(ReservationErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        }
+        if (request.cancellationId() != null) {
+            RefundReceipt receipt = entityManager.find(RefundReceipt.class, request.cancellationId());
+            if (receipt != null) {
+                if (!receipt.matches(id, request.quantity())) throw new ApiException(ReservationErrorCode.PAYMENT_AMOUNT_MISMATCH);
+                return;
+            }
+            entityManager.persist(new RefundReceipt(request.cancellationId(), id, request.quantity()));
+        }
 
         //이미 같은 수량까지 반영된 재호출은 재고를 다시 복구하지 않고 멱등하게 무시한다.
         //(PortOne 취소 웹훅과 API 응답이 같은 취소를 두 번 알려줄 수 있다 — 가이드 9.4)

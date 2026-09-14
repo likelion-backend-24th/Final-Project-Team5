@@ -70,6 +70,20 @@ public class Cancellation {
     @Column(name = "reason", length = 200)
     private String reason;
 
+    private Long grossAmount;
+    private Integer penaltyRatePercent;
+    private Long penaltyAmount;
+    private Long feeReversalAmount;
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(30)")
+    private CancellationBusinessReason businessReason;
+    private Long requestedByUserId;
+    private String requestedByRole;
+    private Instant reservationAppliedAt;
+    @Column(unique = true) private Long activePaymentId;
+
+    public void markReservationApplied() { this.reservationAppliedAt = Instant.now(); this.activePaymentId = null; }
+
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
@@ -89,10 +103,12 @@ public class Cancellation {
         if (this.cancellationId == null) {
             this.cancellationId = cancellationId;
         }
-        if (this.status.isFinal()) {
+        if (this.status == CancellationStatus.SUCCEEDED) {
             return;
         }
+        if (this.status == CancellationStatus.FAILED && remoteStatus != CancellationStatus.SUCCEEDED) return;
         this.status = remoteStatus;
+        if (remoteStatus == CancellationStatus.FAILED) this.activePaymentId = null;
         this.cancelledAt = cancelledAt;
     }
 

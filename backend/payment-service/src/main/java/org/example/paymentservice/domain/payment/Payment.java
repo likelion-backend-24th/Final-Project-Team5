@@ -25,6 +25,7 @@ public class Payment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Version @Column(columnDefinition = "BIGINT DEFAULT 0") private Long version;
 
     // PortOne API·SDK와 공유하는 팀 접두사 포함 결제 ID (예: BE24-T05-...)
     @Column(name = "payment_id", nullable = false, length = 100)
@@ -42,7 +43,7 @@ public class Payment {
     @Column(name = "ticket_amount", nullable = false)
     private long ticketAmount;
 
-    // 플랫폼 수수료 스냅샷. 수수료율 확정 전까지는 0으로 둔다.
+    // 구매자가 추가 부담하지 않는 주최자 정산 공제액.
     @Column(name = "platform_fee", nullable = false)
     private long platformFee;
 
@@ -51,6 +52,32 @@ public class Payment {
 
     @Column(name = "pay_method", length = 30)
     private String payMethod;
+
+    private Long festivalId;
+    private Long hostUserId;
+    private Long unitPrice;
+    private java.time.Instant paidAt;
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(30)")
+    private PaymentMethodCategory payMethodCategory;
+    private String easyPayProvider;
+    private Integer platformFeeRateBps;
+    private String feePolicyVersion;
+    private Boolean testPayment;
+    private java.time.Instant reservationConfirmedAt;
+    public void markReservationConfirmed() { reservationConfirmedAt = java.time.Instant.now(); }
+
+    public void snapshotApproval(String rawMethod, String provider, java.time.Instant approvedAt, Boolean test) {
+        this.payMethod = rawMethod;
+        this.payMethodCategory = PaymentMethodCategory.fromRaw(rawMethod);
+        this.easyPayProvider = provider;
+        this.paidAt = approvedAt;
+        this.testPayment = test;
+        this.platformFeeRateBps = payMethodCategory.rateBps();
+        this.feePolicyVersion = "2026-09-v1";
+        this.platformFee = platformFeeRateBps == null ? 0 :
+                org.example.paymentservice.domain.settlement.SettlementCalculator.fee(ticketAmount, platformFeeRateBps);
+    }
 
     // MySQL 네이티브 ENUM으로 만들면 값 추가 시 ddl-auto: update가 허용값을 넓혀주지 않으므로 VARCHAR로 고정한다.
     @Enumerated(EnumType.STRING)
@@ -66,7 +93,7 @@ public class Payment {
     private LocalDateTime updatedAt;
 
     public long totalAmount() {
-        return ticketAmount + platformFee;
+        return ticketAmount;
     }
 
     // 허용되지 않은 상태 전이는 조용히 무시하지 않고 예외로 드러낸다.

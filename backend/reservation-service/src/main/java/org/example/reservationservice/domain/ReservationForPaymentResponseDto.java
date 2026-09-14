@@ -14,7 +14,12 @@ public record ReservationForPaymentResponseDto(
         long totalAmount,
         Long ticketTypeId,
         int quantity,
-        Instant expiresAt
+        Instant expiresAt,
+        Long festivalId,
+        Long hostUserId,
+        Long unitPrice,
+        Integer refundedQuantity,
+        String paymentId
 ) {
     public static ReservationForPaymentResponseDto from(Reservation reservation) {
         return new ReservationForPaymentResponseDto(
@@ -24,7 +29,9 @@ public record ReservationForPaymentResponseDto(
                 reservation.totalAmount(),
                 reservation.getTicketTypeId(),
                 reservation.getQuantity(),
-                reservation.getExpiresAt()
+                reservation.getExpiresAt(),
+                reservation.getFestivalId(), reservation.getHostUserId(), (long) reservation.getPrice(),
+                reservation.getRefundedQuantity(), reservation.getPaymentId()
         );
     }
 }

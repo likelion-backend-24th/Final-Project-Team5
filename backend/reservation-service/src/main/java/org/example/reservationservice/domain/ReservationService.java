@@ -57,6 +57,7 @@ public class ReservationService {
 
     private final SeatRepository seatRepository;
     private final ReservationSeatRepository reservationSeatRepository;
+    private final org.example.reservationservice.domain.refund.SeatReleaseQueueRepository seatReleaseQueueRepository;
     //사이트 전체 기본 1인당 구매 제한(계정 기준, 페스티벌당 — 티켓 종류를 나눠 사도 합산). 티켓 종류당으로 세던 시절엔
     //같은 페스티벌에서 종류별로 4장씩 사 8장까지 가능했다(QA에서 발견). 주최자가 페스티벌별로 더 낮게 설정하는 기능은 아직 없다.
     @Value("${reservation.max-quantity-per-festival:${reservation.max-quantity-per-ticket-type:4}}")
@@ -380,14 +381,13 @@ public class ReservationService {
         return ReservationRefundQuoteResponseDto.of(reservation, quote);
     }
 
-    //Payment-Service → Reservation-Service 내부 호출: PortOne 취소 성공 후 환불 확정 + 재고 복구.
+    //Payment-Service → Reservation-Service 내부 호출: PortOne 취소 성공 후 환불 확정 + 재고/좌석 복구.
     @Transactional
     public void applyRefund(Long id, ReservationRefundRequestDto request) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
 
         //이미 같은 수량까지 반영된 재호출은 재고를 다시 복구하지 않고 멱등하게 무시한다.
-        //(PortOne 취소 웹훅과 API 응답이 같은 취소를 두 번 알려줄 수 있다 — 가이드 9.4)
         if (reservation.getRefundedQuantity() >= reservation.getQuantity()) {
             return;
         }
@@ -395,12 +395,42 @@ public class ReservationService {
             throw new ApiException(ReservationErrorCode.REFUND_QUANTITY_EXCEEDED);
         }
 
+        boolean isSeated = request.seatIds() != null && !request.seatIds().isEmpty();
+        if (isSeated) {
+            validateSeatIdsBelongToReservation(reservation, request.seatIds());
+            if (request.seatIds().size() != request.quantity()) {
+                throw new ApiException(ReservationErrorCode.INVALID_SEAT_REQUEST);
+            }
+        }
+
         reservation.refund(request.quantity());
-        //환불 재고는 바로 풀지 않는다 — 팀 정책(리셀 방지): 모아 두었다가 매일 정해진 시각에 일괄 반환(StockReleaseScheduler).
+        //환불 재고/좌석은 바로 풀지 않는다 — 팀 정책(리셀 방지): 모아 두었다가 매일 정해진 시각에 일괄 반환.
         Instant releaseAt = stockReleaseScheduler.nextReleaseInstant(Instant.now());
-        stockReleaseQueueRepository.save(new StockReleaseQueue(reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt));
-        log.info("환불 확정: reservation={}, ticketType={}, qty={}, 재고 반환 예정={}",
-                reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt);
+
+        if (isSeated) {
+            for (Long seatId : request.seatIds()) {
+                seatReleaseQueueRepository.save(new org.example.reservationservice.domain.refund.SeatReleaseQueue(
+                        reservation.getId(), seatId, releaseAt));
+            }
+            log.info("환불 확정(좌석): reservation={}, seatIds={}, qty={}, 반환 예정={}",
+                    reservation.getId(), request.seatIds(), request.quantity(), releaseAt);
+        } else {
+            stockReleaseQueueRepository.save(new StockReleaseQueue(
+                    reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt));
+            log.info("환불 확정: reservation={}, ticketType={}, qty={}, 반환 예정={}",
+                    reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt);
+        }
+    }
+
+    //요청받은 seatIds가 실제로 이 예매에 속한 좌석인지 확인한다(내부 메서드) — 다른 예매의 좌석 id를
+//섞어 보내는 요청을 막는다.
+    private void validateSeatIdsBelongToReservation(Reservation reservation, List<Long> seatIds) {
+        List<Long> ownedSeatIds = reservationSeatRepository.findByReservationId(reservation.getId()).stream()
+                .map(rs -> rs.getSeat().getId())
+                .toList();
+        if (!ownedSeatIds.containsAll(seatIds)) {
+            throw new ApiException(ReservationErrorCode.SEAT_NOT_FOUND);
+        }
     }
 
     //환불 가능 여부 판정(내부 메서드) — 상태·입장 여부처럼 막는 조건을 먼저 보고, 마지막에 금액을 계산한다.

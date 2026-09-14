@@ -41,4 +41,11 @@ public interface SeatRepository extends JpaRepository<Seat, Long> {
 
     //만료 배치 — HELD인데 heldUntil이 지난 좌석을 찾는다
     List<Seat> findBySeatStatusAndHeldUntilBefore(SeatStatus seatStatus, Instant now);
+
+    //환불 확정된 좌석을 AVAILABLE로 되돌린다. SOLD 상태인 것만 대상으로 한다.
+    @Modifying
+    @Query("UPDATE Seat s SET s.seatStatus = org.example.reservationservice.domain.seat.SeatStatus.AVAILABLE, " +
+            "s.heldBy = null, s.heldUntil = null " +
+            "WHERE s.id = :id AND s.seatStatus = org.example.reservationservice.domain.seat.SeatStatus.SOLD")
+    int releaseSoldSeat(@Param("id") Long id);
 }

@@ -23,7 +23,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(ApiException e) {
         ErrorCode errorCode = e.getErrorCode();
-        return ResponseEntity.status(errorCode.getHttpStatus()).body(ApiResponse.error(errorCode.name(), e.getMessage()));
+        return ResponseEntity.status(errorCode.getHttpStatus())
+                .body(ApiResponse.error(errorCode.name(), e.getMessage()));
     }
 
     @ExceptionHandler(MissingRequestHeaderException.class)

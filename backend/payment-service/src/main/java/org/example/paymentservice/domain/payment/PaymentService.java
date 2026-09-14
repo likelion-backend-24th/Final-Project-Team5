@@ -219,7 +219,8 @@ public class PaymentService {
 
         if (!storeMatches || !channelMatches || !isTestChannel || !currencyMatches || !amountMatches) {
             log.warn(
-                "결제 검증 실패. paymentId={}, storeMatches={}, channelMatches={}, isTestChannel={}, currencyMatches={}, amountMatches={}",
+                "결제 검증 실패. paymentId={}, storeMatches={}, channelMatches={}, " +
+                    "isTestChannel={}, currencyMatches={}, amountMatches={}",
                 payment.getPaymentId(),
                 storeMatches,
                 channelMatches,

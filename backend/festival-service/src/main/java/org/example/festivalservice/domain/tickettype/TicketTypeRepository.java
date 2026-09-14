@@ -16,7 +16,8 @@ public interface TicketTypeRepository extends JpaRepository<TicketType, Long> {
     // 상태 조회와 차감 사이에 취소 요청이 들어오는 경합을 DB에서 막는다.
     @Query("UPDATE TicketType t SET t.remainQuantity = t.remainQuantity - :qty " +
             "WHERE t.id = :id AND t.remainQuantity >= :qty AND t.festival.id IN " +
-            "(SELECT f.id FROM Festival f WHERE f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED)")
+            "(SELECT f.id FROM Festival f WHERE f.festivalStatus = " +
+            "org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED)")
     int deductStock(@Param("id") Long id, @Param("qty") int qty);
 
     //결제 실패·취소 시 차감했던 재고를 원자적으로 복구한다. 총 수량을 넘지 않도록 조건으로 방지

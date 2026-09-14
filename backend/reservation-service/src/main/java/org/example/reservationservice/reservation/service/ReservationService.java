@@ -62,7 +62,10 @@ public class ReservationService {
 
     private static final int MAX_CHECK_IN_CODE_ATTEMPTS = 5;
     //취소되지 않은 것으로 보고 구매 제한에 합산할 상태들 (만료·취소 건은 다시 살 수 있어야 하므로 제외)
-    private static final List<ReservationStatus> HELD_STATUSES = List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED);
+    private static final List<ReservationStatus> HELD_STATUSES = List.of(
+            ReservationStatus.PENDING,
+            ReservationStatus.CONFIRMED
+    );
     //1인당 구매 제한에 합산할 상태 — 부분 환불된 예매도 남은 장수만큼은 들고 있는 것이다
     private static final List<ReservationStatus> PURCHASE_LIMIT_STATUSES =
             List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED, ReservationStatus.PARTIALLY_REFUNDED);
@@ -261,7 +264,9 @@ public class ReservationService {
 
     // 결제 서비스가 타 서비스 DB를 직접 읽지 않고 정산 수량과 단가를 대조하도록 제공한다.
     public List<ReservationForPaymentResponseDto> settlementReservations(Long festivalId) {
-        return reservationRepository.findByFestivalId(festivalId).stream().map(ReservationForPaymentResponseDto::from).toList();
+        return reservationRepository.findByFestivalId(festivalId).stream()
+                .map(ReservationForPaymentResponseDto::from)
+                .toList();
     }
 
     //Payment-Service → Reservation-Service 내부 호출: 결제 성공 확정
@@ -325,7 +330,8 @@ public class ReservationService {
     }
 
     public ReservationRefundQuoteResponseDto getOrganizerRefundQuote(Long id) {
-        Reservation r = reservationRepository.findById(id).orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
+        Reservation r = reservationRepository.findById(id)
+                .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
         if (!r.isAdmittable()) return ReservationRefundQuoteResponseDto.of(r,
                 RefundQuote.rejected("RESERVATION_NOT_REFUNDABLE", r.remainingQuantity()));
         return ReservationRefundQuoteResponseDto.of(r, RefundQuote.allowed(r.remainingQuantity(), 0,
@@ -360,7 +366,9 @@ public class ReservationService {
         if (request.cancellationId() != null) {
             RefundReceipt receipt = entityManager.find(RefundReceipt.class, request.cancellationId());
             if (receipt != null) {
-                if (!receipt.matches(id, request.quantity())) throw new ApiException(ReservationErrorCode.PAYMENT_AMOUNT_MISMATCH);
+                if (!receipt.matches(id, request.quantity())) {
+                    throw new ApiException(ReservationErrorCode.PAYMENT_AMOUNT_MISMATCH);
+                }
                 return;
             }
             entityManager.persist(new RefundReceipt(request.cancellationId(), id, request.quantity()));
@@ -378,7 +386,12 @@ public class ReservationService {
         reservation.refund(request.quantity());
         //환불 재고는 바로 풀지 않는다 — 팀 정책(리셀 방지): 모아 두었다가 매일 정해진 시각에 일괄 반환(StockReleaseScheduler).
         Instant releaseAt = stockReleaseScheduler.nextReleaseInstant(Instant.now());
-        stockReleaseQueueRepository.save(new StockReleaseQueue(reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt));
+        stockReleaseQueueRepository.save(new StockReleaseQueue(
+                reservation.getId(),
+                reservation.getTicketTypeId(),
+                request.quantity(),
+                releaseAt
+        ));
         log.info("환불 확정: reservation={}, ticketType={}, qty={}, 재고 반환 예정={}",
                 reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt);
     }

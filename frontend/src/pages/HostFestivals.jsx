@@ -21,6 +21,8 @@ const STATUS_VARIANTS = {
   PUBLISHED: 'accent',
   REJECTED: 'danger',
   CLOSED: 'secondary',
+  CANCELLATION_PENDING: 'amber',
+  CANCELLED: 'danger',
 }
 
 function formatDateRange(startAt, endAt) {

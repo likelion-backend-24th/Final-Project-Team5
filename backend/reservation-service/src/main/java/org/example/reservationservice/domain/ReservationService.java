@@ -308,6 +308,7 @@ public class ReservationService {
     }
 
     //Payment-Service → Reservation-Service 내부 호출: 결제 성공 확정
+    //Payment-Service → Reservation-Service 내부 호출: 결제 성공 확정
     @Transactional
     public void confirmReservation(Long id, ReservationConfirmRequestDto request) {
         Reservation reservation = reservationRepository.findById(id)
@@ -331,6 +332,20 @@ public class ReservationService {
         }
 
         reservation.confirm(request.paymentId(), generateUnusedCheckInCode());
+        markSeatsSoldIfAny(reservation);
+    }
+
+    //SEATED 예매면 연결된 좌석들을 SOLD로 확정한다. STANDING이면 좌석이 없으니 아무것도 안 한다.
+    private void markSeatsSoldIfAny(Reservation reservation) {
+        List<ReservationSeat> reservationSeats = reservationSeatRepository.findByReservationId(reservation.getId());
+        for (ReservationSeat reservationSeat : reservationSeats) {
+            Long seatId = reservationSeat.getSeat().getId();
+            int updated = seatRepository.markSold(seatId);
+            if (updated == 0) {
+                //이미 SOLD로 확정됐거나(같은 paymentId 재호출 등) 예상치 못한 상태 변화 — 로그만 남기고 진행한다.
+                log.warn("예매 {} 확정 시 좌석 {} SOLD 전환 실패(이미 HELD가 아님)", reservation.getId(), seatId);
+            }
+        }
     }
 
     //입장 코드 발급(내부 메서드) — 32^10 조합이라 실제로는 첫 시도에서 끝나지만, 유니크 제약 위반으로

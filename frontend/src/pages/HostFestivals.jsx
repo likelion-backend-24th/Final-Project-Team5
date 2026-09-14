@@ -12,6 +12,8 @@ const STATUS_LABELS = {
   PUBLISHED: '공개됨',
   REJECTED: '반려됨',
   CLOSED: '종료됨',
+  CANCELLATION_PENDING: '행사 취소 처리 중',
+  CANCELLED: '행사 취소 완료',
 }
 
 const STATUS_VARIANTS = {
@@ -89,6 +91,7 @@ function HostFestivals() {
     <main className={styles.main}>
       <div className={styles.headerRow}>
         <h1 className={styles.title}>내 페스티벌</h1>
+        <Link to="/host/settlements" className={styles.count}>내 정산</Link>
         <Link to="/host/festivals/new" className={styles.count}>
           <PlusIcon size={14} aria-hidden="true" style={{ verticalAlign: 'middle', marginRight: 4 }} />
           새 페스티벌 등록

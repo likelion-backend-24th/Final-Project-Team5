@@ -6,6 +6,7 @@ import { FESTIVAL_CATEGORY_LABELS, toAbsoluteImageUrl } from '../api/festivalApi
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
 import HostHelperAccounts from '../components/HostHelperAccounts'
+import FestivalCancellation from '../components/FestivalCancellation'
 import styles from './FestivalDetail.module.css'
 
 const STATUS_LABELS = {
@@ -13,6 +14,8 @@ const STATUS_LABELS = {
   PUBLISHED: '공개됨',
   REJECTED: '반려됨',
   CLOSED: '종료됨',
+  CANCELLATION_PENDING: '행사 취소 처리 중',
+  CANCELLED: '행사 취소 완료',
 }
 
 const STATUS_VARIANTS = {
@@ -227,6 +230,7 @@ function HostFestivalDetail() {
         </Link>
 
         <HostHelperAccounts festivalId={id} />
+        {['PUBLISHED', 'CLOSED'].includes(festival.festivalStatus) && <FestivalCancellation festivalId={id} />}
       </div>
     </main>
   )

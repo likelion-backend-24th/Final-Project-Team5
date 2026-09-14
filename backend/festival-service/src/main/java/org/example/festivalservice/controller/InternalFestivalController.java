@@ -34,7 +34,7 @@ public class InternalFestivalController {
     @Value("${internal.auth-token:CHANGE_ME_IN_ENV}")
     private String token;
 
-    @Value("${app.timezone}")
+    @Value("${app.timezone:Asia/Seoul}")
     private String timezone;
 
     @GetMapping("/settlement-candidates")

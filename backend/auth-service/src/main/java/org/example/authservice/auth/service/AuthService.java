@@ -1,6 +1,8 @@
 package org.example.authservice.auth.service;
 
 import io.jsonwebtoken.Claims;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 import org.example.authservice.auth.dto.LoginRequest;
 import org.example.authservice.auth.dto.SignupRequest;
@@ -14,20 +16,17 @@ import org.example.authservice.auth.repository.OauthAccountRepository;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.security.JwtTokenProvider;
 import org.example.authservice.common.exception.ApiException;
+import org.example.authservice.helper.exception.HelperErrorCode;
 import org.example.authservice.user.entity.AccountStatus;
 import org.example.authservice.user.entity.Role;
 import org.example.authservice.user.entity.User;
 import org.example.authservice.user.exception.UserErrorCode;
 import org.example.authservice.user.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -37,7 +36,10 @@ import java.util.Random;
 @RequiredArgsConstructor
 public class AuthService {
 
+    private final EntityManager entityManager;
     private final UserRepository userRepository;
+    private final TokenSessionService tokenSessionService;
+    private final AccountAccessPolicy accountAccessPolicy;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -48,16 +50,14 @@ public class AuthService {
     private final GoogleApiClient googleApiClient;
     private final OauthAccountRepository oauthAccountRepository;
 
-    @Value("${jwt.refresh-token-expiration}")
-    private long refreshTokenExpiration;
-
     //회원가입
     @Transactional
     public void signup(SignupRequest signupRequest) {
         Optional<User> existingUser = userRepository.findByUsername(signupRequest.getUsername());
 
         // 유저가 존재하고 비밀번호도 갖고있으면 중복으로 회원가입 불가
-        if(existingUser.isPresent() && existingUser.get().getPassword() != null){
+        if (existingUser.isPresent()
+                && (existingUser.get().getPassword() != null || existingUser.get().getRole() == Role.HELPER)) {
             throw new ApiException(AuthErrorCode.DUPLICATE_USERNAME);
         }
 
@@ -103,6 +103,9 @@ public class AuthService {
         // 회원가입 되어있는지 조회
         User user = userRepository.findByUsername(loginRequest.getUsername())
                 .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
+        if (user.getRole() == Role.HELPER) {
+            checkAccountActive(user);
+        }
         //잠금 상태 확인
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())){
             throw new ApiException(AuthErrorCode.ACCOUNT_LOCKED);
@@ -119,7 +122,15 @@ public class AuthService {
             throw new ApiException(AuthErrorCode.INVALID_PASSWORD);
         }
 
-        // 회원 탈퇴/정지 계정인지 체크
+        // 잠금 대기 중 활성화·해지가 먼저 끝날 수 있어 최신 비밀번호를 다시 검증한다.
+        if (user.getRole() == Role.HELPER) {
+            user = userRepository.findLockedById(user.getId())
+                    .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
+            entityManager.refresh(user, LockModeType.PESSIMISTIC_WRITE);
+            if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
+                throw new ApiException(AuthErrorCode.INVALID_PASSWORD);
+            }
+        }
         checkAccountActive(user);
         //로그인 성공하면 다시 초기화
         user.setFailedLoginAttempts(0);
@@ -131,16 +142,7 @@ public class AuthService {
 
     // 로그인/카카오·구글 로그인/소셜 전환 확인이 공통으로 쓰는 토큰 발급 + RefreshToken 저장.
     private TokenResponse issueTokenResponse(User user) {
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
-
-        RefreshToken newRefreshToken = new RefreshToken();
-        newRefreshToken.setUser(user);
-        newRefreshToken.setTokenHash(hashToken(refreshToken)); //해쉬토큰 메서드로 평문방지 보안처리
-        newRefreshToken.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpiration)));
-        refreshTokenRepository.save(newRefreshToken);
-
-        return new TokenResponse(accessToken, refreshToken);
+        return tokenSessionService.issue(user);
     }
 
     // 재사용 탐지 시, 폐기된 지 이 시간 안이면 "짧은 시간 내 반복 새로고침으로 인한 경합"으로 보고
@@ -160,6 +162,21 @@ public class AuthService {
         RefreshToken savedRefreshToken = refreshTokenRepository.findByTokenHash(tokenHash)
                 .orElseThrow(() -> new ApiException(AuthErrorCode.INVALID_REFRESH_TOKEN));
 
+        // 활성화·해지 이전 버전은 재사용 유예로 복구되지 않도록 로테이션보다 먼저 거부한다.
+        if (savedRefreshToken.getUser().getRole() == Role.HELPER) {
+            User helper = userRepository.findLockedById(savedRefreshToken.getUser().getId())
+                .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
+            entityManager.refresh(helper, LockModeType.PESSIMISTIC_WRITE);
+            entityManager.refresh(savedRefreshToken, LockModeType.PESSIMISTIC_WRITE);
+            checkAccountActive(helper);
+            savedRefreshToken.setUser(helper);
+            long tokenVersion = savedRefreshToken.getHelperSessionVersion() == null
+                    ? 0L : savedRefreshToken.getHelperSessionVersion();
+            long accountVersion = helper.getHelperSessionVersion() == null ? 0L : helper.getHelperSessionVersion();
+            if (tokenVersion != accountVersion) {
+                throw new ApiException(HelperErrorCode.HELPER_SESSION_REVOKED);
+            }
+        }
         // 이미 폐기된 토큰이 재사용됐는지 확인
         if (savedRefreshToken.getRevokedAt() != null){
             RefreshToken healedToken = resolveGraceHealedToken(savedRefreshToken);
@@ -205,25 +222,7 @@ public class AuthService {
 
     // 검증이 끝난 리프레시 토큰을 실제로 로테이션한다 (신규 발급 + 기존 토큰 폐기).
     private TokenResponse rotate(RefreshToken savedRefreshToken) {
-        User user = savedRefreshToken.getUser();
-        //회탈/정지 검증
-        checkAccountActive(user);
-
-        String newAccessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
-        String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
-
-        RefreshToken newRefreshTokenEntity = new RefreshToken();
-        newRefreshTokenEntity.setUser(user);
-        newRefreshTokenEntity.setTokenHash(hashToken(newRefreshToken));
-        newRefreshTokenEntity.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpiration)));
-        refreshTokenRepository.save(newRefreshTokenEntity);
-
-        // 예전 토큰 폐기 처리, 새 토큰과 연결 (Rotation)
-        savedRefreshToken.setRevokedAt(LocalDateTime.now());
-        savedRefreshToken.setReplacedByTokenId(newRefreshTokenEntity.getId());
-        refreshTokenRepository.save(savedRefreshToken);
-
-        return new TokenResponse(newAccessToken, newRefreshToken);
+        return tokenSessionService.issue(savedRefreshToken.getUser(), savedRefreshToken);
     }
 
     // 로그아웃
@@ -249,6 +248,11 @@ public class AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));
 
+        if (user.getRole() == Role.HELPER) {
+
+            throw new ApiException(UserErrorCode.HELPER_PASSWORD_CHANGE_NOT_ALLOWED);
+
+        }
         //소셜 로그인은 변경 불가 로직
         if(user.getPassword() == null){
             throw new ApiException(UserErrorCode.SOCIAL_USER_CANNOT_CHANGE_PASSWORD);
@@ -263,28 +267,13 @@ public class AuthService {
 
     // 계정 상태(정지/탈퇴) 확인 편의메서드 -나증에 OAuth,재발급 때에도 쓰여서 만들어놓음
     private void checkAccountActive(User user) {
-        if (user.getStatus() == AccountStatus.SUSPENDED) {
-            throw new ApiException(AuthErrorCode.ACCOUNT_SUSPENDED);
-        }
-        if (user.getStatus() == AccountStatus.WITHDRAWN) {
-            throw new ApiException(AuthErrorCode.ACCOUNT_WITHDRAWN);
-        }
+        accountAccessPolicy.check(user);
     }
 
     // DB에는 토큰 원본을 그대로 저장하지 않고 해시값만 저장해, DB 유출 시에도 실제 토큰이 복원되지 않도록 함
     // 평문을 해시로 변환하는 메서드
     private String hashToken(String token) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 알고리즘을 사용할 수 없습니다.", e);
-        }
+        return TokenSessionService.hashToken(token);
     }
 
     // Kakao 최초 로그인 시 회원가입
@@ -292,7 +281,8 @@ public class AuthService {
         User user = new User();
         user.setUsername("kakao_" + providerId + "@kakao.local");
         user.setName(kakaoUserInfo.getKakao_account().getProfile().getNickname());
-        user.setNickname(generateUniqueNickname(kakaoUserInfo.getKakao_account().getProfile().getNickname())); //뒤에 랜덤 숫자4자리 붙임
+        //뒤에 랜덤 숫자4자리 붙임
+        user.setNickname(generateUniqueNickname(kakaoUserInfo.getKakao_account().getProfile().getNickname()));
         user.setPassword(null);                                   //카카오에서 실명을 주지 않아서 일단 닉네임으로 채우고 나중에 마이페이지에서 닉네임 수정 유도
         user.setRole(Role.USER);
         user.setStatus(AccountStatus.ACTIVE);
@@ -390,7 +380,8 @@ public class AuthService {
         //이미 아이디/비밀번호로 쓰던 이메일이면 조용히 연동하지 않고, 소셜 로그인 전환에 동의를 받는다.
         if (existingUser.isPresent() && existingUser.get().getPassword() != null) {
             checkAccountActive(existingUser.get());
-            String pendingLinkToken = jwtTokenProvider.generateOauthLinkToken(googleUserInfo.getEmail(), "GOOGLE", providerId);
+            String pendingLinkToken = jwtTokenProvider.generateOauthLinkToken(
+                    googleUserInfo.getEmail(), "GOOGLE", providerId);
             return new GoogleLoginResult(null, pendingLinkToken, googleUserInfo.getEmail());
         }
 

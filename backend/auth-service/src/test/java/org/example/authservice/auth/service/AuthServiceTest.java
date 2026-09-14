@@ -77,6 +77,14 @@ class AuthServiceTest {
     @InjectMocks
     private AuthService authService;
 
+    @org.junit.jupiter.api.BeforeEach
+    void configureSharedServices() {
+        var policy = new AccountAccessPolicy();
+        var sessions = new TokenSessionService(jwtTokenProvider, refreshTokenRepository, policy);
+        org.springframework.test.util.ReflectionTestUtils.setField(authService, "tokenSessionService", sessions);
+        org.springframework.test.util.ReflectionTestUtils.setField(authService, "accountAccessPolicy", policy);
+    }
+
     private SignupRequest createValidRequest() {
         return new SignupRequest(
                 "홍길동",

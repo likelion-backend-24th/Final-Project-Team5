@@ -53,8 +53,12 @@ class UserAuthAcceptanceTest {
     @Autowired
     private EmailVerificationRepository emailVerificationRepository;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private org.springframework.mail.javamail.JavaMailSender mailSender;
+
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.when(mailSender.createMimeMessage()).thenAnswer(call -> new jakarta.mail.internet.MimeMessage(jakarta.mail.Session.getInstance(new java.util.Properties())));
         refreshTokenRepository.deleteAll();
         userRepository.deleteAll();
         emailVerificationRepository.deleteAll();

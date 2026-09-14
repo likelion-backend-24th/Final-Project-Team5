@@ -1,29 +1,65 @@
 package org.example.festivalservice.domain.helper;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
-/** Festival-Service ↔ Auth-Service 도우미 계정 내부 계약에 쓰는 DTO 모음. */
+/**
+ * Festival-Service ↔ Auth-Service 도우미 계정 내부 계약에 쓰는 DTO 모음.
+ */
 public final class HelperAccountDto {
 
     private HelperAccountDto() {
     }
 
-    /** POST /internal/v1/helper-accounts 요청. */
-    public record CreateRequest(Long festivalId, LocalDateTime festivalEndAt) {
-    }
-
-    /**
-     * 계정 발급·재발급 응답. 평문 비밀번호가 노출되는 유일한 지점이며 저장되지 않으므로,
-     * 호스트가 이 값을 놓치면 재발급을 받아야 한다.
-     */
-    public record CredentialResponse(Long helperUserId, String username, String password) {
-    }
-
-    /** 발급된 계정 목록(개수 확인용). 비밀번호는 복원할 수 없어 포함되지 않는다. */
-    public record SummaryResponse(int totalCount, List<HelperAccount> helpers) {
-
-        public record HelperAccount(Long helperUserId, String username, LocalDateTime createdAt) {
+    // HOST가 신규 초대와 기존 계정 전환에 입력하는 연락 이메일.
+    public record InviteRequest(
+            @NotBlank
+            @Email
+            @Size(max = 254)
+            String email
+    ) {
+        public InviteRequest {
+            email = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
         }
+    }
+
+    // 소유권 검증을 마친 행사 스냅샷과 연락 이메일을 Auth에 전달한다.
+    public record CreateRequest(
+            Long festivalId,
+            String festivalName,
+            @JsonFormat(shape = JsonFormat.Shape.STRING)
+            LocalDateTime festivalStartAt,
+            @JsonFormat(shape = JsonFormat.Shape.STRING)
+            LocalDateTime festivalEndAt,
+            String email
+    ) {
+    }
+
+    // 발급 아이디와 초대 상태만 전달하며 비밀번호나 원문 토큰은 포함하지 않는다.
+    public record HelperAccount(
+            Long helperUserId,
+            String username,
+            String email,
+            String status,
+            String deliveryStatus,
+            LocalDateTime sentAt,
+            LocalDateTime lastSentAt,
+            LocalDateTime expiresAt,
+            LocalDateTime createdAt,
+            boolean legacy
+    ) {
+    }
+
+    // HOST 도우미 관리 목록의 개수와 계정별 상태.
+    public record SummaryResponse(
+            int totalCount,
+            List<HelperAccount> helpers
+    ) {
     }
 }

@@ -8,6 +8,9 @@ import { getGoogleLoginUrl, getKakaoLoginUrl } from '../api/oauthUrls'
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const LOGIN_ERROR_MESSAGES = {
+  HELPER_PENDING_ACTIVATION: '초대 메일의 링크에서 비밀번호를 먼저 설정해주세요.',
+  INVITATION_REVOKED: '주최자가 해지한 도우미 계정이에요.',
+  HELPER_FESTIVAL_ENDED: '배정된 행사가 종료되어 사용할 수 없어요.',
   USER_NOT_FOUND: '존재하지 않는 계정이에요.',
   INVALID_PASSWORD: '이메일 또는 비밀번호가 올바르지 않아요.',
   ACCOUNT_LOCKED: '비밀번호를 5회 연속 틀려 로그인이 10분간 제한됐어요. 잠시 후 다시 시도해주세요.',

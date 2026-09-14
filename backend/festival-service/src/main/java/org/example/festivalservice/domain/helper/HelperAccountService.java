@@ -12,51 +12,68 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
-/**
- * 주최자가 자기 페스티벌 현장 입장 검증을 맡길 도우미 계정을 발급·재발급·조회한다.
- * 계정 자체는 auth-service가 소유하므로 여기서는 "정말 이 호스트의 페스티벌인지"만 확인하고 내부 API로 넘긴다.
- */
+/** 행사 소유권을 검증한 뒤 인증 서비스에 초대 관리를 위임한다. */
 @Service
 @RequiredArgsConstructor
 public class HelperAccountService {
 
     private static final String HOST_ROLE = "HOST";
-
     private final FestivalRepository festivalRepository;
     private final RestClient authServiceRestClient;
 
     @Value("${internal.auth-service.token:CHANGE_ME_IN_ENV}")
     private String internalAuthToken;
 
-    //호출할 때마다 계정을 하나씩 발급한다. 평문 비밀번호는 이 응답에서만 볼 수 있다.
-    public HelperAccountDto.CredentialResponse createHelperAccount(Long festivalId, Long hostUserId, String role) {
+    public HelperAccountDto.HelperAccount createHelperAccount(
+            Long festivalId, Long hostUserId, String role, String email
+    ) {
         Festival festival = getOwnedFestival(festivalId, hostUserId, role);
 
         return callAuthService(() -> authServiceRestClient.post()
                 .uri("/internal/v1/helper-accounts")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + internalAuthToken)
-                .body(new HelperAccountDto.CreateRequest(festival.getId(), festival.getEndAt()))
+                .body(request(festival, email))
                 .retrieve()
-                .body(new ParameterizedTypeReference<AuthApiEnvelope<HelperAccountDto.CredentialResponse>>() {}));
+                .body(new ParameterizedTypeReference<AuthApiEnvelope<HelperAccountDto.HelperAccount>>() {}));
     }
 
-    //호스트가 발급 당시 비밀번호를 놓쳤을 때 — 계정은 그대로 두고 비밀번호만 새로 만든다.
-    public HelperAccountDto.CredentialResponse reissuePassword(Long festivalId, Long helperUserId,
-                                                               Long hostUserId, String role) {
-        getOwnedFestival(festivalId, hostUserId, role);
-
+    public HelperAccountDto.HelperAccount convertLegacy(
+            Long festivalId, Long helperId, Long hostId, String role, String email
+    ) {
+        Festival festival = getOwnedFestival(festivalId, hostId, role);
         return callAuthService(() -> authServiceRestClient.post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/internal/v1/helper-accounts/{helperUserId}/password")
-                        .queryParam("festivalId", festivalId)
-                        .build(helperUserId))
+                .uri("/internal/v1/helper-accounts/{id}/invitation", helperId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + internalAuthToken)
+                .body(request(festival, email))
+                .retrieve()
+                .body(new ParameterizedTypeReference<AuthApiEnvelope<HelperAccountDto.HelperAccount>>() {}));
+    }
+
+    public HelperAccountDto.HelperAccount resend(Long festivalId, Long helperId, Long hostId, String role) {
+        getOwnedFestival(festivalId, hostId, role);
+        return callAuthService(() -> authServiceRestClient.post()
+                .uri("/internal/v1/helper-accounts/{id}/resend?festivalId={festival}", helperId, festivalId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + internalAuthToken)
                 .retrieve()
-                .body(new ParameterizedTypeReference<AuthApiEnvelope<HelperAccountDto.CredentialResponse>>() {}));
+                .body(new ParameterizedTypeReference<AuthApiEnvelope<HelperAccountDto.HelperAccount>>() {}));
     }
 
-    //몇 개의 계정을 발급했는지 확인한다. 비밀번호는 해시로만 저장돼 목록에 담기지 않는다.
+    public HelperAccountDto.HelperAccount revoke(Long festivalId, Long helperId, Long hostId, String role) {
+        getOwnedFestival(festivalId, hostId, role);
+        return callAuthService(() -> authServiceRestClient.delete()
+                .uri("/internal/v1/helper-accounts/{id}?festivalId={festival}", helperId, festivalId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + internalAuthToken)
+                .retrieve()
+                .body(new ParameterizedTypeReference<AuthApiEnvelope<HelperAccountDto.HelperAccount>>() {}));
+    }
+
+    private HelperAccountDto.CreateRequest request(Festival festival, String email) {
+        return new HelperAccountDto.CreateRequest(
+                festival.getId(), festival.getName(), festival.getStartAt(), festival.getEndAt(), email);
+    }
+
     public HelperAccountDto.SummaryResponse listHelperAccounts(Long festivalId, Long hostUserId, String role) {
         getOwnedFestival(festivalId, hostUserId, role);
 
@@ -70,7 +87,7 @@ public class HelperAccountService {
                 .body(new ParameterizedTypeReference<AuthApiEnvelope<HelperAccountDto.SummaryResponse>>() {}));
     }
 
-    //도우미 계정을 다룰 수 있는 건 그 페스티벌을 실제로 주최하는 호스트뿐이다.
+    // 도우미 계정을 다룰 수 있는 건 그 페스티벌을 실제로 주최하는 호스트뿐이다.
     private Festival getOwnedFestival(Long festivalId, Long hostUserId, String role) {
         if (!HOST_ROLE.equals(role)) {
             throw new ApiException(HelperAccountErrorCode.FORBIDDEN_HOST_ROLE);
@@ -88,15 +105,33 @@ public class HelperAccountService {
         try {
             envelope = call.execute();
         } catch (HttpClientErrorException.NotFound | HttpClientErrorException.Forbidden e) {
-            //재발급 대상 계정이 없거나 다른 페스티벌 계정인 경우 — 호스트에게는 "없는 계정"으로 동일하게 응답한다.
+            // 대상 계정이 없거나 다른 행사에 속한 경우 모두 같은 오류로 감춰 계정 존재 여부를 노출하지 않는다.
             throw new ApiException(HelperAccountErrorCode.HELPER_ACCOUNT_NOT_FOUND);
+        } catch (RestClientResponseException e) {
+            throw new ApiException(toErrorCode(e));
         } catch (RestClientException e) {
             throw new ApiException(HelperAccountErrorCode.AUTH_SERVICE_UNAVAILABLE);
         }
-        if (envelope == null || envelope.data() == null) {
+        if (envelope == null || !envelope.success() || envelope.data() == null) {
             throw new ApiException(HelperAccountErrorCode.AUTH_SERVICE_UNAVAILABLE);
         }
         return envelope.data();
+    }
+
+    private HelperAccountErrorCode toErrorCode(RestClientResponseException exception) {
+        try {
+            AuthError error = exception.getResponseBodyAs(AuthError.class);
+            if (error != null && error.errorCode() != null) {
+                return HelperAccountErrorCode.valueOf(error.errorCode());
+            }
+        } catch (IllegalArgumentException ignored) {
+            // 알 수 없는 내부 오류 코드는 외부 계약에 노출하지 않고 통신 오류로 처리한다.
+            return HelperAccountErrorCode.AUTH_SERVICE_UNAVAILABLE;
+        }
+        return HelperAccountErrorCode.AUTH_SERVICE_UNAVAILABLE;
+    }
+
+    private record AuthError(String errorCode) {
     }
 
     @FunctionalInterface

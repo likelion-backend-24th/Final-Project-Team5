@@ -5,11 +5,12 @@ import org.example.authservice.auth.dto.TokenResponse;
 import org.example.authservice.auth.entity.RefreshToken;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.security.JwtTokenProvider;
-import org.example.authservice.user.entity.User;
 import org.example.authservice.user.entity.Role;
+import org.example.authservice.user.entity.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -17,28 +18,41 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 
-@Service @RequiredArgsConstructor
+@Service
+@RequiredArgsConstructor
 public class TokenSessionService {
+
     private final JwtTokenProvider jwtTokenProvider;
+
     private final RefreshTokenRepository refreshTokenRepository;
+
     private final AccountAccessPolicy accountAccessPolicy;
+
     @Value("${jwt.refresh-token-expiration}")
     private long refreshTokenExpiration;
 
     @Transactional
-    public TokenResponse issue(User user) { return issue(user, null); }
+    public TokenResponse issue(User user) {
+        return issue(user, null);
+    }
 
     @Transactional
     public TokenResponse issue(User user, RefreshToken previous) {
         accountAccessPolicy.check(user);
-        String accessToken = user.getRole() == Role.HELPER
-            ? jwtTokenProvider.generateHelperAccessToken(user.getId(), user.getUsername(), user.getFestivalId(),
-                user.getHelperSessionVersion() == null ? 0L : user.getHelperSessionVersion())
-            : jwtTokenProvider.generateAccessToken(user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
+        String accessToken;
+        if (user.getRole() == Role.HELPER) {
+            accessToken = jwtTokenProvider.generateHelperAccessToken(
+                    user.getId(), user.getUsername(), user.getFestivalId(), helperSessionVersionOf(user));
+        } else {
+            accessToken = jwtTokenProvider.generateAccessToken(
+                    user.getId(), user.getUsername(), user.getRole().name(), user.getFestivalId());
+        }
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUsername());
         RefreshToken next = new RefreshToken();
         next.setUser(user);
-        if (user.getRole() == Role.HELPER) next.setHelperSessionVersion(user.getHelperSessionVersion() == null ? 0L : user.getHelperSessionVersion());
+        if (user.getRole() == Role.HELPER) {
+            next.setHelperSessionVersion(helperSessionVersionOf(user));
+        }
         next.setTokenHash(hashToken(refreshToken));
         next.setExpiresAt(LocalDateTime.now().plus(Duration.ofMillis(refreshTokenExpiration)));
         refreshTokenRepository.save(next);
@@ -57,8 +71,16 @@ public class TokenSessionService {
         refreshTokenRepository.saveAll(tokens);
     }
 
+    private long helperSessionVersionOf(User user) {
+        return user.getHelperSessionVersion() == null ? 0L : user.getHelperSessionVersion();
+    }
+
     public static String hashToken(String token) {
-        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8))); }
-        catch (NoSuchAlgorithmException e) { throw new IllegalStateException("SHA-256 is unavailable"); }
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable");
+        }
     }
 }

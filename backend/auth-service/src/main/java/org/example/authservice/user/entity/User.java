@@ -1,6 +1,14 @@
 package org.example.authservice.user.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -77,6 +85,7 @@ public class User {
     @Column(name = "festival_id")
     private Long festivalId;
 
+    // 활성화·해지 때 증가해 이전 버전으로 발급된 세션을 거부한다.
     // null은 기존 도우미 세션 버전 0을 의미한다.
     @Column(name = "helper_session_version")
     private Long helperSessionVersion;

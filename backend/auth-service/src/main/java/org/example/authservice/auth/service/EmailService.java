@@ -10,10 +10,11 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.HtmlUtils;
 
 import java.io.UnsupportedEncodingException;
 import java.security.SecureRandom;
-
+import java.time.LocalDateTime;
 
 // 실제 이메일을 보내는 역할의 클래스이다!!
 @Slf4j
@@ -27,7 +28,6 @@ public class EmailService {
     // JavaMailSender 객체를 자바가 자동으로 등록
     private final JavaMailSender javaMailSender;
 
-
     @Value("${spring.mail.username}")
     private String fromEmail;
 
@@ -39,10 +39,11 @@ public class EmailService {
 
     // 호출자는 DB 커밋을 끝낸 뒤 호출하고, 실패 상태를 별도 트랜잭션으로 기록한다.
     public void sendHelperInvitation(String email, String festivalName, String username,
-            java.time.LocalDateTime expiresAt, String link) {
-        String escapedName = org.springframework.web.util.HtmlUtils.htmlEscape(festivalName);
-        String escapedUsername = org.springframework.web.util.HtmlUtils.htmlEscape(username);
-        String escapedLink = org.springframework.web.util.HtmlUtils.htmlEscape(link);
+            LocalDateTime expiresAt, String link) {
+        // 행사명·아이디·링크가 HTML 태그나 속성으로 해석되지 않도록 동적 문자열을 escape한다.
+        String escapedName = HtmlUtils.htmlEscape(festivalName);
+        String escapedUsername = HtmlUtils.htmlEscape(username);
+        String escapedLink = HtmlUtils.htmlEscape(link);
         String plain = "FevalGo 도우미 초대\n" + festivalName + "\n로그인 아이디: " + username
             + "\n만료: " + expiresAt + "\n비밀번호 설정하기: " + link
             + "\n링크는 1회만 사용 가능합니다. 예상하지 못한 메일이면 무시해주세요.";

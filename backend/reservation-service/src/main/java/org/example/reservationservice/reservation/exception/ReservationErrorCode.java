@@ -13,6 +13,8 @@ public enum ReservationErrorCode implements ErrorCode {
     FESTIVAL_NOT_PUBLISHED(HttpStatus.NOT_FOUND, "존재하지 않거나 예매할 수 없는 페스티벌입니다."),
     TICKET_TYPE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 티켓 종류입니다."),
     STOCK_EXCEEDED(HttpStatus.CONFLICT, "재고가 부족합니다."),
+    TICKET_SALE_NOT_STARTED(HttpStatus.CONFLICT, "아직 판매가 시작되지 않은 티켓입니다."),
+    TICKET_SALE_ENDED(HttpStatus.CONFLICT, "판매가 종료된 티켓입니다."),
     FESTIVAL_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "페스티벌 정보를 확인할 수 없습니다."),
     RESERVATION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 예매입니다."),
     FORBIDDEN_NOT_OWNER(HttpStatus.FORBIDDEN, "본인 예매만 조회할 수 있습니다."),

@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.example.festivalservice.domain.festival.Festival;
 import org.example.festivalservice.domain.festival.FestivalCategory;
+import org.example.festivalservice.domain.festival.FestivalRegion;
 import org.example.festivalservice.domain.festival.FestivalRepository;
 import org.example.festivalservice.domain.festival.FestivalStatus;
 import org.example.festivalservice.domain.tickettype.TicketType;
@@ -32,11 +33,12 @@ class HostControllerAcceptanceTest {
               "description": "설명",
               "startAt": "2026-10-01T10:00:00",
               "endAt": "2026-10-02T22:00:00",
-              "location": "서울숲",
+              "region": "SEOUL",
+              "locationDetail": "서울숲",
               "festivalCategory": "MUSIC",
               "ticketTypes": [
-                {"name": "일반", "price": 50000, "quantity": 100},
-                {"name": "VIP", "price": 120000, "quantity": 20}
+                {"name": "일반", "description": "스탠딩석", "price": 50000, "quantity": 100, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"},
+                {"name": "VIP", "price": 120000, "quantity": 20, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"}
               ]
             }""";
 
@@ -88,10 +90,11 @@ class HostControllerAcceptanceTest {
                   "name": "가을 뮤직 페스티벌",
                   "startAt": "2026-10-01T10:00:00",
                   "endAt": "2026-10-02T22:00:00",
-                  "location": "서울숲",
+                  "region": "SEOUL",
+                  "locationDetail": "서울숲",
                   "festivalCategory": "MUSIC",
                   "ticketTypes": [
-                    {"name": "일반", "price": 50000, "quantity": 0}
+                    {"name": "일반", "price": 50000, "quantity": 0, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"}
                   ]
                 }""";
 
@@ -181,7 +184,8 @@ class HostControllerAcceptanceTest {
                 .description("설명")
                 .startAt(java.time.LocalDateTime.of(2026, 10, 1, 10, 0))
                 .endAt(java.time.LocalDateTime.of(2026, 10, 2, 22, 0))
-                .location("서울숲")
+                .region(FestivalRegion.SEOUL)
+                .locationDetail("서울숲")
                 .festivalCategory(FestivalCategory.MUSIC)
                 .festivalStatus(FestivalStatus.PUBLISHED)
                 .build());

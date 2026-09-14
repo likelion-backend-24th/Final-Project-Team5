@@ -71,7 +71,7 @@ class ReservationAcceptanceTest {
                 "PUBLISHED",
                 java.time.LocalDateTime.now().plusDays(1),
                 java.time.LocalDateTime.now().plusDays(2),
-                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE))
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null))
         );
     }
 
@@ -202,7 +202,7 @@ class ReservationAcceptanceTest {
                 FESTIVAL_ID, 999L, "PENDING",
                 java.time.LocalDateTime.now().plusDays(1),
                 java.time.LocalDateTime.now().plusDays(2),
-                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE))));
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null))));
 
         mockMvc.perform(post(CREATE_ENDPOINT)
                         .header("X-User-Id", "1")
@@ -256,8 +256,8 @@ class ReservationAcceptanceTest {
         when(festivalServiceClient.getFestival(FESTIVAL_ID)).thenReturn(new FestivalDetailResponseDto(
                 FESTIVAL_ID, 999L, "PUBLISHED",
                 java.time.LocalDateTime.now().plusDays(1), java.time.LocalDateTime.now().plusDays(2),
-                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE),
-                        new FestivalDetailResponseDto.TicketTypeSummary(secondTicketTypeId, TICKET_PRICE))));
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null),
+                        new FestivalDetailResponseDto.TicketTypeSummary(secondTicketTypeId, TICKET_PRICE, null, null))));
 
         mockMvc.perform(post(CREATE_ENDPOINT)
                         .header("X-User-Id", "1")

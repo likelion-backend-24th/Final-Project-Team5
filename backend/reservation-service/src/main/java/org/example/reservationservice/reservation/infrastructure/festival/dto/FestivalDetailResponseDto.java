@@ -18,6 +18,6 @@ public record FestivalDetailResponseDto(
 ) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    public record TicketTypeSummary(Long id, int price) {
+    public record TicketTypeSummary(Long id, int price, LocalDateTime saleStartAt, LocalDateTime saleEndAt) {
     }
 }

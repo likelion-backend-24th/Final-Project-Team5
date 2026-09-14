@@ -28,8 +28,13 @@ import SignUp from './pages/SignUp'
 function App() {
   const { user, isLoading } = useAuth()
   const location = useLocation()
+  // 초대 페이지는 헤더·푸터 없이 단독 렌더링하며 로그인 상태·역할과 무관하게 열린다.
   if (location.pathname.startsWith('/helper-invite/')) {
-    return <Routes><Route path="/helper-invite/:token" element={<HelperInvite key={location.pathname} />} /></Routes>
+    return (
+      <Routes>
+        <Route path="/helper-invite/:token" element={<HelperInvite key={location.pathname} />} />
+      </Routes>
+    )
   }
 
   //도우미(HELPER)는 배정된 행사 하나에서 현장 입장 검증만 담당하는 계정이라, 일반 회원 화면 대신

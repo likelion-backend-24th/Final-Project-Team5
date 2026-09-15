@@ -239,6 +239,10 @@
   min-width: 0;
 }
 
+.seatLayoutRow {
+  margin-top: 10px;
+}
+
 .addTicket {
   margin-top: 12px;
   width: 100%;

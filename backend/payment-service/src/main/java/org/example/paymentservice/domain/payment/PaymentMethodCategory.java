@@ -18,9 +18,9 @@ public enum PaymentMethodCategory {
             return UNKNOWN;
         }
         return switch (type) {
-            case "CARD" -> CARD;
-            case "EASY_PAY" -> EASY_PAY;
-            case "VIRTUAL_ACCOUNT" -> VIRTUAL_ACCOUNT;
+            case "CARD", "PaymentMethodCard" -> CARD;
+            case "EASY_PAY", "PaymentMethodEasyPay" -> EASY_PAY;
+            case "VIRTUAL_ACCOUNT", "PaymentMethodVirtualAccount" -> VIRTUAL_ACCOUNT;
             default -> UNKNOWN;
         };
     }

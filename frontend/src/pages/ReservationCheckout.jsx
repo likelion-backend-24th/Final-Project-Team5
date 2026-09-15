@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import * as PortOne from '@portone/browser-sdk/v2'
 import {
@@ -65,6 +65,9 @@ const CREATE_RESERVATION_ERROR_MESSAGES = {
   PURCHASE_LIMIT_EXCEEDED: '1인당 구매 가능 수량을 초과했어요.',
   TICKET_SALE_NOT_STARTED: '아직 판매가 시작되지 않은 티켓이에요.',
   TICKET_SALE_ENDED: '판매가 종료된 티켓이에요.',
+  SEAT_ALREADY_TAKEN: '이미 선택된 좌석이에요. 좌석을 다시 선택해주세요.',
+  SEAT_NOT_FOUND: '존재하지 않는 좌석이에요.',
+  INVALID_SEAT_REQUEST: '좌석 선택 정보가 올바르지 않아요.',
 }
 
 //예매 보유(hold) 남은 시간을 "MM:SS"로 표시한다.
@@ -89,6 +92,9 @@ function ReservationCheckout() {
   const [searchParams] = useSearchParams()
   const ticketTypeId = Number(searchParams.get('ticketTypeId'))
   const quantity = Number(searchParams.get('quantity')) || 1
+  const seatIdsParam = searchParams.get('seatIds')
+  const seatIds = useMemo(() => (seatIdsParam ? seatIdsParam.split(',').map(Number) : null), [seatIdsParam])
+  const effectiveQuantity = seatIds ? seatIds.length : quantity
   const resumeReservationId = searchParams.get('reservationId')
   const { user, isLoading: authLoading } = useAuth()
 
@@ -172,7 +178,7 @@ function ReservationCheckout() {
     if (resumeReservationId || !user || !ticketType || creatingRef.current || reservationIdRef.current) return
     creatingRef.current = true
     setStep('reserving')
-    createReservation({ festivalId: Number(festivalId), ticketTypeId, quantity })
+    createReservation({ festivalId: Number(festivalId), ticketTypeId, quantity, seatIds })
       .then((reservationRes) => {
         reservationIdRef.current = reservationRes.data.data.id
         setExpiresAt(reservationRes.data.data.expiresAt)
@@ -183,9 +189,9 @@ function ReservationCheckout() {
         setPayError(CREATE_RESERVATION_ERROR_MESSAGES[errorCode] || '예매 신청 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.')
         setStep('idle')
       })
-  }, [resumeReservationId, user, ticketType, festivalId, ticketTypeId, quantity])
+  }, [resumeReservationId, user, ticketType, festivalId, ticketTypeId, quantity, seatIds])
 
-  const totalAmount = ticketType ? ticketType.price * quantity : 0
+  const totalAmount = ticketType ? ticketType.price * effectiveQuantity : 0
 
   async function handlePay() {
     if (!ticketType) return
@@ -198,6 +204,7 @@ function ReservationCheckout() {
           festivalId: Number(festivalId),
           ticketTypeId,
           quantity,
+          seatIds,
         })
         reservationIdRef.current = reservationRes.data.data.id
         setExpiresAt(reservationRes.data.data.expiresAt)
@@ -218,6 +225,7 @@ function ReservationCheckout() {
           festivalId: Number(festivalId),
           ticketTypeId,
           quantity,
+          seatIds,
         })
         reservationIdRef.current = reservationRes.data.data.id
         setExpiresAt(reservationRes.data.data.expiresAt)
@@ -236,7 +244,7 @@ function ReservationCheckout() {
           storeId,
           channelKey,
           paymentId,
-          orderName: `${festival.name} - ${ticketType.name} x ${quantity}`,
+          orderName: `${festival.name} - ${ticketType.name} x ${effectiveQuantity}`,
           totalAmount: amount,
           currency: 'KRW',
           //무통장입금 가상계좌의 입금자명은 customer.fullName에서 가져간다. 안 넘기면 "-"로 발급되던 문제.
@@ -407,8 +415,8 @@ function ReservationCheckout() {
             </span>
           </div>
           <div className={styles.summaryRow}>
-            <span className={styles.summaryLabel}>수량</span>
-            <span className={styles.summaryValue}>{quantity}장</span>
+            <span className={styles.summaryLabel}>{seatIds ? '좌석' : '수량'}</span>
+            <span className={styles.summaryValue}>{seatIds ? `${effectiveQuantity}석` : `${quantity}장`}</span>
           </div>
           <div className={styles.summaryRow}>
             <span className={styles.summaryLabel}>단가</span>
@@ -441,6 +449,12 @@ function ReservationCheckout() {
             <CircleAlertIcon size={16} aria-hidden="true" />
             {payError}
           </p>
+        )}
+
+        {payError && seatIds && (
+          <Link to={`/festivals/${festivalId}/seats?ticketTypeId=${ticketTypeId}`} className={styles.infoLink}>
+            좌석 다시 선택하기
+          </Link>
         )}
 
         <button

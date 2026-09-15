@@ -38,6 +38,7 @@ import org.springframework.web.client.HttpClientErrorException;
 /**
  * Story 6 (#30) — 참가자가 티켓 예매를 신청한다. 인수 기준을 그대로 검증한다.
  * festival-service는 실제로 띄우지 않고 FestivalServiceClient를 모킹해서 시나리오를 결정적으로 재현한다.
+ * 이 테스트는 STANDING(수량제) 흐름만 다룬다 — TicketTypeSummary의 ticketMode를 "STANDING"으로 고정한다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -71,7 +72,7 @@ class ReservationAcceptanceTest {
                 "PUBLISHED",
                 java.time.LocalDateTime.now().plusDays(1),
                 java.time.LocalDateTime.now().plusDays(2),
-                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null))
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null, "STANDING"))
         );
     }
 
@@ -202,7 +203,7 @@ class ReservationAcceptanceTest {
                 FESTIVAL_ID, 999L, "PENDING",
                 java.time.LocalDateTime.now().plusDays(1),
                 java.time.LocalDateTime.now().plusDays(2),
-                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null))));
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null, "STANDING"))));
 
         mockMvc.perform(post(CREATE_ENDPOINT)
                         .header("X-User-Id", "1")
@@ -256,8 +257,8 @@ class ReservationAcceptanceTest {
         when(festivalServiceClient.getFestival(FESTIVAL_ID)).thenReturn(new FestivalDetailResponseDto(
                 FESTIVAL_ID, 999L, "PUBLISHED",
                 java.time.LocalDateTime.now().plusDays(1), java.time.LocalDateTime.now().plusDays(2),
-                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null),
-                        new FestivalDetailResponseDto.TicketTypeSummary(secondTicketTypeId, TICKET_PRICE, null, null))));
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null, "STANDING"),
+                        new FestivalDetailResponseDto.TicketTypeSummary(secondTicketTypeId, TICKET_PRICE, null, null, "STANDING"))));
 
         mockMvc.perform(post(CREATE_ENDPOINT)
                         .header("X-User-Id", "1")

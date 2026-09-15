@@ -32,10 +32,16 @@ festival:
 auth-service:
   base-url: ${AUTH_SERVICE_URL:http://localhost:8081}
 
+# Festival-Service → Reservation-Service 내부 호출(POST /internal/v1/seats) 설정
+reservation-service:
+  base-url: ${RESERVATION_SERVICE_URL:http://localhost:8083}
+
 internal:
   auth-token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}
   auth-service:
     token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}
+  reservation-service:
+    token: ${INTERNAL_RESERVATION_TOKEN:CHANGE_ME_IN_ENV}
 
 app:
   timezone: ${APP_TIMEZONE:Asia/Seoul}

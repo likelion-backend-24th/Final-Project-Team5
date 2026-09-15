@@ -121,6 +121,10 @@ public class Festival {
     @Column(name = "reject_reason", length = 500)
     private String rejectReason;
 
+    //운영자 심사: 공개 승인 처리 시작 — reservation-service 좌석 생성 확인 전까지는 비공개(PUBLISH_PENDING) 유지
+    public void markPublishPending() {
+        this.festivalStatus = FestivalStatus.PUBLISH_PENDING;
+    }
     //운영자 심사: 공개 승인
     public void publish() {
         this.festivalStatus = FestivalStatus.PUBLISHED;
@@ -136,4 +140,6 @@ public class Festival {
     public void close() {
         this.festivalStatus = FestivalStatus.CLOSED;
     }
+
+
 }

@@ -47,7 +47,8 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
             "/api/festivals/**",
             "/api/ticket-types/**",
             // PortOne 웹훅은 사용자 JWT 대신 자체 서명(webhook-signature 헤더)으로 인증한다(실전 가이드 12.2).
-            "/api/v1/webhooks/**"
+            "/api/v1/webhooks/**",
+            "/ws/**"
     );
 
     /**

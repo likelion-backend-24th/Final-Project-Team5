@@ -473,6 +473,7 @@ public class ReservationService {
     }
 
     //참가자 본인이 결제대기 중인 예매를 직접 취소한다
+    //참가자 본인이 결제대기 중인 예매를 직접 취소한다
     @Transactional
     public void cancelMyReservation(Long id, Long userId) {
         Reservation reservation = getOwnedReservation(id, userId);
@@ -480,7 +481,7 @@ public class ReservationService {
             throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CANCELLABLE);
         }
         reservation.cancel(CancelReason.USER_CANCELLED);
-        festivalServiceClient.restoreStock(reservation.getTicketTypeId(), reservation.getQuantity());
+        releaseSeatsOrRestoreStock(reservation);
         log.info("예매 취소(본인): reservation={}, ticketType={}, qty={} 재고 복구 요청 완료",
                 reservation.getId(), reservation.getTicketTypeId(), reservation.getQuantity());
     }
@@ -500,9 +501,28 @@ public class ReservationService {
         }
 
         reservation.cancel(request.reasonCode());
-        festivalServiceClient.restoreStock(reservation.getTicketTypeId(), reservation.getQuantity());
+        releaseSeatsOrRestoreStock(reservation);
         log.info("예매 취소(결제 {}): reservation={}, ticketType={}, qty={} 재고 복구 요청 완료",
                 request.reasonCode(), reservation.getId(), reservation.getTicketTypeId(), reservation.getQuantity());
+    }
+
+    //예매 취소/만료 시 재고를 복구한다(내부 메서드). SEATED면 연결된 좌석을 로컬에서 AVAILABLE로 원복하고
+//실시간 브로드캐스트까지 처리한다. STANDING이면 기존처럼 festival-service 재고를 복구한다.
+    private void releaseSeatsOrRestoreStock(Reservation reservation) {
+        List<ReservationSeat> reservationSeats = reservationSeatRepository.findByReservationId(reservation.getId());
+        if (!reservationSeats.isEmpty()) {
+            for (ReservationSeat reservationSeat : reservationSeats) {
+                Seat seat = reservationSeat.getSeat();
+                int updated = seatRepository.releaseSeat(seat.getId());
+                if (updated > 0) {
+                    seatBroadcastService.broadcast(seat.getFestivalId(), seat.getTicketTypeId(), seat.getId(), SeatStatus.AVAILABLE);
+                } else {
+                    log.warn("예매 {} 취소 시 좌석 {} 원복 실패(이미 HELD가 아님)", reservation.getId(), seat.getId());
+                }
+            }
+        } else {
+            festivalServiceClient.restoreStock(reservation.getTicketTypeId(), reservation.getQuantity());
+        }
     }
 
     //Festival 불러오기(내부 메서드)

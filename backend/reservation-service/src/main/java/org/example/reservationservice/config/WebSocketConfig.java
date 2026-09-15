@@ -17,7 +17,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*"); // 로컬 개발 단계 — 배포 전 실제 프론트 도메인으로 제한 필요
+                .setAllowedOriginPatterns("http://localhost:5173", "https://fevalgo.duckdns.org");
     }
 
     @Override

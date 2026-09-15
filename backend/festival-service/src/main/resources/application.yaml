@@ -37,7 +37,11 @@ reservation-service:
   base-url: ${RESERVATION_SERVICE_URL:http://localhost:8083}
 
 internal:
+  auth-token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}
   auth-service:
     token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}
   reservation-service:
     token: ${INTERNAL_RESERVATION_TOKEN:CHANGE_ME_IN_ENV}
+
+app:
+  timezone: ${APP_TIMEZONE:Asia/Seoul}

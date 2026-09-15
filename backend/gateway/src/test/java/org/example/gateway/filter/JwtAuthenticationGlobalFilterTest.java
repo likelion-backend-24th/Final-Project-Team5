@@ -28,10 +28,13 @@ class JwtAuthenticationGlobalFilterTest {
     private final SecretKey secretKey = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
     private JwtAuthenticationGlobalFilter filter;
     private GatewayFilterChain chain;
+    private HelperSessionClient helperSessionClient;
 
     @BeforeEach
     void setUp() {
-        filter = new JwtAuthenticationGlobalFilter(SECRET);
+        helperSessionClient = mock(HelperSessionClient.class);
+        when(helperSessionClient.isValid(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(Mono.just(true));
+        filter = new JwtAuthenticationGlobalFilter(SECRET, helperSessionClient);
         chain = mock(GatewayFilterChain.class);
         when(chain.filter(any())).thenReturn(Mono.empty());
     }
@@ -226,6 +229,25 @@ class JwtAuthenticationGlobalFilterTest {
                 .compact();
         return MockServerWebExchange.from(
                 builder.header(HttpHeaders.AUTHORIZATION, "Bearer " + token).build());
+    }
+
+    @Test
+    void revokedHelperCannotCheckIn() {
+        when(helperSessionClient.isValid(42L, 7L, 0L)).thenReturn(Mono.just(false));
+        var exchange = exchangeWithToken(MockServerHttpRequest.post("/api/organizer/reservations/verify"), "HELPER", 7L);
+        filter.filter(exchange, chain).block();
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        org.mockito.Mockito.verifyNoInteractions(chain);
+    }
+
+    @Test
+    void helperInvitationIsPublicEvenForLoggedInHelper() {
+        var request = MockServerHttpRequest.post("/api/auth/helper-invitations/sample/accept")
+            .header("X-User-Id", "999").header("X-Festival-Id", "999").build();
+        var exchange = MockServerWebExchange.from(request);
+        filter.filter(exchange, chain).block();
+        assertThat(forwardedHeaders().getFirst("X-Festival-Id")).isNull();
+        org.mockito.Mockito.verifyNoInteractions(helperSessionClient);
     }
 
     private HttpHeaders forwardedHeaders() {

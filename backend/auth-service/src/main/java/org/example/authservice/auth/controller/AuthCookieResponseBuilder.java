@@ -32,6 +32,7 @@ public class AuthCookieResponseBuilder {
                 .build();
 
         return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(ApiResponse.success(message, response));
     }
@@ -65,6 +66,7 @@ public class AuthCookieResponseBuilder {
                 .build();
 
         return ResponseEntity.status(HttpStatus.FOUND)
+                .header("Cache-Control", "no-store")
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .header(HttpHeaders.LOCATION, frontendUrl)
                 .build();

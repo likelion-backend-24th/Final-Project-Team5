@@ -1,5 +1,8 @@
 package org.example.paymentservice.infrastructure.reservation;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.example.paymentservice.infrastructure.reservation.dto.CancelReservationRequest;
 import org.example.paymentservice.infrastructure.reservation.dto.ConfirmReservationRequest;
@@ -16,6 +19,14 @@ import org.springframework.web.client.RestClient;
 public class ReservationServiceClient {
 
     private final RestClient reservationServiceRestClient;
+
+    //정산 계산에 쓰는 페스티벌의 전체 예매 스냅샷(수량·단가·환불 수량·결제 ID). 다른 서비스 DB를 직접 읽지 않기 위한 내부 API다.
+    public List<ReservationForPaymentResponse> settlementContext(Long festivalId) {
+        return Arrays.asList(Objects.requireNonNull(reservationServiceRestClient.get()
+                .uri("/internal/v1/reservations/settlement-context?festivalId={id}", festivalId)
+                .retrieve()
+                .body(ReservationForPaymentResponse[].class)));
+    }
 
     public ReservationForPaymentResponse getReservation(Long reservationId) {
         return reservationServiceRestClient.get()
@@ -66,5 +77,13 @@ public class ReservationServiceClient {
                 .body(request)
                 .retrieve()
                 .toBodilessEntity();
+    }
+
+    //주최자 귀책 전액 환불용 견적 — 위약금 0, 남은 수량 전부가 대상이다.
+    public ReservationRefundQuoteResponse getOrganizerRefundQuote(Long id) {
+        return reservationServiceRestClient.get()
+                .uri("/internal/v1/reservations/{id}/organizer-refund-quote", id)
+                .retrieve()
+                .body(ReservationRefundQuoteResponse.class);
     }
 }

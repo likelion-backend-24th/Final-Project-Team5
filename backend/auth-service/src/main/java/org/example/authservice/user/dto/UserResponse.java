@@ -33,6 +33,9 @@ public class UserResponse {
     private LocalDateTime createdAt;
     @Schema(description = "도우미(HELPER) 계정이 담당하는 페스티벌 ID. 그 외 역할은 null", example = "1")
     private Long festivalId;
+    @Schema(description = "초대받은 도우미의 행사 이름과 일정 스냅샷")
+    private AssignedFestival assignedFestival;
+    public record AssignedFestival(Long id, String name, LocalDateTime startAt, LocalDateTime endAt) { }
     @Schema(description = "연결된 소셜 로그인 제공자 목록(KAKAO/GOOGLE). 비어 있으면 이메일 가입 회원", example = "[\"KAKAO\"]")
     private List<String> socialProviders;
     @Schema(description = "비밀번호가 설정된 계정인지. 소셜 전용 계정은 false", example = "true")

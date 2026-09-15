@@ -33,3 +33,12 @@ export function resetPassword({ username, newPassword }) {
 export function confirmOauthLink(token) {
   return apiClient.post('/api/auth/oauth/confirm-link', { token })
 }
+
+export function fetchHelperInvitation(token) {
+  return apiClient.get(`/api/auth/helper-invitations/${encodeURIComponent(token)}`, { skipAuthRefresh: true })
+}
+
+export function acceptHelperInvitation(token, password, passwordConfirm) {
+  return apiClient.post(`/api/auth/helper-invitations/${encodeURIComponent(token)}/accept`,
+    { password, passwordConfirm }, { skipAuthRefresh: true })
+}

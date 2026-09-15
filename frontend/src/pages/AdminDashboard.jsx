@@ -63,7 +63,7 @@ function AdminDashboard() {
         <div className="mb-6">
           <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">{tab === 'organizer' ? '주최자 관리' : '정산 대시보드'}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            {tab === 'organizer' ? '주최자 신청과 페스티벌 등록을 심사하고 승인·반려를 처리합니다.' : '플랫폼 거래·수수료 현황과 주최자별 정산 상태를 확인합니다.'}
+            {tab === 'organizer' ? '주최자 신청과 페스티벌 등록을 심사하고 승인·반려를 처리합니다.' : '플랫폼 거래·수수료 현황과 페스티벌별 정산 상태를 확인합니다.'}
           </p>
         </div>
 

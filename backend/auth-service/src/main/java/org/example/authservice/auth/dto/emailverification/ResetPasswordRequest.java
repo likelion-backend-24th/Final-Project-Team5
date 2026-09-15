@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.example.authservice.auth.dto.PasswordPolicy;
 
 @Getter
 @Setter
@@ -22,6 +23,6 @@ public class ResetPasswordRequest {
 
     @Schema(description = "새 비밀번호 (최소 8자)", example = "newpw1234")
     @NotBlank(message = "새 비밀번호는 필수입니다.")
-    @Size(min = 8, message = "비밀번호는 최소 8자 이상이어야합니다.")
+    @Size(min = PasswordPolicy.MIN_LENGTH, message = "비밀번호는 최소 8자 이상이어야합니다.")
     private String newPassword;
 }

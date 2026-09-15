@@ -70,6 +70,27 @@ public class Cancellation {
     @Column(name = "reason", length = 200)
     private String reason;
 
+    // 정산 근거 스냅샷 — 취소 티켓의 액면가·위약금·환입 수수료·업무 사유. 취소 시점 견적을 그대로 보존한다.
+    private Long grossAmount;
+    private Integer penaltyRatePercent;
+    private Long penaltyAmount;
+    private Long feeReversalAmount;
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(30)")
+    private CancellationBusinessReason businessReason;
+    private Long requestedByUserId;
+    private String requestedByRole;
+    // 예매 서비스에 환불 반영이 끝난 시각. null이면 대사 때 다시 반영을 시도한다.
+    private Instant reservationAppliedAt;
+    // 진행 중(REQUESTED/PENDING)인 취소는 결제당 하나만 허용 — unique 제약으로 동시 취소 요청을 막고, 끝나면 null로 비운다.
+    @Column(unique = true)
+    private Long activePaymentId;
+
+    public void markReservationApplied() {
+        this.reservationAppliedAt = Instant.now();
+        this.activePaymentId = null;
+    }
+
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 
@@ -89,10 +110,17 @@ public class Cancellation {
         if (this.cancellationId == null) {
             this.cancellationId = cancellationId;
         }
-        if (this.status.isFinal()) {
+        if (this.status == CancellationStatus.SUCCEEDED) {
+            return;
+        }
+        // 늦게 도착한 성공 통지는 FAILED를 복구할 수 있지만, 그 반대(성공 → 실패)는 이중 환불 위험이 있어 막는다.
+        if (this.status == CancellationStatus.FAILED && remoteStatus != CancellationStatus.SUCCEEDED) {
             return;
         }
         this.status = remoteStatus;
+        if (remoteStatus == CancellationStatus.FAILED) {
+            this.activePaymentId = null;
+        }
         this.cancelledAt = cancelledAt;
     }
 

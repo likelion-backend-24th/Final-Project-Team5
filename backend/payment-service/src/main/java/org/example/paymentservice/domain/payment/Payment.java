@@ -5,9 +5,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.example.paymentservice.domain.settlement.SettlementCalculator;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
@@ -26,6 +28,11 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 정산 확정 시 결제가 그 사이 바뀌지 않았는지 대조하는 낙관적 락 버전. 기존 행은 0으로 시작한다.
+    @Version
+    @Column(columnDefinition = "BIGINT DEFAULT 0")
+    private Long version;
+
     // PortOne API·SDK와 공유하는 팀 접두사 포함 결제 ID (예: BE24-T05-...)
     @Column(name = "payment_id", nullable = false, length = 100)
     private String paymentId;
@@ -42,7 +49,7 @@ public class Payment {
     @Column(name = "ticket_amount", nullable = false)
     private long ticketAmount;
 
-    // 플랫폼 수수료 스냅샷. 수수료율 확정 전까지는 0으로 둔다.
+    // 구매자가 추가 부담하지 않는 주최자 정산 공제액.
     @Column(name = "platform_fee", nullable = false)
     private long platformFee;
 
@@ -51,6 +58,37 @@ public class Payment {
 
     @Column(name = "pay_method", length = 30)
     private String payMethod;
+
+    // 정산 계산이 예매·페스티벌 서비스를 다시 조회하지 않도록 승인 시점에 복사해 두는 스냅샷.
+    private Long festivalId;
+    private Long hostUserId;
+    private Long unitPrice;
+    private Instant paidAt;
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(30)")
+    private PaymentMethodCategory payMethodCategory;
+    private String easyPayProvider;
+    private Integer platformFeeRateBps;
+    private String feePolicyVersion;
+    private Boolean testPayment;
+    // 예매 확정 호출이 성공한 시각. null이면 결제는 PAID인데 예매 확정이 안 된 상태라 완료 API 재호출 때 다시 시도한다.
+    private Instant reservationConfirmedAt;
+
+    public void markReservationConfirmed() {
+        reservationConfirmedAt = Instant.now();
+    }
+
+    // PortOne 승인 응답에서 결제수단·승인 시각·채널을 복사하고 수수료율을 확정한다. 이후 정산은 이 스냅샷만 본다.
+    public void snapshotApproval(String rawMethod, String provider, Instant approvedAt, Boolean test) {
+        this.payMethod = rawMethod;
+        this.payMethodCategory = PaymentMethodCategory.fromRaw(rawMethod);
+        this.easyPayProvider = provider;
+        this.paidAt = approvedAt;
+        this.testPayment = test;
+        this.platformFeeRateBps = payMethodCategory.rateBps();
+        this.feePolicyVersion = "2026-09-v1";
+        this.platformFee = platformFeeRateBps == null ? 0 : SettlementCalculator.fee(ticketAmount, platformFeeRateBps);
+    }
 
     // MySQL 네이티브 ENUM으로 만들면 값 추가 시 ddl-auto: update가 허용값을 넓혀주지 않으므로 VARCHAR로 고정한다.
     @Enumerated(EnumType.STRING)
@@ -65,8 +103,9 @@ public class Payment {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    // 구매자 결제액. platformFee는 주최자 정산에서 공제하는 금액이라 여기에 더하지 않는다.
     public long totalAmount() {
-        return ticketAmount + platformFee;
+        return ticketAmount;
     }
 
     // 허용되지 않은 상태 전이는 조용히 무시하지 않고 예외로 드러낸다.

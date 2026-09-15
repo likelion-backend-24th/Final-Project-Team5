@@ -12,7 +12,7 @@ import { confirmOauthLink } from '../api/authApi'
 function OauthLinkConfirm() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { applySocialLogin } = useAuth()
+  const { applyTokenLogin } = useAuth()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -37,7 +37,7 @@ function OauthLinkConfirm() {
     setError('')
     try {
       const response = await confirmOauthLink(token)
-      await applySocialLogin(response.data.data.accessToken)
+      await applyTokenLogin(response.data.data.accessToken)
       navigate('/', { replace: true })
     } catch {
       setError('전환에 실패했어요. 로그인 화면에서 다시 시도해주세요.')

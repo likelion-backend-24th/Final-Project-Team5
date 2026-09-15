@@ -26,3 +26,8 @@ internal:
 
 payment:
   id-prefix: BE24-T05-
+
+settlement:
+  scheduling-enabled: false
+festival-refund:
+  scheduling-enabled: false

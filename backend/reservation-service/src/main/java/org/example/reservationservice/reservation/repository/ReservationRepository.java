@@ -36,4 +36,9 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     List<Reservation> findByUserIdAndTicketTypeIdAndReservationStatusIn(
             Long userId, Long ticketTypeId, List<ReservationStatus> statuses);
+
+    //부스 대기 신청 시 "이 페스티벌의 티켓을 갖고 있는지" 확인할 때 쓴다. 입장 검증과 같은 기준(CONFIRMED·
+    //PARTIALLY_REFUNDED)으로 본다 — 부분 환불된 예매도 남은 장수만큼은 여전히 참가자다.
+    boolean existsByUserIdAndFestivalIdAndReservationStatusIn(
+            Long userId, Long festivalId, List<ReservationStatus> statuses);
 }

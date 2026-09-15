@@ -8,6 +8,7 @@ import {
   ClockIcon,
   ImageIcon,
   MapPinIcon,
+  StoreIcon,
   TicketIcon,
 } from 'lucide-react'
 import {
@@ -21,6 +22,7 @@ import {
 import { fetchMyReservations } from '../api/reservationApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
+import BoothListModal from '../components/BoothListModal'
 import styles from './FestivalDetail.module.css'
 
 //사이트 전체 1인당 구매 제한(계정·티켓 종류당 기준, reservation-service의 고정값과 맞춘 화면 표시용 상한)
@@ -134,6 +136,7 @@ function FestivalDetail() {
   const [quantities, setQuantities] = useState({})
   //유의사항 아코디언 — 한 번에 하나만 펼쳐지고, 처음엔 첫 항목이 펼쳐져 있다.
   const [openNoticeIndex, setOpenNoticeIndex] = useState(0)
+  const [showBoothModal, setShowBoothModal] = useState(false)
 
   function handleQuantityChange(ticketType, value) {
     const max = Math.min(ticketType.remainQuantity, MAX_QUANTITY_PER_TICKET_TYPE)
@@ -308,6 +311,17 @@ function FestivalDetail() {
             <span className={styles.infoCardValue}>{formatPriceRange(festival.ticketTypes)}</span>
           </div>
         </div>
+
+        <h2 className={styles.sectionHeading}>부스</h2>
+        <button
+          type="button"
+          onClick={() => setShowBoothModal(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+        >
+          <StoreIcon size={16} aria-hidden="true" />
+          운영중인 부스 보기
+        </button>
+        {showBoothModal && <BoothListModal festivalId={id} onClose={() => setShowBoothModal(false)} />}
 
         <h2 className={styles.sectionHeading}>행사 소개</h2>
         {festival.description ? (

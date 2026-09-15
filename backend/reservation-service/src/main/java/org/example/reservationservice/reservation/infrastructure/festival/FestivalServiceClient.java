@@ -1,6 +1,7 @@
 package org.example.reservationservice.reservation.infrastructure.festival;
 
 import lombok.RequiredArgsConstructor;
+import org.example.reservationservice.reservation.infrastructure.festival.dto.BoothDetailResponseDto;
 import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalApiEnvelope;
 import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalDetailResponseDto;
 import org.example.reservationservice.reservation.infrastructure.festival.dto.StockAdjustRequestDto;
@@ -25,6 +26,16 @@ public class FestivalServiceClient {
     public FestivalDetailResponseDto getFestival(Long festivalId) {
         FestivalApiEnvelope<FestivalDetailResponseDto> envelope = festivalServiceRestClient.get()
                 .uri("/api/festivals/{id}", festivalId)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        return envelope == null ? null : envelope.data();
+    }
+
+    //부스 대기 신청 시 boothId → festivalId·상태를 확인하기 위해 호출한다(공개 조회 API라 헤더 불필요).
+    //WAITING 상태 부스는 festival-service가 애초에 404로 숨겨준다.
+    public BoothDetailResponseDto getBooth(Long boothId) {
+        FestivalApiEnvelope<BoothDetailResponseDto> envelope = festivalServiceRestClient.get()
+                .uri("/api/booths/{id}", boothId)
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
         return envelope == null ? null : envelope.data();

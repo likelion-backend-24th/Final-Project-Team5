@@ -110,7 +110,20 @@ function DateTimeFields({ id, value, onChange, invalid }) {
 }
 
 function createEmptyTicketType(key) {
-  return { key, name: '', description: '', price: '', quantity: '', saleStartAt: '', saleEndAt: '', ticketDate: '' }
+  return {
+    key,
+    ticketMode: 'STANDING',
+    name: '',
+    description: '',
+    price: '',
+    quantity: '',
+    zone: '',
+    rows: '',
+    seatsPerRow: '',
+    saleStartAt: '',
+    saleEndAt: '',
+    ticketDate: '',
+  }
 }
 
 function validateTicketType(ticket) {
@@ -126,7 +139,17 @@ function validateTicketType(ticket) {
     errors.price = '0 이상의 숫자를 입력해주세요.'
   }
 
-  if (ticket.quantity.trim() === '') {
+  if (ticket.ticketMode === 'SEATED') {
+    if (!ticket.zone.trim()) {
+      errors.zone = '구역명을 입력해주세요.'
+    }
+    if (!ticket.rows || !Number.isInteger(Number(ticket.rows)) || Number(ticket.rows) < 1) {
+      errors.rows = '1 이상의 정수를 입력해주세요.'
+    }
+    if (!ticket.seatsPerRow || !Number.isInteger(Number(ticket.seatsPerRow)) || Number(ticket.seatsPerRow) < 1) {
+      errors.seatsPerRow = '1 이상의 정수를 입력해주세요.'
+    }
+  } else if (ticket.quantity.trim() === '') {
     errors.quantity = '수량을 입력해주세요.'
   } else if (!Number.isInteger(Number(ticket.quantity)) || Number(ticket.quantity) < 1) {
     errors.quantity = '1 이상의 정수를 입력해주세요.'
@@ -312,6 +335,21 @@ function HostFestivalNew() {
     }
   }
 
+  function handleTicketModeChange(key, mode) {
+    setForm((prev) => ({
+      ...prev,
+      ticketTypes: prev.ticketTypes.map((ticket) =>
+        ticket.key === key
+          ? mode === 'STANDING'
+            ? { ...ticket, ticketMode: mode, zone: '', rows: '', seatsPerRow: '' }
+            : { ...ticket, ticketMode: mode }
+          : ticket,
+      ),
+    }))
+    setTicketErrors((prev) => ({ ...prev, [key]: {} }))
+    setErrors((prev) => ({ ...prev, ticketTypes: undefined }))
+  }
+
   function handleAddTicket() {
     ticketKeySeq.current += 1
     setForm((prev) => ({
@@ -371,7 +409,14 @@ function HostFestivalNew() {
           name: ticket.name.trim(),
           description: ticket.description.trim() || null,
           price: Number(ticket.price),
-          quantity: Number(ticket.quantity),
+          ticketMode: ticket.ticketMode,
+          zone: ticket.ticketMode === 'SEATED' ? ticket.zone.trim() : null,
+          rows: ticket.ticketMode === 'SEATED' ? Number(ticket.rows) : null,
+          seatsPerRow: ticket.ticketMode === 'SEATED' ? Number(ticket.seatsPerRow) : null,
+          quantity:
+            ticket.ticketMode === 'SEATED'
+              ? Number(ticket.rows) * Number(ticket.seatsPerRow)
+              : Number(ticket.quantity),
           saleStartAt: ticket.saleStartAt,
           saleEndAt: ticket.saleEndAt,
           ticketDate: ticket.ticketDate || null,
@@ -714,6 +759,30 @@ function HostFestivalNew() {
                         삭제
                       </button>
                     </div>
+                    <div className={styles.categoryGroup} role="radiogroup" aria-label={`티켓 ${index + 1} 판매 방식`}>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={ticket.ticketMode === 'STANDING'}
+                        className={`${styles.categoryOption} ${
+                          ticket.ticketMode === 'STANDING' ? styles.categoryOptionActive : ''
+                        }`}
+                        onClick={() => handleTicketModeChange(ticket.key, 'STANDING')}
+                      >
+                        스탠딩
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={ticket.ticketMode === 'SEATED'}
+                        className={`${styles.categoryOption} ${
+                          ticket.ticketMode === 'SEATED' ? styles.categoryOptionActive : ''
+                        }`}
+                        onClick={() => handleTicketModeChange(ticket.key, 'SEATED')}
+                      >
+                        좌석 선택형
+                      </button>
+                    </div>
                     <div className={styles.ticketFields}>
                       <div className={styles.ticketField}>
                         <input
@@ -740,20 +809,76 @@ function HostFestivalNew() {
                         />
                         {rowErrors.price && <p className={styles.errorText}>{rowErrors.price}</p>}
                       </div>
-                      <div className={styles.ticketField}>
-                        <input
-                          type="number"
-                          min="1"
-                          className={styles.input}
-                          placeholder="수량"
-                          value={ticket.quantity}
-                          onChange={handleTicketChange(ticket.key, 'quantity')}
-                          aria-invalid={Boolean(rowErrors.quantity)}
-                          aria-label={`티켓 ${index + 1} 수량`}
-                        />
-                        {rowErrors.quantity && <p className={styles.errorText}>{rowErrors.quantity}</p>}
-                      </div>
+                      {ticket.ticketMode === 'SEATED' ? (
+                        <div className={styles.ticketField}>
+                          <input
+                            type="text"
+                            className={styles.input}
+                            placeholder="구역명 (예: VIP)"
+                            value={ticket.zone}
+                            onChange={handleTicketChange(ticket.key, 'zone')}
+                            aria-invalid={Boolean(rowErrors.zone)}
+                            aria-label={`티켓 ${index + 1} 구역명`}
+                          />
+                          {rowErrors.zone && <p className={styles.errorText}>{rowErrors.zone}</p>}
+                        </div>
+                      ) : (
+                        <div className={styles.ticketField}>
+                          <input
+                            type="number"
+                            min="1"
+                            className={styles.input}
+                            placeholder="수량"
+                            value={ticket.quantity}
+                            onChange={handleTicketChange(ticket.key, 'quantity')}
+                            aria-invalid={Boolean(rowErrors.quantity)}
+                            aria-label={`티켓 ${index + 1} 수량`}
+                          />
+                          {rowErrors.quantity && <p className={styles.errorText}>{rowErrors.quantity}</p>}
+                        </div>
+                      )}
                     </div>
+
+                    {ticket.ticketMode === 'SEATED' && (
+                      <div className={`${styles.ticketFields} ${styles.seatLayoutRow}`}>
+                        <div className={styles.ticketField}>
+                          <input
+                            type="number"
+                            min="1"
+                            className={styles.input}
+                            placeholder="행수"
+                            value={ticket.rows}
+                            onChange={handleTicketChange(ticket.key, 'rows')}
+                            aria-invalid={Boolean(rowErrors.rows)}
+                            aria-label={`티켓 ${index + 1} 행수`}
+                          />
+                          {rowErrors.rows && <p className={styles.errorText}>{rowErrors.rows}</p>}
+                        </div>
+                        <div className={styles.ticketField}>
+                          <input
+                            type="number"
+                            min="1"
+                            className={styles.input}
+                            placeholder="열수"
+                            value={ticket.seatsPerRow}
+                            onChange={handleTicketChange(ticket.key, 'seatsPerRow')}
+                            aria-invalid={Boolean(rowErrors.seatsPerRow)}
+                            aria-label={`티켓 ${index + 1} 열수`}
+                          />
+                          {rowErrors.seatsPerRow && <p className={styles.errorText}>{rowErrors.seatsPerRow}</p>}
+                        </div>
+                        <div className={styles.ticketField}>
+                          <input
+                            type="text"
+                            readOnly
+                            className={styles.input}
+                            placeholder="행×열 입력 시 자동 계산"
+                            value={ticket.rows && ticket.seatsPerRow ? Number(ticket.rows) * Number(ticket.seatsPerRow) : ''}
+                            aria-label={`티켓 ${index + 1} 수량 (자동 계산)`}
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     <div className={styles.ticketField} style={{ marginTop: 10 }}>
                       <input

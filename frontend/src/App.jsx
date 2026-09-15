@@ -21,6 +21,7 @@ import ProfileSetup from './pages/ProfileSetup'
 import RequireAuth from './components/RequireAuth'
 import ReservationCheckout from './pages/ReservationCheckout'
 import ResetPassword from './pages/ResetPassword'
+import SeatMap from './pages/SeatMap'
 import SignUp from './pages/SignUp'
 
 /** 상단바·푸터는 모든 화면에 고정, 가운데만 라우팅으로 갈아끼운다. */
@@ -76,6 +77,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/festivals" element={<Festivals />} />
         <Route path="/festivals/:id" element={<FestivalDetail />} />
+        <Route path="/festivals/:id/seats" element={<SeatMap />} />
         <Route path="/festivals/:id/reserve" element={<ReservationCheckout />} />
         <Route path="/login" element={<Login />} />
         <Route path="/oauth/link-confirm" element={<OauthLinkConfirm />} />

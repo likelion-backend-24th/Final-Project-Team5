@@ -21,10 +21,8 @@ import {
 import { fetchMyReservations } from '../api/reservationApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
+import { MAX_QUANTITY_PER_TICKET_TYPE } from '../constants'
 import styles from './FestivalDetail.module.css'
-
-//사이트 전체 1인당 구매 제한(계정·티켓 종류당 기준, reservation-service의 고정값과 맞춘 화면 표시용 상한)
-const MAX_QUANTITY_PER_TICKET_TYPE = 4
 
 //참가자용 요약 문구 — 프론트에서만 보여주는 안내용 텍스트다(백엔드 데이터 아님). 환불 정책 수치는
 //reservation-service의 실제 정책(RefundPolicy: cutoff-hours 24, tiers 10/7/3/1일 전 0/10/20/30%)과
@@ -146,6 +144,12 @@ function FestivalDetail() {
       navigate('/login')
       return
     }
+
+    if (ticketType.ticketMode === 'SEATED') {
+      navigate(`/festivals/${id}/seats?ticketTypeId=${ticketType.id}`)
+      return
+    }
+
     const quantity = quantities[ticketType.id] ?? 1
 
     // 이미 결제 대기 중인 예매가 있으면 새로 만들지 않고 그 결제로 이어갈 수 있게 안내한다
@@ -402,21 +406,23 @@ function FestivalDetail() {
                       </p>
                       {canReserve && (
                         <>
-                          <input
-                            type="number"
-                            min={1}
-                            max={maxQuantity}
-                            value={quantity}
-                            onChange={(event) => handleQuantityChange(ticketType, event.target.value)}
-                            className={styles.qtyInput}
-                            aria-label={`${ticketType.name} 수량`}
-                          />
+                          {ticketType.ticketMode !== 'SEATED' && (
+                            <input
+                              type="number"
+                              min={1}
+                              max={maxQuantity}
+                              value={quantity}
+                              onChange={(event) => handleQuantityChange(ticketType, event.target.value)}
+                              className={styles.qtyInput}
+                              aria-label={`${ticketType.name} 수량`}
+                            />
+                          )}
                           <button
                             type="button"
                             className={styles.reserveButton}
                             onClick={() => handleReserve(ticketType)}
                           >
-                            예매하기
+                            {ticketType.ticketMode === 'SEATED' ? '좌석 선택하기' : '예매하기'}
                           </button>
                         </>
                       )}

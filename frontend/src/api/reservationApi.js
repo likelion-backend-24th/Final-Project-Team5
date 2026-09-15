@@ -1,8 +1,9 @@
 import apiClient from './client'
 
 //참가자가 티켓 예매를 신청한다 (POST /api/reservations)
-export function createReservation({ festivalId, ticketTypeId, quantity }) {
-  return apiClient.post('/api/reservations', { festivalId, ticketTypeId, quantity })
+//SEATED 티켓은 seatIds를, STANDING 티켓은 quantity를 넘긴다.
+export function createReservation({ festivalId, ticketTypeId, quantity, seatIds }) {
+  return apiClient.post('/api/reservations', { festivalId, ticketTypeId, quantity, seatIds })
 }
 
 //참가자 본인의 예매 목록을 조회한다 (GET /api/reservations/me)

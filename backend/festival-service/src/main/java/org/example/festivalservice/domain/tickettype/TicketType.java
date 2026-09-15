@@ -43,7 +43,10 @@ public class TicketType {
     @Column(name = "zone")
     private String zone;
     //좌석 배치 — SEATED일 때만 값이 있다. rows × seatsPerRow = totalQuantity
-    @Column(name = "rows")
+    //컬럼명은 seat_rows로 매핑한다 — MySQL 8.0.19부터 ROWS가 예약어(FETCH ... ROWS ONLY)라 그대로
+    //"rows"로 두면 ddl-auto: update가 컬럼 추가 DDL을 예약어 충돌로 조용히 실패시킨다(실제 운영 장애,
+    //2026-09-15). Java 필드명·API 응답 필드명은 그대로 rows로 유지해 계약은 안 바뀐다.
+    @Column(name = "seat_rows")
     private Integer rows;
 
     @Column(name = "seats_per_row")

@@ -29,6 +29,8 @@ public interface UserRepository extends JpaRepository<User,Long> {
 
     List<User> findByRoleAndFestivalEndAtBefore(Role role, LocalDateTime threshold);
 
+    List<User> findByRoleOrderByCreatedAtDesc(Role role);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")
     Optional<User> findLockedById(@Param("id") Long id);

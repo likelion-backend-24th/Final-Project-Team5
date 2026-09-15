@@ -8,6 +8,11 @@ export function reviewHostApplication(id, { status, rejectReason }) {
   return apiClient.patch(`/api/admin/host-applications/${id}`, { status, rejectReason })
 }
 
+//Auth Service가 보유한 실제 HOST 계정 목록을 조회한다.
+export function fetchAdminHosts() {
+  return apiClient.get('/api/admin/hosts')
+}
+
 export function fetchPendingFestivals() {
   return apiClient.get('/api/admin/festivals')
 }

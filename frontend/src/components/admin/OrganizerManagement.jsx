@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, ArrowUpDown, X, Mail, Phone, CalendarDays, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react'
+import { Search, ArrowUpDown, X, Mail, Phone, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   REVIEW_STATUS_META,
   ACCOUNT_STATUS_META,
@@ -10,7 +10,6 @@ import {
   fetchFestivalSubmissions,
   reviewFestivalSubmission,
   fetchOrganizers,
-  revokeOrganizer,
 } from '../../data/admin'
 
 const STATUS_FILTERS = [
@@ -539,7 +538,7 @@ function FestivalApprovals({ initialQuery = '' }) {
   )
 }
 
-/* ---------- 서브탭 C: 주최자 목록 (목업) ---------- */
+/* ---------- 서브탭 C: 주최자 목록 ---------- */
 
 const ACCOUNT_FILTERS = [
   { key: 'ALL', label: '전체' },
@@ -550,20 +549,24 @@ const ACCOUNT_FILTERS = [
 function OrganizerList({ onViewFestivals }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [account, setAccount] = useState('ALL')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
-  const [revoking, setRevoking] = useState(null)
-  const [revokePending, setRevokePending] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    fetchOrganizers().then((data) => {
-      if (!cancelled) {
-        setItems(data)
-        setLoading(false)
+    async function loadOrganizers() {
+      try {
+        const data = await fetchOrganizers()
+        if (!cancelled) setItems(data)
+      } catch (error) {
+        if (!cancelled) setLoadError(error.message)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-    })
+    }
+    loadOrganizers()
     return () => {
       cancelled = true
     }
@@ -579,18 +582,6 @@ function OrganizerList({ onViewFestivals }) {
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const current = Math.min(page, pages)
   const paged = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE)
-
-  async function confirmRevoke() {
-    if (!revoking) return
-    setRevokePending(true)
-    try {
-      await revokeOrganizer(revoking.id)
-      setItems((prev) => prev.filter((o) => o.id !== revoking.id))
-      setRevoking(null)
-    } finally {
-      setRevokePending(false)
-    }
-  }
 
   return (
     <div>
@@ -632,8 +623,9 @@ function OrganizerList({ onViewFestivals }) {
       </div>
 
       {loading && <p className="py-12 text-center text-sm font-semibold text-gray-400">불러오는 중…</p>}
+      {!loading && loadError && <p className="py-12 text-center text-sm font-semibold text-red-500">{loadError}</p>}
 
-      {!loading && (
+      {!loading && !loadError && (
         <>
           {/* 테이블 (데스크톱) */}
           <div className="mt-5 hidden overflow-x-auto lg:block">
@@ -642,11 +634,8 @@ function OrganizerList({ onViewFestivals }) {
                 <tr className="border-b border-gray-200 text-left text-xs font-bold uppercase tracking-wide text-gray-400">
                   <th className="px-3 py-3">주최자</th>
                   <th className="px-3 py-3">상태</th>
-                  <th className="px-3 py-3">승인일</th>
+                  <th className="px-3 py-3">가입일</th>
                   <th className="px-3 py-3 text-center">등록 페스티벌</th>
-                  <th className="px-3 py-3 text-right">누적 판매</th>
-                  <th className="px-3 py-3 text-right">누적 매출</th>
-                  <th className="px-3 py-3 text-right">관리</th>
                 </tr>
               </thead>
               <tbody>
@@ -659,7 +648,7 @@ function OrganizerList({ onViewFestivals }) {
                     <td className="px-3 py-4">
                       <AccountBadge status={o.accountStatus} />
                     </td>
-                    <td className="px-3 py-4 text-gray-600">{o.approvedAt}</td>
+                    <td className="px-3 py-4 text-gray-600">{o.joinedAt}</td>
                     <td className="px-3 py-4 text-center">
                       <button
                         type="button"
@@ -667,17 +656,6 @@ function OrganizerList({ onViewFestivals }) {
                         className="rounded-lg px-2 py-1 font-bold text-blue-600 transition hover:bg-blue-50 hover:underline"
                       >
                         {o.festivalCount}개
-                      </button>
-                    </td>
-                    <td className="px-3 py-4 text-right text-gray-600">{o.ticketsSold.toLocaleString()}장</td>
-                    <td className="px-3 py-4 text-right font-semibold text-gray-900">{o.revenue}</td>
-                    <td className="px-3 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setRevoking(o)}
-                        className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 transition hover:bg-red-50"
-                      >
-                        주최자 권한 회수
                       </button>
                     </td>
                   </tr>
@@ -699,8 +677,8 @@ function OrganizerList({ onViewFestivals }) {
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div>
-                    <dt className="text-xs text-gray-400">승인일</dt>
-                    <dd className="text-gray-700">{o.approvedAt}</dd>
+                    <dt className="text-xs text-gray-400">가입일</dt>
+                    <dd className="text-gray-700">{o.joinedAt}</dd>
                   </div>
                   <div>
                     <dt className="text-xs text-gray-400">등록 페스티벌</dt>
@@ -710,22 +688,7 @@ function OrganizerList({ onViewFestivals }) {
                       </button>
                     </dd>
                   </div>
-                  <div>
-                    <dt className="text-xs text-gray-400">누적 판매</dt>
-                    <dd className="text-gray-700">{o.ticketsSold.toLocaleString()}장</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-gray-400">누적 매출</dt>
-                    <dd className="font-semibold text-gray-900">{o.revenue}</dd>
-                  </div>
                 </dl>
-                <button
-                  type="button"
-                  onClick={() => setRevoking(o)}
-                  className="mt-4 w-full rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50"
-                >
-                  주최자 권한 회수
-                </button>
               </li>
             ))}
           </ul>
@@ -734,45 +697,6 @@ function OrganizerList({ onViewFestivals }) {
 
           <Pagination page={current} pages={pages} setPage={setPage} />
         </>
-      )}
-
-      {/* 권한 회수 확인 모달 */}
-      {revoking && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !revokePending && setRevoking(null)} />
-          <div className="relative w-full max-w-md rounded-3xl bg-white p-7 shadow-xl">
-            <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
-                <AlertTriangle className="h-5 w-5" />
-              </span>
-              <div>
-                <h3 className="text-lg font-extrabold text-gray-900">주최자 권한 회수</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                  <span className="font-bold text-gray-900">{revoking.nickname}</span> 님의 권한을 회수하시겠습니까? 해당 유저는 다시 일반 회원(USER)으로
-                  전환됩니다.
-                </p>
-              </div>
-            </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setRevoking(null)}
-                disabled={revokePending}
-                className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={confirmRevoke}
-                disabled={revokePending}
-                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {revokePending ? '처리 중…' : '권한 회수'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )

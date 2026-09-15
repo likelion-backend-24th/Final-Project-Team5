@@ -58,6 +58,9 @@ public class ReservationService {
     private final SeatRepository seatRepository;
     private final ReservationSeatRepository reservationSeatRepository;
     private final org.example.reservationservice.domain.refund.SeatReleaseQueueRepository seatReleaseQueueRepository;
+    private final org.example.reservationservice.domain.seat.SeatBroadcastService seatBroadcastService;
+
+
     //사이트 전체 기본 1인당 구매 제한(계정 기준, 페스티벌당 — 티켓 종류를 나눠 사도 합산). 티켓 종류당으로 세던 시절엔
     //같은 페스티벌에서 종류별로 4장씩 사 8장까지 가능했다(QA에서 발견). 주최자가 페스티벌별로 더 낮게 설정하는 기능은 아직 없다.
     @Value("${reservation.max-quantity-per-festival:${reservation.max-quantity-per-ticket-type:4}}")
@@ -132,6 +135,7 @@ public class ReservationService {
             if (updated == 0) {
                 throw new ApiException(ReservationErrorCode.SEAT_ALREADY_TAKEN);
             }
+            seatBroadcastService.broadcast(festival.id(), request.ticketTypeId(), seatId, SeatStatus.HELD);
         }
 
         Reservation reservation = Reservation.builder()
@@ -339,11 +343,12 @@ public class ReservationService {
     private void markSeatsSoldIfAny(Reservation reservation) {
         List<ReservationSeat> reservationSeats = reservationSeatRepository.findByReservationId(reservation.getId());
         for (ReservationSeat reservationSeat : reservationSeats) {
-            Long seatId = reservationSeat.getSeat().getId();
-            int updated = seatRepository.markSold(seatId);
+            Seat seat = reservationSeat.getSeat();
+            int updated = seatRepository.markSold(seat.getId());
             if (updated == 0) {
-                //이미 SOLD로 확정됐거나(같은 paymentId 재호출 등) 예상치 못한 상태 변화 — 로그만 남기고 진행한다.
-                log.warn("예매 {} 확정 시 좌석 {} SOLD 전환 실패(이미 HELD가 아님)", reservation.getId(), seatId);
+                log.warn("예매 {} 확정 시 좌석 {} SOLD 전환 실패(이미 HELD가 아님)", reservation.getId(), seat.getId());
+            } else {
+                seatBroadcastService.broadcast(seat.getFestivalId(), seat.getTicketTypeId(), seat.getId(), SeatStatus.SOLD);
             }
         }
     }

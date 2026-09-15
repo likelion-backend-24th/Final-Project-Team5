@@ -3,10 +3,7 @@ package org.example.reservationservice.domain;
 import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.example.reservationservice.domain.seat.ReservationSeat;
-import org.example.reservationservice.domain.seat.ReservationSeatRepository;
-import org.example.reservationservice.domain.seat.Seat;
-import org.example.reservationservice.domain.seat.SeatRepository;
+import org.example.reservationservice.domain.seat.*;
 import org.example.reservationservice.infrastructure.festival.FestivalServiceClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +27,7 @@ public class ReservationExpiryScheduler {
     private final FestivalServiceClient festivalServiceClient;
     private final ReservationSeatRepository reservationSeatRepository;
     private final SeatRepository seatRepository;
+    private final SeatBroadcastService seatBroadcastService;
 
     @Scheduled(fixedDelay = 60_000)
     @Transactional
@@ -55,8 +53,9 @@ public class ReservationExpiryScheduler {
             Seat seat = reservationSeat.getSeat();
             int updated = seatRepository.releaseSeat(seat.getId());
             if (updated == 0) {
-                //이미 다른 경로(예: 결제 확정)로 상태가 바뀐 좌석 — 실수로 되돌리지 않고 로그만 남긴다.
                 log.warn("만료 처리된 예매 {}의 좌석 {} 원복 실패(이미 HELD가 아님)", reservation.getId(), seat.getId());
+            } else {
+                seatBroadcastService.broadcast(seat.getFestivalId(), seat.getTicketTypeId(), seat.getId(), SeatStatus.AVAILABLE);
             }
         }
     }

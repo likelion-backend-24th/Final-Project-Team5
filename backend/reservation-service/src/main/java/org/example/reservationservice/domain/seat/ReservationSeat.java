@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
-import org.example.reservationservice.domain.Reservation;
+import org.example.reservationservice.reservation.entity.Reservation;
 
 import java.time.LocalDateTime;
 

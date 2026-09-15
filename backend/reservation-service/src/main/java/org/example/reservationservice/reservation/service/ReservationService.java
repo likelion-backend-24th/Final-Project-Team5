@@ -20,6 +20,8 @@ import org.example.reservationservice.reservation.entity.refund.RefundQuote;
 import org.example.reservationservice.reservation.entity.refund.StockReleaseQueue;
 import org.example.reservationservice.reservation.entity.refund.StockReleaseQueueRepository;
 import org.example.reservationservice.reservation.entity.refund.StockReleaseScheduler;
+import org.example.reservationservice.reservation.entity.refund.SeatReleaseQueue;
+import org.example.reservationservice.reservation.entity.refund.SeatReleaseQueueRepository;
 import org.example.reservationservice.reservation.dto.*;
 import org.example.reservationservice.reservation.entity.CancelReason;
 import org.example.reservationservice.reservation.entity.Reservation;
@@ -71,8 +73,8 @@ public class ReservationService {
 
     private final SeatRepository seatRepository;
     private final ReservationSeatRepository reservationSeatRepository;
-    private final org.example.reservationservice.domain.refund.SeatReleaseQueueRepository seatReleaseQueueRepository;
-    private final org.example.reservationservice.domain.seat.SeatBroadcastService seatBroadcastService;
+    private final SeatReleaseQueueRepository seatReleaseQueueRepository;
+    private final SeatBroadcastService seatBroadcastService;
 
 
     //사이트 전체 기본 1인당 구매 제한(계정 기준, 페스티벌당 — 티켓 종류를 나눠 사도 합산). 티켓 종류당으로 세던 시절엔
@@ -481,7 +483,7 @@ public class ReservationService {
 
         if (isSeated) {
             for (Long seatId : request.seatIds()) {
-                seatReleaseQueueRepository.save(new org.example.reservationservice.domain.refund.SeatReleaseQueue(
+                seatReleaseQueueRepository.save(new SeatReleaseQueue(
                         reservation.getId(), seatId, releaseAt));
             }
             log.info("환불 확정(좌석): reservation={}, seatIds={}, qty={}, 반환 예정={}",

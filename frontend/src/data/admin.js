@@ -1,11 +1,11 @@
 /**
  * 어드민 대시보드용 데이터 모듈.
  *
- * 주최자 신청 승인 / 페스티벌 등록 승인 서브탭은 실제 백엔드(/api/admin/host-applications,
- * /api/admin/festivals)와 연동되어 있다. 주최자 목록은 아직 목업 데이터로 동작한다.
+ * 주최자 신청 승인 / 페스티벌 등록 승인 / 주최자 목록 서브탭은 실제 백엔드와 연동되어 있다.
  * 정산 대시보드는 settlementApi와 SettlementReport에서 실제 API를 사용한다.
  */
 import {
+  fetchAdminHosts,
   fetchPendingHostApplications,
   reviewHostApplication,
   fetchPendingFestivals,
@@ -107,8 +107,16 @@ const FESTIVAL_REVIEW_ERROR_MESSAGES = {
   REJECT_REASON_REQUIRED: '반려 사유를 입력해주세요.',
 }
 
-//백엔드 페스티벌 상태를 심사 화면의 3단계(대기/승인/반려)로 접는다. CLOSED(기간 종료)는 공개됐던 것이라 승인으로 본다.
-const FESTIVAL_UI_STATUS = { PENDING: 'PENDING', PUBLISHED: 'APPROVED', CLOSED: 'APPROVED', REJECTED: 'REJECTED' }
+//공개 이후에만 도달할 수 있는 종료·취소 상태는 심사 이력에서 승인으로 표시한다.
+const FESTIVAL_UI_STATUS = {
+  PENDING: 'PENDING',
+  PUBLISH_PENDING: 'PENDING',
+  PUBLISHED: 'APPROVED',
+  CLOSED: 'APPROVED',
+  CANCELLATION_PENDING: 'APPROVED',
+  CANCELLED: 'APPROVED',
+  REJECTED: 'REJECTED',
+}
 
 /** GET /api/admin/festivals 응답을 페스티벌 등록 승인 화면이 기대하는 형태로 매핑한다.
  * 이제 공개·반려·종료된 페스티벌도 이력으로 함께 내려오고, 주최자 닉네임은 festival-service가
@@ -152,7 +160,7 @@ export async function reviewFestivalSubmission(id, decision, rejectReason) {
   }
 }
 
-/* ---------- 주최자 목록 (목업 — 대응 백엔드 없음) ---------- */
+/* ---------- 주최자 목록 ---------- */
 
 export const ACCOUNT_STATUS_META = {
   ACTIVE: { label: '활동중', cls: 'bg-emerald-100 text-emerald-700' },
@@ -162,84 +170,34 @@ export const ACCOUNT_STATUS_META = {
   WITHDRAWN: { label: '탈퇴', cls: 'bg-red-100 text-red-600' },
 }
 
-const MOCK_ORGANIZERS = [
-  {
-    id: 'og1',
-    nickname: '블루노트라인',
-    email: 'jazz.lee@fevalgo.com',
-    accountStatus: 'ACTIVE',
-    approvedAt: '2026.03.14',
-    festivalCount: 2,
-    ticketsSold: 3820,
-    revenue: '₩186,500,000',
-  },
-  {
-    id: 'og2',
-    nickname: '부산비치컬처',
-    email: 'haeun.park@fevalgo.com',
-    accountStatus: 'ACTIVE',
-    approvedAt: '2026.02.28',
-    festivalCount: 3,
-    ticketsSold: 2910,
-    revenue: '₩142,300,000',
-  },
-  {
-    id: 'og3',
-    nickname: '성수사운드랩',
-    email: 'sungsoo.kim@fevalgo.com',
-    accountStatus: 'SUSPENDED',
-    approvedAt: '2026.01.09',
-    festivalCount: 5,
-    ticketsSold: 1740,
-    revenue: '₩98,700,000',
-  },
-  {
-    id: 'og4',
-    nickname: '최무대스튜디오',
-    email: 'stage.choi@fevalgo.com',
-    accountStatus: 'ACTIVE',
-    approvedAt: '2026.04.02',
-    festivalCount: 2,
-    ticketsSold: 1320,
-    revenue: '₩76,400,000',
-  },
-  {
-    id: 'og5',
-    nickname: '한푸드컴퍼니',
-    email: 'food.han@fevalgo.com',
-    accountStatus: 'ACTIVE',
-    approvedAt: '2025.12.20',
-    festivalCount: 6,
-    ticketsSold: 5210,
-    revenue: '₩64,200,000',
-  },
-  {
-    id: 'og6',
-    nickname: '남산야경',
-    email: 'night.jung@fevalgo.com',
-    accountStatus: 'WITHDRAWN',
-    approvedAt: '2025.11.05',
-    festivalCount: 1,
-    ticketsSold: 480,
-    revenue: '₩12,800,000',
-  },
-  {
-    id: 'og7',
-    nickname: '라이브네이션코리아',
-    email: 'live.nation@fevalgo.com',
-    accountStatus: 'ACTIVE',
-    approvedAt: '2025.10.18',
-    festivalCount: 4,
-    ticketsSold: 8940,
-    revenue: '₩428,000,000',
-  },
-]
-
-export async function fetchOrganizers() {
-  return MOCK_ORGANIZERS.map((o) => ({ ...o }))
+const ORGANIZER_LIST_ERROR_MESSAGES = {
+  FORBIDDEN_ADMIN_ROLE: '운영자 권한이 없습니다.',
 }
 
-/** 목업: 주최자 권한 회수 API는 아직 없어 아무 것도 호출하지 않는다. */
-export async function revokeOrganizer(id) {
-  return { id }
+export async function fetchOrganizers() {
+  try {
+    const [hostsResponse, festivalsResponse] = await Promise.all([
+      fetchAdminHosts(),
+      fetchPendingFestivals(),
+    ])
+    const festivalCounts = (festivalsResponse.data.data ?? []).reduce((counts, festival) => {
+      counts.set(festival.hostUserId, (counts.get(festival.hostUserId) ?? 0) + 1)
+      return counts
+    }, new Map())
+
+    return (hostsResponse.data.data ?? []).map((host) => ({
+      id: String(host.id),
+      nickname: host.nickname,
+      email: host.email,
+      accountStatus: host.accountStatus,
+      joinedAt: formatDate(host.joinedAt),
+      festivalCount: festivalCounts.get(host.id) ?? 0,
+    }))
+  } catch (error) {
+    const errorCode = error.response?.data?.errorCode
+    throw new Error(
+      ORGANIZER_LIST_ERROR_MESSAGES[errorCode] ??
+        '주최자 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
+    )
+  }
 }

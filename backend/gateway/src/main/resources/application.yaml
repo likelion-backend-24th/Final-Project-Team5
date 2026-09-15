@@ -63,6 +63,10 @@ spring:
               uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
               predicates:
                 - Path=/api/reservations/**
+            - id: reservation-websocket
+              uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/ws
             - id: organizer-reservations
               uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
               predicates:

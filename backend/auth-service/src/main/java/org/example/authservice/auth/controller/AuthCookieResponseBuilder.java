@@ -32,6 +32,7 @@ public class AuthCookieResponseBuilder {
                 .build();
 
         return ResponseEntity.ok()
+                .header("Cache-Control", "no-store")
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .body(ApiResponse.success(message, response));
     }
@@ -65,8 +66,19 @@ public class AuthCookieResponseBuilder {
                 .build();
 
         return ResponseEntity.status(HttpStatus.FOUND)
+                .header("Cache-Control", "no-store")
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .header(HttpHeaders.LOCATION, frontendUrl)
+                .build();
+    }
+
+    // 소셜 로그인 콜백이 실패했을 때(탈퇴·정지 계정 등) — API 에러 JSON을 그대로 보여주는 대신
+    // 로그인 화면으로 돌려보내 프론트가 익숙한 에러 문구로 안내하게 한다.
+    public ResponseEntity<Void> buildLoginErrorRedirect(String errorCode) {
+        String location = frontendUrl + "/login?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8);
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .header(HttpHeaders.LOCATION, location)
                 .build();
     }
 

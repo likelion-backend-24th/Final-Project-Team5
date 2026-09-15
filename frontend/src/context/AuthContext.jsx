@@ -14,7 +14,7 @@ const AuthContext = createContext(null)
 
 const HELPER_SESSION_CHECK_INTERVAL_MS = 30_000
 
-// accessToken은 sessionStorage에 캐싱돼 있어, 만료 전이라면 새로고침해도 그대로 재사용할 수 있다.
+// accessToken은 localStorage에 캐싱돼 있어, 만료 전이라면 새로고침해도 그대로 재사용할 수 있다.
 // 그래서 무조건 reissue부터 부르는 대신 /api/users/me를 먼저 시도한다 — 캐싱된 토큰이 아직 유효하면
 // 재발급 없이 바로 세션이 복원되고, 토큰이 없거나 만료됐을 때만 client.js의 401 인터셉터가 자동으로
 // reissue를 호출한다. 새로고침마다 리프레시 토큰을 로테이션하지 않게 되어, 짧은 시간 안에 새로고침을
@@ -29,6 +29,8 @@ export function AuthProvider({ children }) {
   const [accessToken, setAccessTokenState] = useState(getAccessToken())
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+  // 구 세션의 늦게 도착한 /me 응답이 새 세션 사용자를 덮어쓰지 않도록 요청 시점의 버전을 비교한다.
+  const sessionRevision = useRef(0)
   // 렌더링 시점(하트비트를 남기기 전)에 한 번만 확인해야 "이 탭이 방금 남긴 하트비트"를
   // 자기 자신의 근거로 잘못 쓰지 않는다.
   const [continuousSession] = useState(() => wasSessionContinuous())
@@ -41,13 +43,14 @@ export function AuthProvider({ children }) {
   useEffect(
     () =>
       subscribeExternalTokenChange((token) => {
+        const revision = ++sessionRevision.current
         if (!token) {
           setUser(null)
           return
         }
         fetchMyInfo({ suppressAuthRedirect: true })
-          .then((meResponse) => setUser(meResponse.data.data))
-          .catch(() => setUser(null))
+          .then((meResponse) => { if (revision === sessionRevision.current) setUser(meResponse.data.data) })
+          .catch(() => { if (revision === sessionRevision.current) setUser(null) })
       }),
     [],
   )
@@ -58,15 +61,16 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false
+    const revision = sessionRevision.current
 
     // 이 브라우저에 열려 있던 탭이 하나도 없다가 새로 열린 경우 — refreshToken 쿠키로 조용히
     // 재로그인하지 않고, 로그아웃 상태로 시작한다(서버의 refreshToken도 함께 무효화한다).
     if (!continuousSession) {
       clearAccessToken()
-      logoutRequest().catch(() => {})
+      if (!bootstrapRequestRef.current) bootstrapRequestRef.current = logoutRequest().catch(() => {})
+      bootstrapRequestRef.current.finally(() => { if (!cancelled) setIsLoading(false) })
       setUser(null)
-      setIsLoading(false)
-      return undefined
+      return () => { cancelled = true }
     }
 
     if (!bootstrapRequestRef.current) {
@@ -75,10 +79,10 @@ export function AuthProvider({ children }) {
 
     bootstrapRequestRef.current
       .then((userData) => {
-        if (!cancelled) setUser(userData)
+        if (!cancelled && revision === sessionRevision.current) setUser(userData)
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!cancelled && revision === sessionRevision.current) {
           clearAccessToken()
           setUser(null)
         }
@@ -92,13 +96,13 @@ export function AuthProvider({ children }) {
     }
   }, [continuousSession])
 
-  //도우미(HELPER) 계정은 주최자가 비밀번호를 재발급하면 즉시 쓸 수 없어야 한다. access token은 만료 전까지
-  //스스로 무효화되지 않으므로, 주기적으로 내 정보를 다시 조회해 서버가 거부(비밀번호 변경 이전 토큰)하면
-  //바로 로그아웃시킨다. 일반 회원은 화면을 새로 열 때의 세션 복원만으로 충분해 폴링하지 않는다.
+  // 해지·다른 기기의 활성화로 무효화된 세션을 화면에도 반영하도록 30초마다 /me를 다시 확인한다.
   useEffect(() => {
     if (user?.role !== 'HELPER') return undefined
     const timer = setInterval(() => {
+      const revision = sessionRevision.current
       fetchMyInfo({ suppressAuthRedirect: true }).catch(() => {
+        if (revision !== sessionRevision.current) return
         clearAccessToken()
         setUser(null)
         window.location.assign('/login')
@@ -107,28 +111,34 @@ export function AuthProvider({ children }) {
     return () => clearInterval(timer)
   }, [user?.role])
 
-  const login = useCallback(async (username, password) => {
-    const loginResponse = await loginRequest({ username, password })
-    setAccessToken(loginResponse.data.data.accessToken)
-
-    const meResponse = await fetchMyInfo()
-    setUser(meResponse.data.data)
-  }, [])
-
   // 추가: 닉네임 변경 등 내 정보가 바뀐 뒤, 서버에서 다시 조회해 전역 상태를 갱신한다.
-const refreshUser = useCallback(async () => {
-  const meResponse = await fetchMyInfo()
-  setUser(meResponse.data.data)
-}, [])
-
-  // 소셜 로그인 전환 동의(oauth/confirm-link) 응답으로 받은 accessToken을 그대로 로그인 상태에 반영한다.
-  const applySocialLogin = useCallback(async (accessToken) => {
-    setAccessToken(accessToken)
+  const refreshUser = useCallback(async () => {
     const meResponse = await fetchMyInfo()
     setUser(meResponse.data.data)
   }, [])
+
+  // 로그인 방식과 무관하게 토큰 적용 후 최신 사용자 정보를 불러온다.
+  const applyTokenLogin = useCallback(async (accessToken) => {
+    const revision = ++sessionRevision.current
+    setUser(null)
+    setAccessToken(accessToken)
+    try {
+      const meResponse = await fetchMyInfo({ suppressAuthRedirect: true })
+      if (revision === sessionRevision.current) setUser(meResponse.data.data)
+      return meResponse.data.data
+    } catch (error) {
+      if (revision === sessionRevision.current) clearAccessToken()
+      throw error
+    }
+  }, [])
+
+  const login = useCallback(async (username, password) => {
+    const response = await loginRequest({ username, password })
+    return applyTokenLogin(response.data.data.accessToken)
+  }, [applyTokenLogin])
 
   const logout = useCallback(async () => {
+    ++sessionRevision.current
     try {
       await logoutRequest()
     } catch {
@@ -148,9 +158,9 @@ const refreshUser = useCallback(async () => {
       login,
       logout,
       refreshUser,
-      applySocialLogin,
+      applyTokenLogin,
     }),
-    [accessToken, user, isLoading, login, logout, refreshUser, applySocialLogin],
+    [accessToken, user, isLoading, login, logout, refreshUser, applyTokenLogin],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

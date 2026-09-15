@@ -21,10 +21,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.example.reservationservice.domain.ReservationRepository;
-import org.example.reservationservice.domain.ReservationStatus;
-import org.example.reservationservice.infrastructure.festival.FestivalServiceClient;
-import org.example.reservationservice.infrastructure.festival.dto.FestivalDetailResponseDto;
+import org.example.reservationservice.reservation.repository.ReservationRepository;
+import org.example.reservationservice.reservation.entity.ReservationStatus;
+import org.example.reservationservice.reservation.infrastructure.festival.FestivalServiceClient;
+import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalDetailResponseDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,7 +71,7 @@ class ReservationAcceptanceTest {
                 "PUBLISHED",
                 java.time.LocalDateTime.now().plusDays(1),
                 java.time.LocalDateTime.now().plusDays(2),
-                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE))
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null))
         );
     }
 
@@ -202,7 +202,7 @@ class ReservationAcceptanceTest {
                 FESTIVAL_ID, 999L, "PENDING",
                 java.time.LocalDateTime.now().plusDays(1),
                 java.time.LocalDateTime.now().plusDays(2),
-                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE))));
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null))));
 
         mockMvc.perform(post(CREATE_ENDPOINT)
                         .header("X-User-Id", "1")
@@ -256,8 +256,8 @@ class ReservationAcceptanceTest {
         when(festivalServiceClient.getFestival(FESTIVAL_ID)).thenReturn(new FestivalDetailResponseDto(
                 FESTIVAL_ID, 999L, "PUBLISHED",
                 java.time.LocalDateTime.now().plusDays(1), java.time.LocalDateTime.now().plusDays(2),
-                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE),
-                        new FestivalDetailResponseDto.TicketTypeSummary(secondTicketTypeId, TICKET_PRICE))));
+                List.of(new FestivalDetailResponseDto.TicketTypeSummary(TICKET_TYPE_ID, TICKET_PRICE, null, null),
+                        new FestivalDetailResponseDto.TicketTypeSummary(secondTicketTypeId, TICKET_PRICE, null, null))));
 
         mockMvc.perform(post(CREATE_ENDPOINT)
                         .header("X-User-Id", "1")

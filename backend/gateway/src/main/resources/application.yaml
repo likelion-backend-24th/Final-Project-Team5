@@ -53,6 +53,18 @@ spring:
               uri: ${FESTIVAL_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/api/admin/festivals/**
+            - id: booths
+              uri: ${FESTIVAL_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/booths/**
+            - id: store-booths
+              uri: ${FESTIVAL_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/store/booths/**
+            - id: booth-waitlists
+              uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/booth-waitlists/**
             - id: reservation-service
               uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
               predicates:
@@ -65,6 +77,10 @@ spring:
               uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
               predicates:
                 - Path=/api/payments/**
+            - id: settlements
+              uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/admin/settlements/**,/api/host/settlements/**
             - id: payment-webhook
               uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
               predicates:

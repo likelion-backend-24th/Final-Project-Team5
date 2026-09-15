@@ -6,8 +6,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.example.festivalservice.domain.booth.BoothRepository;
 import org.example.festivalservice.domain.festival.Festival;
 import org.example.festivalservice.domain.festival.FestivalCategory;
+import org.example.festivalservice.domain.festival.FestivalRegion;
 import org.example.festivalservice.domain.festival.FestivalRepository;
 import org.example.festivalservice.domain.festival.FestivalStatus;
 import org.example.festivalservice.domain.tickettype.TicketType;
@@ -34,8 +36,12 @@ class FestivalControllerAcceptanceTest {
     @Autowired
     private TicketTypeRepository ticketTypeRepository;
 
+    @Autowired
+    private BoothRepository boothRepository;
+
     @BeforeEach
     void setUp() {
+        boothRepository.deleteAll();
         ticketTypeRepository.deleteAll();
         festivalRepository.deleteAll();
     }
@@ -109,7 +115,8 @@ class FestivalControllerAcceptanceTest {
                 .description("설명")
                 .startAt(java.time.LocalDateTime.of(2026, 10, 1, 10, 0))
                 .endAt(java.time.LocalDateTime.of(2026, 10, 2, 22, 0))
-                .location("서울숲")
+                .region(FestivalRegion.SEOUL)
+                .locationDetail("서울숲")
                 .festivalCategory(FestivalCategory.MUSIC)
                 .festivalStatus(status)
                 .build());

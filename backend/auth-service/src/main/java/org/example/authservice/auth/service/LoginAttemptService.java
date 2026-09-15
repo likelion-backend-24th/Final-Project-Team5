@@ -18,7 +18,8 @@ public class LoginAttemptService {
     // 로그인 실패 기록은 로그인로직의 트랜잭션과 무관하게 독립적으로 저장되어야함
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordFailedLoginAttempt(User user) {
-        // 비번 틀리면  실패 횟수 증가
+        user = userRepository.findLockedById(user.getId()).orElseThrow();
+        // 비번 틀리면 실패 횟수 증가
         user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
         //실패 횟수가 5번 넘어가면 10분동안 잠김 그리고 다시 0번으로 리셋
         if (user.getFailedLoginAttempts() >= 5){

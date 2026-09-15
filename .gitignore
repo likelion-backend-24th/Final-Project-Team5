@@ -1,5 +1,10 @@
 CLAUDE.md
 .idea/
 .env
+.env.settlement-local
 backend/festival-service/savedimage/
 .claude/
+
+# Keep only the shared documentation index in version control.
+/docs/*
+!/docs/README.md

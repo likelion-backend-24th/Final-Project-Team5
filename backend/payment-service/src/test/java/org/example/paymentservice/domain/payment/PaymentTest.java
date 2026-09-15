@@ -53,7 +53,7 @@ class PaymentTest {
     }
 
     @Test
-    void 티켓금액과_수수료를_합쳐_총액을_계산한다() {
+    void 정산수수료를_구매자에게_추가청구하지_않는다() {
         Payment payment = Payment.builder()
                 .paymentId("BE24-T05-2")
                 .reservationId(1L)
@@ -63,6 +63,6 @@ class PaymentTest {
                 .status(PaymentStatus.READY)
                 .build();
 
-        assertThat(payment.totalAmount()).isEqualTo(10_500L);
+        assertThat(payment.totalAmount()).isEqualTo(10_000L);
     }
 }

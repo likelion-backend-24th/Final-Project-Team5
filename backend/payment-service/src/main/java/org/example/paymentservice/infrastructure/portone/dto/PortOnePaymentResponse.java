@@ -51,9 +51,18 @@ public record PortOnePaymentResponse(
             String accountType,
             String remitterName,
             Instant expiredAt,
-            Instant issuedAt
+            Instant issuedAt,
+            String provider,
+            EasyPayMethod easyPayMethod
     ) {
+        public Method(String type, String bank, String accountNumber, String accountType,
+                      String remitterName, Instant expiredAt, Instant issuedAt) {
+            this(type, bank, accountNumber, accountType, remitterName, expiredAt, issuedAt, null, null);
+        }
     }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record EasyPayMethod(String type, String bank) { }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Amount(long total, long taxFree, long vat, long supply, long discount, long paid, long cancelled, long cancelledTaxFree) {

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { GoogleIcon, KakaoIcon } from '../components/SocialIcons'
@@ -8,12 +8,16 @@ import { getGoogleLoginUrl, getKakaoLoginUrl } from '../api/oauthUrls'
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const LOGIN_ERROR_MESSAGES = {
+  HELPER_PENDING_ACTIVATION: '초대 메일의 링크에서 비밀번호를 먼저 설정해주세요.',
+  INVITATION_REVOKED: '주최자가 해지한 도우미 계정이에요.',
+  HELPER_FESTIVAL_ENDED: '배정된 행사가 종료되어 사용할 수 없어요.',
   USER_NOT_FOUND: '존재하지 않는 계정이에요.',
   INVALID_PASSWORD: '이메일 또는 비밀번호가 올바르지 않아요.',
   ACCOUNT_LOCKED: '비밀번호를 5회 연속 틀려 로그인이 10분간 제한됐어요. 잠시 후 다시 시도해주세요.',
   ACCOUNT_SUSPENDED: '정지된 계정이에요. 고객센터에 문의해주세요.',
   ACCOUNT_WITHDRAWN: '탈퇴한 계정이에요.',
-  SOCIAL_LOGIN_REQUIRED: '이 계정은 소셜 로그인으로 전환됐어요. 아래 소셜 로그인으로 로그인해주세요.',
+  SOCIAL_LOGIN_REQUIRED: '이 계정은 비밀번호로 로그인할 수 없어요. 아래 소셜 로그인을 이용해주세요.',
+  OAUTH_TOKEN_INVALID: '소셜 로그인 인증에 실패했어요. 다시 시도해주세요.',
 }
 
 // 위에서부터 순서대로 검사하다 처음 걸리는 에러 하나만 반환한다(early return).
@@ -44,11 +48,25 @@ function inputClass(hasError) {
 function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
+  const [searchParams] = useSearchParams()
   const [form, setForm] = useState({ username: '', password: '' })
   const [errors, setErrors] = useState({})
   const [showPassword, setShowPassword] = useState(false)
-  const [submitError, setSubmitError] = useState('')
+  //카카오/구글 콜백이 실패하면(탈퇴·정지 계정 등) 이 화면으로 ?error=코드와 함께 돌아온다.
+  const [submitError, setSubmitError] = useState(() => {
+    const oauthErrorCode = searchParams.get('error')
+    return oauthErrorCode
+      ? LOGIN_ERROR_MESSAGES[oauthErrorCode] ?? '로그인에 실패했어요. 잠시 후 다시 시도해주세요.'
+      : ''
+  })
   const [submitting, setSubmitting] = useState(false)
+
+  //새로고침해도 에러가 계속 뜨지 않도록 쿼리스트링은 한 번 읽고 지운다.
+  useEffect(() => {
+    if (searchParams.get('error')) {
+      navigate('/login', { replace: true })
+    }
+  }, [])
 
   function handleChange(field) {
     return (event) => {

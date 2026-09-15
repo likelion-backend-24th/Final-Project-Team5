@@ -2,9 +2,8 @@
  * 어드민 대시보드용 데이터 모듈.
  *
  * 주최자 신청 승인 / 페스티벌 등록 승인 서브탭은 실제 백엔드(/api/admin/host-applications,
- * /api/admin/festivals)와 연동되어 있고, 주최자 목록 / 정산 대시보드는 대응하는 백엔드가 아직
- * 없어 목업 데이터로 동작한다. 전부 async 함수 형태로 노출해두었으니, 주최자 목록·정산 쪽 API가
- * 생기면 이 모듈의 목업 함수만 실제 호출로 교체하면 된다.
+ * /api/admin/festivals)와 연동되어 있다. 주최자 목록은 아직 목업 데이터로 동작한다.
+ * 정산 대시보드는 settlementApi와 SettlementReport에서 실제 API를 사용한다.
  */
 import {
   fetchPendingHostApplications,
@@ -157,6 +156,8 @@ export async function reviewFestivalSubmission(id, decision, rejectReason) {
 
 export const ACCOUNT_STATUS_META = {
   ACTIVE: { label: '활동중', cls: 'bg-emerald-100 text-emerald-700' },
+  PENDING_ACTIVATION: { label: '활성화 대기', cls: 'bg-amber-100 text-amber-700' },
+  REVOKED: { label: '해지', cls: 'bg-gray-200 text-gray-600' },
   SUSPENDED: { label: '정지됨', cls: 'bg-gray-200 text-gray-600' },
   WITHDRAWN: { label: '탈퇴', cls: 'bg-red-100 text-red-600' },
 }
@@ -241,35 +242,4 @@ export async function fetchOrganizers() {
 /** 목업: 주최자 권한 회수 API는 아직 없어 아무 것도 호출하지 않는다. */
 export async function revokeOrganizer(id) {
   return { id }
-}
-
-/* ---------- 정산 대시보드 (목업 — 대응 백엔드 없음) ---------- */
-
-export const settlementKpis = [
-  { label: '누적 거래액 (GMV)', value: '₩1,284,500,000', delta: '+12.4%', up: true },
-  { label: '정산 완료 금액', value: '₩982,300,000', delta: '+8.1%', up: true },
-  { label: '총 결제 건수', value: '23,481건', delta: '+15.7%', up: true },
-  { label: '정산 대기 금액', value: '₩302,200,000', delta: '-3.2%', up: false },
-]
-
-export const monthlyRevenue = [
-  { month: '1월', gmv: 142, fee: 14 },
-  { month: '2월', gmv: 168, fee: 17 },
-  { month: '3월', gmv: 195, fee: 20 },
-  { month: '4월', gmv: 176, fee: 18 },
-  { month: '5월', gmv: 231, fee: 23 },
-  { month: '6월', gmv: 284, fee: 28 },
-]
-
-export const settlements = [
-  { id: 'st1', host: 'FevalGo Live', festivals: 4, revenue: '₩428,000,000', fee: '₩42,800,000', status: '정산완료' },
-  { id: 'st2', host: '블루노트라인', festivals: 2, revenue: '₩186,500,000', fee: '₩18,650,000', status: '정산대기' },
-  { id: 'st3', host: '부산 비치컬처', festivals: 3, revenue: '₩142,300,000', fee: '₩14,230,000', status: '정산대기' },
-  { id: 'st4', host: '성수 사운드랩', festivals: 5, revenue: '₩98,700,000', fee: '₩9,870,000', status: '정산완료' },
-  { id: 'st5', host: '최무대 스튜디오', festivals: 2, revenue: '₩76,400,000', fee: '₩7,640,000', status: '정산대기' },
-  { id: 'st6', host: '한푸드', festivals: 6, revenue: '₩64,200,000', fee: '₩6,420,000', status: '정산완료' },
-]
-
-export async function fetchSettlementOverview() {
-  return { kpis: settlementKpis, monthlyRevenue, settlements }
 }

@@ -14,7 +14,8 @@ public enum UserErrorCode implements ErrorCode {
     INVALID_CURRENT_PASSWORD(HttpStatus.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다."),
     PASSWORD_CONFIRM_MISMATCH(HttpStatus.BAD_REQUEST, "새 비밀번호와 확인 비밀번호가 일치하지 않습니다."),
     HELPER_PASSWORD_CHANGE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "도우미 계정은 비밀번호를 변경할 수 없습니다. 주최자에게 계정 초대를 문의하세요."),
-    SOCIAL_USER_CANNOT_CHANGE_PASSWORD(HttpStatus.FORBIDDEN, "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.");
+    SOCIAL_USER_CANNOT_CHANGE_PASSWORD(HttpStatus.FORBIDDEN, "소셜 로그인 계정은 비밀번호를 변경할 수 없습니다."),
+    FORBIDDEN_ADMIN_ROLE(HttpStatus.FORBIDDEN, "운영자 권한이 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String message;

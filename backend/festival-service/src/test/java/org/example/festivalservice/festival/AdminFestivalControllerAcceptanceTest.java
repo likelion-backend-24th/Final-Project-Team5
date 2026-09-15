@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.example.festivalservice.domain.booth.BoothRepository;
 import org.example.festivalservice.domain.festival.Festival;
 import org.example.festivalservice.domain.festival.FestivalCategory;
 import org.example.festivalservice.domain.festival.FestivalRegion;
@@ -32,8 +33,14 @@ class AdminFestivalControllerAcceptanceTest {
     @Autowired
     private FestivalRepository festivalRepository;
 
+    @Autowired
+    private BoothRepository boothRepository;
+
     @BeforeEach
     void setUp() {
+        //Booth가 festival_id FK를 가지므로, 다른 테스트 클래스가 남긴 부스가 있으면 festivals 삭제가
+        //참조무결성 위반으로 실패한다 — 먼저 지운다.
+        boothRepository.deleteAll();
         festivalRepository.deleteAll();
     }
 

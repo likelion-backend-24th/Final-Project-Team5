@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.example.festivalservice.domain.booth.BoothRepository;
 import org.example.festivalservice.domain.festival.Festival;
 import org.example.festivalservice.domain.festival.FestivalCategory;
 import org.example.festivalservice.domain.festival.FestivalRegion;
@@ -51,8 +52,12 @@ class HostControllerAcceptanceTest {
     @Autowired
     private TicketTypeRepository ticketTypeRepository;
 
+    @Autowired
+    private BoothRepository boothRepository;
+
     @BeforeEach
     void setUp() {
+        boothRepository.deleteAll();
         ticketTypeRepository.deleteAll();
         festivalRepository.deleteAll();
     }

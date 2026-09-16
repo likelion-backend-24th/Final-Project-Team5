@@ -1,4 +1,4 @@
-package org.example.reservationservice.config;
+package org.example.reservationservice.seat.config;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;

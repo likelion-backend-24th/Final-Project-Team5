@@ -1,4 +1,4 @@
-package org.example.reservationservice.domain.seat;
+package org.example.reservationservice.seat.entity;
 
 /**
  * festival-service의 TicketMode(domain.tickettype.TicketMode)와 값이 정확히 일치해야 한다.

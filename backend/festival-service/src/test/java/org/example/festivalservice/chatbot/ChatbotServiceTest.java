@@ -166,6 +166,22 @@ class ChatbotServiceTest {
     }
 
     @Test
+    void 오늘_요일과_이번_주말_날짜를_계산해_컨텍스트에_넣는다() {
+        //수요일 → 다가오는 토·일
+        assertThat(ChatbotService.describeDates(LocalDateTime.of(2026, 9, 16, 14, 0)))
+                .contains("2026-09-16 14:00 (수요일)")
+                .contains("이번 주말: 2026-09-19(토) ~ 2026-09-20(일)")
+                .contains("다음 주말: 2026-09-26(토) ~ 2026-09-27(일)")
+                .contains("이번 달: 2026년 9월");
+        //토요일 → 오늘부터
+        assertThat(ChatbotService.describeDates(LocalDateTime.of(2026, 9, 19, 10, 0)))
+                .contains("이번 주말: 2026-09-19(토) ~ 2026-09-20(일)");
+        //일요일 → 어제(토)부터인 이번 주말
+        assertThat(ChatbotService.describeDates(LocalDateTime.of(2026, 9, 20, 10, 0)))
+                .contains("이번 주말: 2026-09-19(토) ~ 2026-09-20(일)");
+    }
+
+    @Test
     void Gemini_응답이_JSON이_아니면_CHATBOT_UNAVAILABLE() {
         givenCandidates(festival(1L, "A"));
         when(ticketTypeRepository.findByFestivalId(any())).thenReturn(List.of());

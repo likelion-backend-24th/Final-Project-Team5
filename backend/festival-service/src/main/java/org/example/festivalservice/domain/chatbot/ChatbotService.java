@@ -3,6 +3,8 @@ package org.example.festivalservice.domain.chatbot;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -48,10 +50,18 @@ public class ChatbotService {
             규칙:
             - 반드시 한국어로, 친근하고 간결하게 답합니다.
             - 후보 목록에 없는 페스티벌은 절대 지어내지 않습니다. recommendations의 festivalId는 반드시 후보 목록의 id여야 합니다.
+            - 사용자가 말한 조건은 "필수 조건"입니다. 하나라도 어긋나는 페스티벌은 추천하지 않습니다. 3개를 채우려고 조건에 안 맞는 것을 끼워 넣지 마세요.
+              · 날짜: "이번 주말", "이번 달", "10월", "다음 주" 같은 표현은 첫 메시지에 적힌 오늘 날짜·이번 주말 날짜를 기준으로 계산하고,
+                페스티벌의 startAt~endAt 기간이 그 날짜와 하루라도 겹쳐야 합니다. 예: 이번 주말이 9/19~9/20이면 10월에 열리는 페스티벌은 제외합니다.
+              · 지역: 사용자가 말한 지역(region 또는 locationDetail)에 있어야 합니다. "서울"이면 region이 SEOUL인 것만 해당합니다.
+              · 가격: "N원 이하", "무료"는 minPrice 기준으로 판단합니다. minPrice가 null이면 가격을 모르는 것이니 가격 조건이 있을 때는 제외합니다.
+              · 카테고리·분위기·동반자(가족·아이·연인·혼자·반려동물 등): description과 category를 근거로 판단합니다.
             - 조건에 맞는 페스티벌이 없으면 솔직하게 없다고 말하고 recommendations를 빈 배열로 둡니다. 억지로 추천하지 마세요.
-            - 각 추천의 reason에는 왜 이 사용자에게 맞는지 한두 문장으로 씁니다.
+              대신 reply에서 조건을 조금 넓히면 어떤 선택지가 있는지 한 줄로 제안할 수 있습니다(그 제안은 recommendations에 넣지 않습니다).
+            - 사용자가 조건을 거의 말하지 않았으면 서로 다른 카테고리·지역에서 다양하게 고르고, 무엇을 더 알려주면 좋을지 되묻습니다.
+            - 각 추천의 reason에는 왜 이 사용자에게 맞는지 한두 문장으로 쓰되, 날짜와 최저가처럼 조건과 직접 관련된 사실을 포함합니다.
             - reply에는 추천 요약이나 추가로 물어볼 만한 질문을 씁니다. 링크는 시스템이 따로 붙이므로 URL을 쓰지 마세요.
-            - minPrice는 원(KRW) 단위 최저 티켓 가격이며 null이면 가격 정보가 없는 것입니다.
+            - minPrice는 원(KRW) 단위 최저 티켓 가격이며 0이면 무료, null이면 가격 정보가 없는 것입니다.
             """.formatted(MAX_RECOMMENDATIONS);
 
     //Gemini responseSchema(OpenAPI 부분집합) — 응답을 {reply, recommendations:[{festivalId, reason}]}로 강제한다
@@ -160,7 +170,7 @@ public class ChatbotService {
         }
         List<GeminiClient.Message> messages = new ArrayList<>();
         messages.add(new GeminiClient.Message("user",
-                "현재 시각: " + now.format(DATE_TIME) + "\n후보 목록(JSON):\n" + candidatesJson));
+                describeDates(now) + "\n후보 목록(JSON):\n" + candidatesJson));
         messages.add(new GeminiClient.Message("model", "{\"reply\":\"후보 목록을 확인했어요. 어떤 페스티벌을 찾으시나요?\",\"recommendations\":[]}"));
 
         List<ChatbotMessageDto> history = request.history() == null ? List.of() : request.history();
@@ -172,6 +182,23 @@ public class ChatbotService {
         messages.add(new GeminiClient.Message("user", request.message()));
         return messages;
     }
+
+    //모델이 요일·주말 날짜를 스스로 계산하다 틀리는 일이 있어("이번 주말"에 10월 행사를 추천) 미리 계산해 넣는다.
+    //토·일요일에 물어보면 그 주말이 "이번 주말"이고, 평일이면 다가오는 토·일이다.
+    public static String describeDates(LocalDateTime now) {
+        LocalDate today = now.toLocalDate();
+        int daysUntilSaturday = (DayOfWeek.SATURDAY.getValue() - today.getDayOfWeek().getValue() + 7) % 7;
+        LocalDate saturday = today.getDayOfWeek() == DayOfWeek.SUNDAY ? today.minusDays(1) : today.plusDays(daysUntilSaturday);
+        LocalDate sunday = saturday.plusDays(1);
+        return "현재 시각: " + now.format(DATE_TIME) + " (" + KOREAN_DAY.get(today.getDayOfWeek()) + "요일)"
+                + "\n이번 주말: " + saturday + "(토) ~ " + sunday + "(일)"
+                + "\n다음 주말: " + saturday.plusWeeks(1) + "(토) ~ " + sunday.plusWeeks(1) + "(일)"
+                + "\n이번 달: " + today.getYear() + "년 " + today.getMonthValue() + "월";
+    }
+
+    private static final Map<DayOfWeek, String> KOREAN_DAY = Map.of(
+            DayOfWeek.MONDAY, "월", DayOfWeek.TUESDAY, "화", DayOfWeek.WEDNESDAY, "수", DayOfWeek.THURSDAY, "목",
+            DayOfWeek.FRIDAY, "금", DayOfWeek.SATURDAY, "토", DayOfWeek.SUNDAY, "일");
 
     private GeminiPayload parse(String raw) {
         try {

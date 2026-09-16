@@ -1,15 +1,23 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import Badge, { badgeVariantForLabel } from './Badge'
 
 //모바일에서 스와이프로 슬라이드를 넘기기 위한 최소 이동 거리(px). 너무 작으면 스크롤·탭과 헷갈린다.
 const SWIPE_THRESHOLD_PX = 40
+//자동 전환 간격. 화살표·점·스와이프로 직접 넘기면 그 시점부터 다시 센다(index가 바뀔 때마다 타이머 재시작).
+export const AUTO_ADVANCE_MS = 5000
 
 function HeroCarousel({ slides = [] }) {
   const [index, setIndex] = useState(0)
   const touchStartXRef = useRef(null)
   const count = slides.length
+
+  useEffect(() => {
+    if (count < 2) return undefined
+    const timer = setInterval(() => setIndex((current) => (current + 1) % count), AUTO_ADVANCE_MS)
+    return () => clearInterval(timer)
+  }, [count, index])
 
   if (count === 0) return null
 

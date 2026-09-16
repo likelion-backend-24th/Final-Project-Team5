@@ -73,6 +73,12 @@ public class Festival {
     @Column(columnDefinition = "BIGINT DEFAULT 0")
     private Long version;
 
+    //누적 조회수(IP당 24시간에 1회만 집계). 증가는 FestivalViewService가 bulk update로만 하므로
+    //엔티티를 통해 바꾸지 않는다 — @Version 충돌 없이 동시 조회를 받기 위해서다. 기존 행은 0으로 시작한다.
+    @Column(name = "view_count", columnDefinition = "BIGINT DEFAULT 0")
+    @Builder.Default
+    private Long viewCount = 0L;
+
     //주최자 귀책 취소 기록 — 요청자(주최자)와 승인자(운영자)를 분리해 전액 환불의 승인 근거를 남긴다.
     @Column(name = "cancel_reason", length = 500)
     private String cancelReason;

@@ -1,15 +1,17 @@
 import { useState } from 'react'
-import { UserIcon, TicketIcon, MegaphoneIcon, SettingsIcon, CalendarDaysIcon } from 'lucide-react'
+import { UserIcon, TicketIcon, MegaphoneIcon, SettingsIcon, CalendarDaysIcon, StoreIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import MyPageInfoTab from '../components/MyPageInfoTab'
 import MyPageReservationsTab from '../components/MyPageReservationsTab'
 import MyPageHostTab from '../components/MyPageHostTab'
+import MyPageStoreTab from '../components/MyPageStoreTab'
 import MyPageSettingsTab from '../components/MyPageSettingsTab'
 
 const ROLE_META = {
   USER: { label: '일반 회원', badge: 'bg-gray-100 text-gray-600' },
   HOST: { label: '주최자', badge: 'bg-blue-50 text-blue-600' },
   HELPER: { label: '도우미', badge: 'bg-green-50 text-green-700' },
+  STOREHOST: { label: '부스 운영자', badge: 'bg-amber-50 text-amber-700' },
   ADMIN: { label: '운영자', badge: 'bg-purple-50 text-purple-600' },
 }
 
@@ -28,6 +30,7 @@ function MyPage({ initialTab = 'info' }) {
     { key: 'info', label: '내 정보', icon: UserIcon, show: true },
     { key: 'reservations', label: '내 예약', icon: TicketIcon, show: !isHelper },
     { key: 'host', label: '주최자 관리', icon: MegaphoneIcon, show: user.role === 'HOST' },
+    { key: 'store', label: '부스 관리', icon: StoreIcon, show: user.role === 'STOREHOST' },
     { key: 'settings', label: '설정', icon: SettingsIcon, show: !isHelper },
   ]
   const visibleTabs = tabs.filter((t) => t.show)
@@ -86,6 +89,7 @@ function MyPage({ initialTab = 'info' }) {
           {active === 'info' && <MyPageInfoTab user={user} />}
           {active === 'reservations' && <MyPageReservationsTab />}
           {active === 'host' && <MyPageHostTab />}
+          {active === 'store' && <MyPageStoreTab />}
           {active === 'settings' && <MyPageSettingsTab user={user} />}
         </div>
       </div>

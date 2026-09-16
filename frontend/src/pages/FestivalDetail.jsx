@@ -19,12 +19,16 @@ import {
   formatLocation,
   toAbsoluteImageUrl,
 } from '../api/festivalApi'
+import { fetchMyBooths } from '../api/boothApi'
 import { fetchMyReservations } from '../api/reservationApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
 import { MAX_QUANTITY_PER_TICKET_TYPE } from '../constants'
 import BoothListModal from '../components/BoothListModal'
+import BoothCreateModal from '../components/BoothCreateModal'
 import styles from './FestivalDetail.module.css'
+
+const BOOTH_STATUS_LABELS = { WAITING: '대기', OPEN: '운영중', CLOSED: '마감' }
 
 //참가자용 요약 문구 — 프론트에서만 보여주는 안내용 텍스트다(백엔드 데이터 아님). 환불 정책 수치는
 //reservation-service의 실제 정책(RefundPolicy: cutoff-hours 24, tiers 10/7/3/1일 전 0/10/20/30%)과
@@ -127,6 +131,7 @@ function FestivalDetail() {
   //도우미는 예매를 할 수 없는 계정이라(예매 API가 막혀 있다) 수량·예매 버튼을 보여주지 않는다.
   //이 화면은 도우미에게 담당 행사 정보를 확인하는 용도로만 쓰인다.
   const isHelper = user?.role === 'HELPER'
+  const isStorehost = user?.role === 'STOREHOST'
   const [festival, setFestival] = useState(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -135,6 +140,10 @@ function FestivalDetail() {
   //유의사항 아코디언 — 한 번에 하나만 펼쳐지고, 처음엔 첫 항목이 펼쳐져 있다.
   const [openNoticeIndex, setOpenNoticeIndex] = useState(0)
   const [showBoothModal, setShowBoothModal] = useState(false)
+  //STOREHOST 전용 — 이 페스티벌에 이미 개설한 부스가 있는지. null=조회 전, undefined=없음.
+  const [myBooth, setMyBooth] = useState(null)
+  const [myBoothLoading, setMyBoothLoading] = useState(false)
+  const [showBoothCreateModal, setShowBoothCreateModal] = useState(false)
 
   function handleQuantityChange(ticketType, value) {
     const max = Math.min(ticketType.remainQuantity, MAX_QUANTITY_PER_TICKET_TYPE)
@@ -209,6 +218,28 @@ function FestivalDetail() {
       cancelled = true
     }
   }, [id])
+
+  //STOREHOST면 내 부스 목록을 불러와 이 페스티벌에 이미 개설한 부스가 있는지 확인한다.
+  useEffect(() => {
+    if (!isStorehost) return
+    let cancelled = false
+    setMyBoothLoading(true)
+    fetchMyBooths()
+      .then((response) => {
+        if (cancelled) return
+        const found = response.data.data.find((booth) => String(booth.festivalId) === String(id))
+        setMyBooth(found ?? undefined)
+      })
+      .catch(() => {
+        if (!cancelled) setMyBooth(undefined)
+      })
+      .finally(() => {
+        if (!cancelled) setMyBoothLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [id, isStorehost])
 
   if (loading) {
     return (
@@ -315,6 +346,46 @@ function FestivalDetail() {
             <span className={styles.infoCardValue}>{formatPriceRange(festival.ticketTypes)}</span>
           </div>
         </div>
+
+        {isStorehost && (
+          <>
+            <h2 className={styles.sectionHeading}>내 부스</h2>
+            {myBoothLoading ? (
+              <p className="text-sm text-gray-500">불러오는 중…</p>
+            ) : myBooth ? (
+              <Link
+                to={`/store/booths/${myBooth.id}`}
+                className="flex w-full items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+                style={{ textDecoration: 'none' }}
+              >
+                <span className="flex items-center gap-2">
+                  <StoreIcon size={16} aria-hidden="true" />
+                  {myBooth.title}
+                </span>
+                <Badge variant="secondary">{BOOTH_STATUS_LABELS[myBooth.boothStatus]}</Badge>
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowBoothCreateModal(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+              >
+                <StoreIcon size={16} aria-hidden="true" />
+                부스 개설하기
+              </button>
+            )}
+            {showBoothCreateModal && (
+              <BoothCreateModal
+                festivalId={id}
+                onClose={() => setShowBoothCreateModal(false)}
+                onCreated={(created) => {
+                  setMyBooth(created)
+                  setShowBoothCreateModal(false)
+                }}
+              />
+            )}
+          </>
+        )}
 
         <h2 className={styles.sectionHeading}>부스</h2>
         <button

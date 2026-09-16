@@ -25,6 +25,8 @@ import ReservationCheckout from './pages/ReservationCheckout'
 import ResetPassword from './pages/ResetPassword'
 import SeatMap from './pages/SeatMap'
 import SignUp from './pages/SignUp'
+import StoreBooths from './pages/StoreBooths'
+import StoreBoothDetail from './pages/StoreBoothDetail'
 
 /** 상단바·푸터는 모든 화면에 고정, 가운데만 라우팅으로 갈아끼운다. */
 function App() {
@@ -121,6 +123,8 @@ function App() {
         <Route path="/host/festivals/:id" element={<HostFestivalDetail />} />
         {/* 현장 입장 검증 — 주최자는 페스티벌을 지정해서, 도우미는 배정된 페스티벌로 /check-in에서 들어온다. */}
         <Route path="/host/festivals/:id/check-in" element={<CheckIn />} />
+        <Route path="/store/booths" element={<StoreBooths />} />
+        <Route path="/store/booths/:id" element={<StoreBoothDetail />} />
         <Route path="/check-in" element={<CheckIn />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/terms" element={<Placeholder title="이용약관" />} />

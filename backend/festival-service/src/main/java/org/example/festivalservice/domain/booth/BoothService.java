@@ -6,6 +6,7 @@ import org.example.festivalservice.common.exception.ApiException;
 import org.example.festivalservice.domain.festival.Festival;
 import org.example.festivalservice.domain.festival.FestivalErrorCode;
 import org.example.festivalservice.domain.festival.FestivalRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,8 @@ public class BoothService {
 
     //STOREHOST가 부스를 개설한다. 페스티벌 소유자인지, 부스 개설이 가능한 페스티벌 상태인지는 검증하지 않는다
     //(요청대로 역할 체크만) — 필요해지면 여기 한 곳만 고치면 된다.
+    //페스티벌당 부스는 1개만 허용한다 — existsByFestivalId로 먼저 막고, 동시 요청 경합은 DB
+    //유니크 제약(uk_booths_festival_id)에 걸려 DataIntegrityViolationException으로 잡히면 같은 에러로 변환한다.
     @Transactional
     public BoothResponseDto createBooth(Long hostUserId, String role, BoothRequestDto request) {
         if (!STOREHOST_ROLE.equals(role)) {
@@ -30,6 +33,10 @@ public class BoothService {
         }
         Festival festival = festivalRepository.findById(request.festivalId())
                 .orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND));
+
+        if (boothRepository.existsByFestivalId(request.festivalId())) {
+            throw new ApiException(BoothErrorCode.DUPLICATE_BOOTH_FOR_FESTIVAL);
+        }
 
         Booth booth = Booth.builder()
                 .festival(festival)
@@ -41,7 +48,11 @@ public class BoothService {
                 .boothStatus(BoothStatus.WAITING)
                 .build();
 
-        return BoothResponseDto.from(boothRepository.save(booth));
+        try {
+            return BoothResponseDto.from(boothRepository.save(booth));
+        } catch (DataIntegrityViolationException e) {
+            throw new ApiException(BoothErrorCode.DUPLICATE_BOOTH_FOR_FESTIVAL);
+        }
     }
 
     //관람자용 목록 — 인증 불필요, WAITING 상태는 숨긴다

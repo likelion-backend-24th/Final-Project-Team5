@@ -16,7 +16,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-@Table(name = "booths")
+//페스티벌당 부스 1개 제한 — 서비스 계층 체크(existsByFestivalId)와 별개로, 동시 요청 경합 상황의
+//최종 방어선으로 DB 유니크 제약도 건다.
+@Table(name = "booths", uniqueConstraints = @UniqueConstraint(name = "uk_booths_festival_id", columnNames = "festival_id"))
 public class Booth {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

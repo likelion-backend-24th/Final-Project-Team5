@@ -14,4 +14,7 @@ public interface BoothRepository extends JpaRepository<Booth, Long> {
 
     //STOREHOST 본인이 개설한 부스 목록(상태 무관, 본인 화면이라 WAITING도 보여야 한다)
     List<Booth> findByHostUserId(Long hostUserId);
+
+    //페스티벌당 부스 1개 제한 체크용
+    boolean existsByFestivalId(Long festivalId);
 }

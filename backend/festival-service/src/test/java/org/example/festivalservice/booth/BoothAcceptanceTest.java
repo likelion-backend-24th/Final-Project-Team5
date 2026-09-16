@@ -91,6 +91,19 @@ class BoothAcceptanceTest {
     }
 
     @Test
+    void createBoothFailsWhenFestivalAlreadyHasBooth() throws Exception {
+        boothRepository.save(waitingBooth());
+
+        mockMvc.perform(post("/api/store/booths")
+                        .header("X-User-Id", "20")
+                        .header("X-User-Role", "STOREHOST")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequestBody()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode", is("DUPLICATE_BOOTH_FOR_FESTIVAL")));
+    }
+
+    @Test
     void waitingBoothIsHiddenFromPublicListAndDetail() throws Exception {
         Booth waiting = boothRepository.save(waitingBooth());
 

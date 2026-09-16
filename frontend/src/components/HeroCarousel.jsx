@@ -42,40 +42,46 @@ function HeroCarousel({ slides = [] }) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {slides.map((festival, i) => {
-          const active = i === index
-          return (
-            <Link
-              key={festival.id}
-              to={`/festivals/${festival.id}`}
-              className={`absolute inset-0 block transition-opacity duration-300 ${
-                active ? 'opacity-100' : 'pointer-events-none opacity-0'
-              }`}
-              aria-label={`${festival.title} 상세 보기`}
-              aria-hidden={!active}
-              tabIndex={active ? 0 : -1}
-            >
-              {festival.image ? (
-                <img src={festival.image} alt={festival.title} className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full bg-gradient-to-br from-brand-navy to-brand-blue" aria-hidden="true" />
-              )}
-              {/* 밝은 썸네일 위에서도 흰 글씨가 묻히지 않도록 하단을 충분히 어둡게 깔고, 글자에도 그림자를 준다. */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
-              <div className="absolute bottom-0 left-0 max-w-[75%] p-5 pb-12 sm:max-w-none sm:p-6 sm:pb-6 md:p-10">
-                {festival.badge ? (
-                  <Badge variant={badgeVariantForLabel(festival.badge)}>{festival.badge}</Badge>
-                ) : null}
-                <h2 className="mt-2 text-lg font-extrabold tracking-tight text-white text-balance [text-shadow:0_2px_10px_rgba(0,0,0,0.8)] sm:mt-3 sm:text-2xl md:text-4xl">
-                  {festival.title}
-                </h2>
-                <p className="mt-1 text-xs text-gray-100 [text-shadow:0_1px_6px_rgba(0,0,0,0.8)] sm:mt-2 sm:text-sm md:text-base">
-                  {festival.location} · {festival.date}
-                </p>
-              </div>
-            </Link>
-          )
-        })}
+        {/* 슬라이드를 가로로 나란히 놓고 트랙 전체를 밀어서 "넘어가는" 느낌을 준다. 이전의 opacity 크로스페이드는
+            두 장이 겹치는 순간 그라데이션이 두 번 깔려 깜빡이는 것처럼 보였다. 모든 슬라이드가 항상 렌더링돼 있어
+            이미지가 미리 로드되고, 비활성 슬라이드는 화면 밖에 있으므로 pointer-events만 끄면 된다. */}
+        <div
+          className="flex h-full w-full transition-transform duration-500 ease-in-out motion-reduce:transition-none"
+          style={{ transform: `translateX(-${index * 100}%)` }}
+        >
+          {slides.map((festival, i) => {
+            const active = i === index
+            return (
+              <Link
+                key={festival.id}
+                to={`/festivals/${festival.id}`}
+                className={`relative block h-full w-full shrink-0 ${active ? '' : 'pointer-events-none'}`}
+                aria-label={`${festival.title} 상세 보기`}
+                aria-hidden={!active}
+                tabIndex={active ? 0 : -1}
+              >
+                {festival.image ? (
+                  <img src={festival.image} alt={festival.title} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-br from-brand-navy to-brand-blue" aria-hidden="true" />
+                )}
+                {/* 밝은 썸네일 위에서도 흰 글씨가 묻히지 않도록 하단을 충분히 어둡게 깔고, 글자에도 그림자를 준다. */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
+                <div className="absolute bottom-0 left-0 max-w-[75%] p-5 pb-12 sm:max-w-none sm:p-6 sm:pb-6 md:p-10">
+                  {festival.badge ? (
+                    <Badge variant={badgeVariantForLabel(festival.badge)}>{festival.badge}</Badge>
+                  ) : null}
+                  <h2 className="mt-2 text-lg font-extrabold tracking-tight text-white text-balance [text-shadow:0_2px_10px_rgba(0,0,0,0.8)] sm:mt-3 sm:text-2xl md:text-4xl">
+                    {festival.title}
+                  </h2>
+                  <p className="mt-1 text-xs text-gray-100 [text-shadow:0_1px_6px_rgba(0,0,0,0.8)] sm:mt-2 sm:text-sm md:text-base">
+                    {festival.location} · {festival.date}
+                  </p>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
 
         {/* 모바일에서는 화살표가 배너 세로 중앙(=제목 위치)을 가리므로 오른쪽 아래 구석에 작게 모아 둔다. */}
         <button

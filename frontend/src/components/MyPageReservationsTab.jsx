@@ -364,7 +364,10 @@ function MyPageReservationsTab() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-bold text-gray-900">{r.festivalName}</p>
+                  {/* 종료된 페스티벌은 목록에서 빠지지만 상세는 열려 있어, 예약 내역에서는 계속 찾아갈 수 있다 */}
+                  <Link to={`/festivals/${r.festivalId}`} className="block truncate font-bold text-gray-900 hover:text-blue-600 hover:underline">
+                    {r.festivalName}
+                  </Link>
                   <p className="mt-0.5 text-sm text-gray-500">{r.festivalDate}</p>
                   <p className="text-sm text-gray-400">
                     {r.ticketTypeName} · {r.quantity}장

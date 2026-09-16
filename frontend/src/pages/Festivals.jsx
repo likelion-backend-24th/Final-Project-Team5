@@ -6,9 +6,7 @@ import {
   mapFestivalToCard,
   CLOSING_SOON_MAX_DDAY,
   FESTIVAL_CATEGORY_LABELS,
-  FESTIVAL_VISIBLE_STATUS_LABELS,
 } from '../api/festivalApi'
-import Badge from '../components/Badge'
 import CategoryChips from '../components/CategoryChips'
 import FestivalCard from '../components/FestivalCard'
 import Pagination from '../components/Pagination'
@@ -151,11 +149,6 @@ function Festivals() {
                 key={festival.id}
                 festival={festival}
                 categoryLabel={FESTIVAL_CATEGORY_LABELS[festival.category] ?? festival.category}
-                badge={
-                  festival.festivalStatus === 'CLOSED' ? (
-                    <Badge variant="secondary">{FESTIVAL_VISIBLE_STATUS_LABELS.CLOSED}</Badge>
-                  ) : undefined
-                }
               />
             ))}
           </div>

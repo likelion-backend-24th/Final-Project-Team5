@@ -27,6 +27,8 @@ public record FestivalResponseDto(
         //운영자 반려 사유(REJECTED일 때만 값이 있다)
         String rejectReason,
         LocalDateTime createdAt,
+        //누적 조회수(IP당 24시간 1회 집계). 홈 인기 정렬(sort=viewCount,desc)의 근거
+        Long viewCount,
         //주최자 닉네임(auth-service 조회). 운영자 심사 목록에서만 채워지고 그 외에는 null
         String hostNickname
 ) {
@@ -65,6 +67,7 @@ public record FestivalResponseDto(
                 ticketTypes.stream().map(TicketTypeResponseDto::from).toList(),
                 festival.getRejectReason(),
                 festival.getCreatedAt(),
+                festival.getViewCount() == null ? 0L : festival.getViewCount(),
                 host == null ? null : host.nickname()
         );
     }

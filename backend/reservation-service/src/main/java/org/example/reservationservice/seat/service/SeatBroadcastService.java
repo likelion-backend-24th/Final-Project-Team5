@@ -1,6 +1,7 @@
-package org.example.reservationservice.domain.seat;
+package org.example.reservationservice.seat.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.reservationservice.seat.entity.SeatStatus;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 

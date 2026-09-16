@@ -1,14 +1,17 @@
-package org.example.reservationservice.domain.seat;
+package org.example.reservationservice.seat.dto;
 
-public record SeatResponseDto(
+import org.example.reservationservice.seat.entity.SeatStatus;
+import org.example.reservationservice.seat.entity.Seat;
+
+public record SeatResponse(
         Long id,
         String zone,
         String rowLabel,
         int seatNumber,
         SeatStatus seatStatus
 ) {
-    public static SeatResponseDto from(Seat seat) {
-        return new SeatResponseDto(
+    public static SeatResponse from(Seat seat) {
+        return new SeatResponse(
                 seat.getId(),
                 seat.getZone(),
                 seat.getRowLabel(),

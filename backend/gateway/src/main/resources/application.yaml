@@ -71,6 +71,11 @@ spring:
               uri: ${FESTIVAL_SERVICE_URL:http://localhost:8082}
               predicates:
                 - Path=/api/store/booths/**
+            # AI 추천 챗봇 — PUBLIC_PATHS에 넣지 않아 로그인 필수(무료 티어 한도를 비로그인 트래픽으로부터 보호)
+            - id: chatbot
+              uri: ${FESTIVAL_SERVICE_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/chatbot/**
             - id: booth-waitlists
               uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
               predicates:

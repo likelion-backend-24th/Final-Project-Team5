@@ -45,3 +45,10 @@ internal:
 
 app:
   timezone: ${APP_TIMEZONE:Asia/Seoul}
+
+# AI 페스티벌 추천 챗봇(Google Gemini 무료 티어). 키는 .env의 GEMINI_API_KEY로만 주입하고 저장소에 두지 않는다.
+# 모델은 일일 한도가 넉넉한 flash-lite 계열로 고정한다(이전에 flash 모델로 RPD를 금방 넘긴 이력).
+gemini:
+  api-key: ${GEMINI_API_KEY:CHANGE_ME_IN_ENV}
+  model: ${GEMINI_MODEL:gemini-flash-lite-latest}
+  base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}

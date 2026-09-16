@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import ScrollToTop from './components/ScrollToTop'
+import ChatbotWidget from './components/ChatbotWidget'
 import SiteFooter from './components/SiteFooter'
 import SiteHeader from './components/SiteHeader'
 import { useAuth } from './context/AuthContext.jsx'
@@ -140,6 +141,8 @@ function App() {
         />
       </Routes>
       <SiteFooter />
+      {/* AI 추천 챗봇은 일반 회원 화면에만 — 도우미·초대·프로필 설정 분기에는 두지 않는다. */}
+      <ChatbotWidget />
     </>
   )
 }

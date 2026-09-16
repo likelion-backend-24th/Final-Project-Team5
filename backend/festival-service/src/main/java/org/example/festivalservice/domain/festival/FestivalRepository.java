@@ -49,6 +49,9 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
     //종료 배치 — 기간이 끝났는데 아직 PUBLISHED인 페스티벌을 찾는다
     List<Festival> findByFestivalStatusAndEndAtBefore(FestivalStatus festivalStatus, LocalDateTime now);
 
+    //AI 추천 후보 — 공개 중이고 아직 끝나지 않은 페스티벌
+    List<Festival> findByFestivalStatusAndEndAtAfter(FestivalStatus festivalStatus, LocalDateTime now);
+
     //좌석 생성 요청(reservation-service 호출)이 실패해 PUBLISH_PENDING에 머문 페스티벌 — 재시도 배치용
     //(HostApplicationRepository.findByStatusAndUpdatedAtBefore와 같은 패턴)
     List<Festival> findByFestivalStatusAndUpdatedAtBefore(FestivalStatus festivalStatus, LocalDateTime before);

@@ -14,4 +14,11 @@ public interface BoothWaitlistCounterRepository extends JpaRepository<BoothWaitl
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE BoothWaitlistCounter c SET c.nextNumber = c.nextNumber + 1 WHERE c.boothId = :boothId")
     int increment(@Param("boothId") Long boothId);
+
+    //다음 순번 호출 — calledNumber가 아직 발급된 마지막 번호(nextNumber)에 도달하지 않았을 때만 증가한다.
+    //대기자가 더 없으면(calledNumber == nextNumber) 0건 갱신되어 서비스 계층이 NO_WAITING_QUEUE로 처리한다.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE BoothWaitlistCounter c SET c.calledNumber = c.calledNumber + 1 " +
+            "WHERE c.boothId = :boothId AND c.calledNumber < c.nextNumber")
+    int callNext(@Param("boothId") Long boothId);
 }

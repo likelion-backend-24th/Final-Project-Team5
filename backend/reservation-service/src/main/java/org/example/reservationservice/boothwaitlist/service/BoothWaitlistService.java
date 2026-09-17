@@ -1,8 +1,13 @@
 package org.example.reservationservice.boothwaitlist.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.example.reservationservice.boothwaitlist.dto.BoothWaitlistQueueStatusResponseDto;
 import org.example.reservationservice.boothwaitlist.dto.BoothWaitlistResponseDto;
+import org.example.reservationservice.boothwaitlist.dto.MyActiveBoothWaitlistResponseDto;
 import org.example.reservationservice.boothwaitlist.entity.BoothWaitlist;
 import org.example.reservationservice.boothwaitlist.entity.BoothWaitlistCounter;
 import org.example.reservationservice.boothwaitlist.exception.BoothWaitlistErrorCode;
@@ -12,6 +17,7 @@ import org.example.reservationservice.common.exception.ApiException;
 import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.example.reservationservice.reservation.infrastructure.festival.FestivalServiceClient;
 import org.example.reservationservice.reservation.infrastructure.festival.dto.BoothDetailResponseDto;
+import org.example.reservationservice.reservation.infrastructure.festival.dto.StoreBoothOwnerResponseDto;
 import org.example.reservationservice.reservation.repository.ReservationRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +30,7 @@ import org.springframework.stereotype.Service;
 public class BoothWaitlistService {
 
     private static final String OPEN_STATUS = "OPEN";
+    private static final String STOREHOST_ROLE = "STOREHOST";
 
     //대기 신청 자격으로 인정할 예매 상태 — 입장 검증과 같은 기준. 부분 환불된 예매도 남은 장수만큼은
     //여전히 참가자이므로 포함한다.
@@ -68,6 +75,70 @@ public class BoothWaitlistService {
         BoothWaitlist waitlist = boothWaitlistRepository.findByBoothIdAndUserId(boothId, userId)
                 .orElseThrow(() -> new ApiException(BoothWaitlistErrorCode.WAITLIST_NOT_FOUND));
         return BoothWaitlistResponseDto.from(waitlist);
+    }
+
+    //챗봇 위젯이 폴링으로 "내 차례가 됐는지" 확인할 때 쓴다. 부스별로 흩어진 카운터를 한 번에 조회해 합친다.
+    public List<MyActiveBoothWaitlistResponseDto> getMyActiveWaitlists(Long userId) {
+        List<BoothWaitlist> myWaitlists = boothWaitlistRepository.findByUserId(userId);
+        if (myWaitlists.isEmpty()) {
+            return List.of();
+        }
+        List<Long> boothIds = myWaitlists.stream().map(BoothWaitlist::getBoothId).toList();
+        Map<Long, BoothWaitlistCounter> countersByBoothId = boothWaitlistCounterRepository.findAllById(boothIds)
+                .stream()
+                .collect(Collectors.toMap(BoothWaitlistCounter::getBoothId, Function.identity()));
+        return myWaitlists.stream()
+                .map(waitlist -> {
+                    int calledNumber = countersByBoothId.containsKey(waitlist.getBoothId())
+                            ? countersByBoothId.get(waitlist.getBoothId()).getCalledNumber() : 0;
+                    return MyActiveBoothWaitlistResponseDto.of(
+                            waitlist.getBoothId(), waitlist.getFestivalId(), waitlist.getQueueNumber(), calledNumber);
+                })
+                .toList();
+    }
+
+    //STOREHOST가 본인 부스의 대기열 현황(호출 번호·대기 인원)을 본다.
+    public BoothWaitlistQueueStatusResponseDto getQueueStatus(Long requesterId, String role, Long boothId) {
+        verifyBoothOwner(requesterId, role, boothId);
+        BoothWaitlistCounter counter = boothWaitlistCounterRepository.findById(boothId).orElse(null);
+        if (counter == null) {
+            return BoothWaitlistQueueStatusResponseDto.of(0, 0);
+        }
+        return BoothWaitlistQueueStatusResponseDto.of(counter.getCalledNumber(), counter.getNextNumber());
+    }
+
+    //STOREHOST가 다음 대기 순번을 호출한다. 대기자가 더 없으면(발급된 마지막 번호까지 이미 호출했으면) 거절한다.
+    @Transactional
+    public BoothWaitlistQueueStatusResponseDto callNext(Long requesterId, String role, Long boothId) {
+        verifyBoothOwner(requesterId, role, boothId);
+        ensureCounterExists(boothId);
+        int updated = boothWaitlistCounterRepository.callNext(boothId);
+        if (updated == 0) {
+            throw new ApiException(BoothWaitlistErrorCode.NO_WAITING_QUEUE);
+        }
+        BoothWaitlistCounter counter = boothWaitlistCounterRepository.findById(boothId)
+                .orElseThrow(() -> new IllegalStateException("방금 갱신한 카운터를 찾을 수 없습니다: boothId=" + boothId));
+        return BoothWaitlistQueueStatusResponseDto.of(counter.getCalledNumber(), counter.getNextNumber());
+    }
+
+    //본인이 개설한 부스인지 festival-service의 STOREHOST 전용 API로 확인한다(내부 메서드).
+    private void verifyBoothOwner(Long requesterId, String role, Long boothId) {
+        if (!STOREHOST_ROLE.equals(role)) {
+            throw new ApiException(BoothWaitlistErrorCode.FORBIDDEN_STOREHOST_ROLE);
+        }
+        StoreBoothOwnerResponseDto booth;
+        try {
+            booth = festivalServiceClient.getMyBooth(boothId, requesterId, role);
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new ApiException(BoothWaitlistErrorCode.BOOTH_NOT_FOUND);
+        } catch (HttpClientErrorException.Forbidden e) {
+            throw new ApiException(BoothWaitlistErrorCode.FORBIDDEN_NOT_OWNER);
+        } catch (RestClientException e) {
+            throw new ApiException(BoothWaitlistErrorCode.FESTIVAL_SERVICE_UNAVAILABLE);
+        }
+        if (booth == null || !requesterId.equals(booth.hostUserId())) {
+            throw new ApiException(BoothWaitlistErrorCode.FORBIDDEN_NOT_OWNER);
+        }
     }
 
     //다음 대기번호를 원자적으로 발급한다(내부 메서드).

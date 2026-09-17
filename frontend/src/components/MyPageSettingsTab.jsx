@@ -4,6 +4,8 @@ import { CircleAlertIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { updateNickname, updatePassword, withdrawAccount } from '../api/userApi'
 
+//백엔드 WithdrawAccountRequest.CONFIRMATION_PHRASE와 같은 값이어야 한다.
+const WITHDRAW_CONFIRMATION_PHRASE = '회원 탈퇴에 동의합니다'
 const cardClass = 'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8'
 const inputClass =
   'w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-[15px] text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20'
@@ -14,9 +16,9 @@ function MyPageSettingsTab({ user }) {
   const navigate = useNavigate()
   const { refreshUser, logout } = useAuth()
 
-  //카카오·구글 계정은 비밀번호가 없거나 소셜 로그인이 기준이라 백엔드가 변경을 거부한다. 폼 대신 안내만 보여준다.
   const socialProviders = user.socialProviders ?? []
-  const isSocialAccount = socialProviders.length > 0
+  //비밀번호가 없는(소셜로만 가입한) 계정만 비밀번호 변경을 막는다. 비밀번호 계정에 소셜을 연동한 경우는 둘 다 쓴다.
+  const isSocialAccount = socialProviders.length > 0 && !user.hasPassword
   const socialProviderLabel = socialProviders.map((p) => ({ KAKAO: '카카오', GOOGLE: '구글' })[p] ?? p).join('·')
 
   // 닉네임
@@ -35,7 +37,7 @@ function MyPageSettingsTab({ user }) {
   const [changingPassword, setChangingPassword] = useState(false)
 
   // 회원탈퇴
-  const [withdrawPassword, setWithdrawPassword] = useState('')
+  const [withdrawConfirmation, setWithdrawConfirmation] = useState('')
   const [withdrawError, setWithdrawError] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
 
@@ -100,8 +102,8 @@ function MyPageSettingsTab({ user }) {
 
   async function handleWithdrawSubmit(event) {
     event.preventDefault()
-    if (!withdrawPassword) {
-      setWithdrawError('비밀번호를 입력해주세요.')
+    if (withdrawConfirmation.trim() !== WITHDRAW_CONFIRMATION_PHRASE) {
+      setWithdrawError(`"${WITHDRAW_CONFIRMATION_PHRASE}"를 정확히 입력해주세요.`)
       return
     }
 
@@ -109,12 +111,12 @@ function MyPageSettingsTab({ user }) {
     setWithdrawError('')
 
     try {
-      await withdrawAccount(withdrawPassword)
+      await withdrawAccount(withdrawConfirmation.trim())
       logout()
       navigate('/')
     } catch (error) {
       setWithdrawError(
-        error.response?.data?.message ?? '회원 탈퇴에 실패했어요. 비밀번호를 확인해주세요.',
+        error.response?.data?.message ?? '회원 탈퇴에 실패했어요. 잠시 후 다시 시도해주세요.',
       )
     } finally {
       setWithdrawing(false)
@@ -235,19 +237,20 @@ function MyPageSettingsTab({ user }) {
       >
         <h2 className="text-lg font-extrabold text-red-700">회원탈퇴</h2>
         <p className="mt-1 text-sm leading-relaxed text-red-600/90">
-          탈퇴 시 예약 및 주최 정보가 모두 삭제되며 복구할 수 없습니다.
+          탈퇴하면 이 계정으로 다시 로그인할 수 없고 복구할 수 없어요. 아래 칸에 <span className="font-bold">{WITHDRAW_CONFIRMATION_PHRASE}</span>를 그대로 입력하면 탈퇴됩니다.
         </p>
         <div className="mt-5 space-y-2">
-          <label htmlFor="del-pw" className="block text-sm font-bold text-red-700">
-            비밀번호 확인
+          <label htmlFor="del-confirm" className="block text-sm font-bold text-red-700">
+            탈퇴 동의 문구 입력
           </label>
           <input
-            id="del-pw"
-            type="password"
-            placeholder="비밀번호를 입력하세요"
-            value={withdrawPassword}
+            id="del-confirm"
+            type="text"
+            autoComplete="off"
+            placeholder={WITHDRAW_CONFIRMATION_PHRASE}
+            value={withdrawConfirmation}
             onChange={(event) => {
-              setWithdrawPassword(event.target.value)
+              setWithdrawConfirmation(event.target.value)
               setWithdrawError('')
             }}
             className="w-full rounded-2xl border border-red-300 bg-white px-4 py-3 text-[15px] text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-500/20"

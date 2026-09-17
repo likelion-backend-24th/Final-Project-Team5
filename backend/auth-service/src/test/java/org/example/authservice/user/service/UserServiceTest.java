@@ -248,40 +248,57 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("정상적인 비밀번호로 탈퇴 요청하면 계정이 탈퇴 처리되고 세션이 무효화된다")
+    @DisplayName("동의 문구가 맞으면 탈퇴 처리되고 이메일·소셜 연결이 풀리며 세션이 무효화된다")
     void withdrawAccount_success() {
         // given
         User user = createActiveUser();
+        user.setId(1L);
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        given(passwordEncoder.matches("test1234", user.getPassword())).willReturn(true);
 
         // when
-        userService.withdrawAccount(1L, "test1234");
+        userService.withdrawAccount(1L, "회원 탈퇴에 동의합니다");
 
         // then
         assertThat(user.getStatus()).isEqualTo(AccountStatus.WITHDRAWN);
         assertThat(user.getWithdrawnAt()).isNotNull();
         assertThat(user.getName()).isEqualTo("탈퇴한 사용자");
-        assertThat(user.getNickname()).isEqualTo("탈퇴한사용자_null"); // id가 mock이라 null일 수 있음, 아래 참고
+        assertThat(user.getNickname()).isEqualTo("탈퇴한사용자_1");
+        //같은 이메일·같은 소셜 계정으로 다시 가입할 수 있어야 한다
+        assertThat(user.getUsername()).isEqualTo("withdrawn_1@withdrawn.local");
+        assertThat(user.getPassword()).isNull();
+        verify(oauthAccountRepository, times(1)).deleteAllByUser_Id(1L);
         verify(userRepository, times(1)).save(user);
         verify(refreshTokenRevocationService, times(1)).revokeAllTokens(user);
+        verify(passwordEncoder, never()).matches(any(), any());
     }
 
     @Test
-    @DisplayName("비밀번호가 틀리면 INVALID_CURRENT_PASSWORD 예외가 발생한다")
-    void withdrawAccount_fail_invalidPassword() {
+    @DisplayName("동의 문구 앞뒤 공백은 허용한다")
+    void withdrawAccount_success_trimsConfirmation() {
         // given
         User user = createActiveUser();
+        user.setId(1L);
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        given(passwordEncoder.matches("wrongpassword", user.getPassword())).willReturn(false);
 
+        // when
+        userService.withdrawAccount(1L, "  회원 탈퇴에 동의합니다 ");
+
+        // then
+        assertThat(user.getStatus()).isEqualTo(AccountStatus.WITHDRAWN);
+    }
+
+    @Test
+    @DisplayName("동의 문구가 다르면 WITHDRAW_CONFIRMATION_MISMATCH 예외가 발생하고 계정은 바뀌지 않는다")
+    void withdrawAccount_fail_confirmationMismatch() {
         // when & then
-        assertThatThrownBy(() -> userService.withdrawAccount(1L, "wrongpassword"))
+        assertThatThrownBy(() -> userService.withdrawAccount(1L, "탈퇴합니다"))
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
-                        .isEqualTo(UserErrorCode.INVALID_CURRENT_PASSWORD));
+                        .isEqualTo(UserErrorCode.WITHDRAW_CONFIRMATION_MISMATCH));
 
+        verify(userRepository, never()).findById(any());
         verify(userRepository, never()).save(any());
+        verify(oauthAccountRepository, never()).deleteAllByUser_Id(any());
         verify(refreshTokenRevocationService, never()).revokeAllTokens(any());
     }
 
@@ -292,26 +309,10 @@ class UserServiceTest {
         given(userRepository.findById(999L)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> userService.withdrawAccount(999L, "aaa"))
+        assertThatThrownBy(() -> userService.withdrawAccount(999L, "회원 탈퇴에 동의합니다"))
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(UserErrorCode.USER_NOT_FOUND));
-    }
-
-    @Test
-    @DisplayName("password가 null인 유저(OAuth 등)는 비밀번호 검증을 건너뛰고 탈퇴가 진행된다")
-    void withdrawAccount_withNullPassword_skipsPasswordCheck() {
-        // given
-        User user = createActiveUser();
-        user.setPassword(null); // OAuth 가입 등으로 비밀번호가 없는 케이스 가정
-        given(userRepository.findById(1L)).willReturn(Optional.of(user));
-
-        // when
-        userService.withdrawAccount(1L, "anything");
-
-        // then
-        assertThat(user.getStatus()).isEqualTo(AccountStatus.WITHDRAWN);
-        verify(passwordEncoder, never()).matches(any(), any());
     }
 
     @Test
@@ -333,22 +334,20 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("구글 계정이 연결된 회원은 비밀번호가 있어도 비밀번호를 변경할 수 없다")
-    void updatePassword_fail_googleLinkedUser() {
+    @DisplayName("비밀번호 계정에 구글을 연동한 회원은 두 방식 모두 쓰므로 비밀번호를 계속 변경할 수 있다")
+    void updatePassword_success_googleLinkedUserWithPassword() {
         // given
         User user = createActiveUser();
         given(userRepository.findById(1L)).willReturn(Optional.of(user));
-        OauthAccount google = new OauthAccount();
-        google.setProvider("GOOGLE");
-        given(oauthAccountRepository.findAllByUser_Id(1L)).willReturn(List.of(google));
+        given(passwordEncoder.matches("test1234", user.getPassword())).willReturn(true);
+        given(passwordEncoder.encode("newpassword1234")).willReturn("encoded-new-password");
 
-        // when & then
-        assertThatThrownBy(() -> userService.updatePassword(1L, "test1234", "newpassword1234", "newpassword1234"))
-                .isInstanceOf(ApiException.class)
-                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
-                        .isEqualTo(UserErrorCode.SOCIAL_USER_CANNOT_CHANGE_PASSWORD));
+        // when
+        userService.updatePassword(1L, "test1234", "newpassword1234", "newpassword1234");
 
-        verify(userRepository, never()).save(any());
+        // then
+        assertThat(user.getPassword()).isEqualTo("encoded-new-password");
+        verify(refreshTokenRevocationService, times(1)).revokeAllTokens(user);
     }
 
     @Test

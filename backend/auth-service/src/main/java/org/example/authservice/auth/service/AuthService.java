@@ -110,7 +110,7 @@ public class AuthService {
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())){
             throw new ApiException(AuthErrorCode.ACCOUNT_LOCKED);
         }
-        //소셜 로그인 전용으로 전환된(또는 소셜로만 가입된) 계정은 비밀번호 자체가 없다. matches()에 null을
+        //소셜로만 가입한 계정은 비밀번호 자체가 없다. matches()에 null을
         //넘기면 예외가 나므로 여기서 먼저 걸러, 실패 횟수도 늘리지 않고 소셜 로그인으로 안내한다.
         if (user.getPassword() == null) {
             throw new ApiException(AuthErrorCode.SOCIAL_LOGIN_REQUIRED);
@@ -140,7 +140,7 @@ public class AuthService {
         return issueTokenResponse(user);
     }
 
-    // 로그인/카카오·구글 로그인/소셜 전환 확인이 공통으로 쓰는 토큰 발급 + RefreshToken 저장.
+    // 로그인/카카오·구글 로그인/소셜 연동 확인이 공통으로 쓰는 토큰 발급 + RefreshToken 저장.
     private TokenResponse issueTokenResponse(User user) {
         return tokenSessionService.issue(user);
     }
@@ -346,7 +346,7 @@ public class AuthService {
         oauthAccountRepository.save(oauthAccount);
     }
 
-    // googleLogin()의 결과. 정상 로그인이면 tokenResponse가, 기존 비밀번호 계정과 이메일이 같아 전환
+    // googleLogin()의 결과. 정상 로그인이면 tokenResponse가, 기존 비밀번호 계정과 이메일이 같아 연동
     // 동의가 필요하면 pendingLinkToken/pendingEmail이 채워진다(둘 중 하나만 채워진다).
     public record GoogleLoginResult(TokenResponse tokenResponse, String pendingLinkToken, String pendingEmail) {
         public boolean needsLinkConfirmation() {
@@ -377,7 +377,7 @@ public class AuthService {
 
         Optional<User> existingUser = userRepository.findByUsername(googleUserInfo.getEmail());
 
-        //이미 아이디/비밀번호로 쓰던 이메일이면 조용히 연동하지 않고, 소셜 로그인 전환에 동의를 받는다.
+        //이미 아이디/비밀번호로 쓰던 이메일이면 조용히 연동하지 않고, 기존 계정과 연동할지 동의를 받는다.
         if (existingUser.isPresent() && existingUser.get().getPassword() != null) {
             checkAccountActive(existingUser.get());
             String pendingLinkToken = jwtTokenProvider.generateOauthLinkToken(
@@ -392,7 +392,8 @@ public class AuthService {
         return new GoogleLoginResult(issueTokenResponse(user), null, null);
     }
 
-    // 소셜 로그인 전환 동의 — 기존 비밀번호를 지우고(더 이상 기억하지 않음) 소셜 계정을 연결해 로그인까지 완료한다.
+    // 기존 계정 연동 동의 — 비밀번호는 그대로 두고 소셜 계정만 연결한 뒤 로그인까지 완료한다.
+    // 이후로는 비밀번호 로그인과 소셜 로그인 어느 쪽으로도 같은 계정에 들어갈 수 있다.
     @Transactional
     public TokenResponse confirmOauthLink(String pendingLinkToken) {
         Claims claims;
@@ -415,11 +416,6 @@ public class AuthService {
         }
 
         checkAccountActive(user);
-
-        //비밀번호는 더 이상 기억하지 않고, 앞으로는 소셜 로그인만 쓸 수 있게 전환한다.
-        user.setPassword(null);
-        userRepository.save(user);
-        refreshTokenRevocationService.revokeAllTokens(user); //기존 비밀번호 기반 세션은 모두 무효화
 
         linkOauthAccount(user, provider, providerId);
 

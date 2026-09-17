@@ -5,6 +5,7 @@ import org.example.reservationservice.seat.repository.SeatRepository;
 import org.example.reservationservice.seat.dto.SeatResponse;
 import org.example.reservationservice.seat.entity.SeatStatus;
 import org.example.reservationservice.seat.dto.SeatGenerationRequest;
+import org.example.reservationservice.seat.dto.SeatLayout;
 import org.example.reservationservice.seat.entity.Seat;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,7 +19,8 @@ public class SeatGenerationService {
 
     private final SeatRepository seatRepository;
 
-    //festival-service가 페스티벌 승인 시 호출한다. rows × seatsPerRow개의 좌석을 벌크 생성한다.
+    //festival-service가 페스티벌 승인 시 호출한다. seatLayout의 행별 정의(seatCount, excludedSeats)를 따라
+    //실제 좌석을 벌크 생성한다. 결번(excludedSeats)에 해당하는 번호는 좌석을 만들지 않는다.
     //같은 ticketTypeId로 이미 좌석이 생성돼 있으면 재생성하지 않고 멱등하게 넘어간다
     //(FestivalPublishRetryScheduler가 재시도할 때 중복 생성되지 않도록).
     @Transactional
@@ -28,14 +30,20 @@ public class SeatGenerationService {
         }
 
         List<Seat> seats = new ArrayList<>();
-        for (int row = 1; row <= request.rows(); row++) {
-            for (int number = 1; number <= request.seatsPerRow(); number++) {
+        List<SeatLayout.RowLayout> rows = request.seatLayout().rows();
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            SeatLayout.RowLayout row = rows.get(rowIndex);
+            String rowLabel = (rowIndex + 1) + "열";
+            for (int seatNumber = 1; seatNumber <= row.seatCount(); seatNumber++) {
+                if (row.excludedSeats().contains(seatNumber)) {
+                    continue;
+                }
                 seats.add(Seat.builder()
                         .festivalId(request.festivalId())
                         .ticketTypeId(request.ticketTypeId())
                         .zone(request.zone())
-                        .rowLabel(row + "열")
-                        .seatNumber(number)
+                        .rowLabel(rowLabel)
+                        .seatNumber(seatNumber)
                         .seatStatus(SeatStatus.AVAILABLE)
                         .build());
             }

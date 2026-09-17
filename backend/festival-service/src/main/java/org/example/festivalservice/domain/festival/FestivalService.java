@@ -145,6 +145,11 @@ public class FestivalService {
 
     //dto로 TicketType으로 생성(내부 메서드)
     private TicketType toTicketType(Festival festival, TicketTypeRequestDto request) {
+        //SEATED는 seatLayout에서 실제 생성될 좌석 수를 계산, STANDING은 요청받은 quantity를 그대로 쓴다.
+        int quantity = request.ticketMode() == TicketMode.SEATED
+                ? request.seatLayout().totalSeatCount()
+                : request.quantity();
+
         return TicketType.builder()
                 .festival(festival)
                 .name(request.name())
@@ -152,33 +157,45 @@ public class FestivalService {
                 .price(request.price())
                 .ticketMode(request.ticketMode())
                 .zone(request.zone())
-                .rows(request.rows())
-                .seatsPerRow(request.seatsPerRow())
-                .totalQuantity(request.quantity())
-                .remainQuantity(request.quantity())
+                .seatLayout(request.seatLayout())
+                .positionRow(request.positionRow())
+                .positionCol(request.positionCol())
+                .positionAngle(request.positionAngle())
+                .totalQuantity(quantity)
+                .remainQuantity(quantity)
                 .saleStartAt(request.saleStartAt())
                 .saleEndAt(request.saleEndAt())
                 .ticketDate(request.ticketDate())
                 .build();
     }
 
-    //SEATED면 zone/rows/seatsPerRow가 다 채워져 있고, rows*seatsPerRow가 quantity와 정확히 맞아야 한다.
-//STANDING은 이 필드들을 검증하지 않는다(null이어도 정상).
+    //SEATED면 zone·seatLayout이 채워져 있고 각 행의 seatCount>0, excludedSeats가 그 행의 범위(1~seatCount) 안이어야 한다.
+    //STANDING은 이 필드들을 검증하지 않는 대신 quantity가 채워져 있어야 한다.
     private void validateTicketTypeLayout(TicketTypeRequestDto request) {
         if (request.ticketMode() == TicketMode.SEATED) {
-            boolean invalid = request.zone() == null || request.zone().isBlank()
-                    || request.rows() == null || request.rows() <= 0
-                    || request.seatsPerRow() == null || request.seatsPerRow() <= 0
-                    || request.rows() * request.seatsPerRow() != request.quantity();
-            if (invalid) {
+            if (request.zone() == null || request.zone().isBlank() || request.seatLayout() == null
+                    || request.seatLayout().rows() == null || request.seatLayout().rows().isEmpty()) {
+                throw new ApiException(FestivalErrorCode.INVALID_SEAT_LAYOUT);
+            }
+            boolean invalidRow = request.seatLayout().rows().stream().anyMatch(row ->
+                    row.seatCount() <= 0
+                            || row.excludedSeats().stream().anyMatch(seatNumber -> seatNumber < 1 || seatNumber > row.seatCount()));
+            if (invalidRow) {
+                throw new ApiException(FestivalErrorCode.INVALID_SEAT_LAYOUT);
+            }
+            //STANDING 전용 필드가 SEATED에 섞여 들어오면 데이터 혼란을 막기 위해 거부한다.
+            if (request.quantity() != null) {
                 throw new ApiException(FestivalErrorCode.INVALID_SEAT_LAYOUT);
             }
             return;
         }
 
         //STANDING인데 좌석 필드가 섞여 들어오면 데이터 혼란을 막기 위해 거부한다.
-        boolean hasSeatFields = request.zone() != null || request.rows() != null || request.seatsPerRow() != null;
+        boolean hasSeatFields = request.zone() != null || request.seatLayout() != null;
         if (hasSeatFields) {
+            throw new ApiException(FestivalErrorCode.INVALID_SEAT_LAYOUT);
+        }
+        if (request.quantity() == null || request.quantity() <= 0) {
             throw new ApiException(FestivalErrorCode.INVALID_SEAT_LAYOUT);
         }
     }
@@ -288,8 +305,7 @@ public class FestivalService {
                     festival.getId(),
                     ticketType.getId(),
                     ticketType.getZone(),
-                    ticketType.getRows(),
-                    ticketType.getSeatsPerRow()
+                    ticketType.getSeatLayout()
             ));
         }
     }

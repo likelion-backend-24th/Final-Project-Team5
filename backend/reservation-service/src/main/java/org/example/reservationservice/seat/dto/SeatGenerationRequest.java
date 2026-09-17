@@ -1,8 +1,8 @@
 package org.example.reservationservice.seat.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 
 /**
  * Festival-Service → Reservation-Service: POST /internal/v1/seats 요청 바디.
@@ -12,7 +12,6 @@ public record SeatGenerationRequest(
         @NotNull Long festivalId,
         @NotNull Long ticketTypeId,
         @NotBlank String zone,
-        @NotNull @Positive Integer rows,
-        @NotNull @Positive Integer seatsPerRow
+        @NotNull @Valid SeatLayout seatLayout
 ) {
 }

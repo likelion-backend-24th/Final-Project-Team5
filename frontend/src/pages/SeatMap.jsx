@@ -15,25 +15,45 @@ function toWebSocketUrl(baseUrl) {
 }
 
 //zone → rowLabel → seatNumber 순으로 그룹핑해 그리드 렌더링용 구조로 바꾼다.
-function groupSeatsByZone(seats) {
+//seatLayout이 있으면 통로(결번) 번호도 빈 칸(placeholder)으로 채워서, 한 행 안에서 좌석 번호가
+//띄엄띄엄 나오는 이유(1,2,3,4,7,8,9,10 — 5,6 결번 같은)가 시각적으로 드러나게 한다.
+//SeatGenerationService가 rowLabel을 "(행 순서)열"로 생성하므로, seatLayout.rows의 같은 순서 행과 매칭된다.
+function groupSeatsByZone(seats, seatLayout) {
   const zoneMap = new Map()
   for (const seat of seats) {
     if (!zoneMap.has(seat.zone)) zoneMap.set(seat.zone, new Map())
     const rowMap = zoneMap.get(seat.zone)
-    if (!rowMap.has(seat.rowLabel)) rowMap.set(seat.rowLabel, [])
-    rowMap.get(seat.rowLabel).push(seat)
+    if (!rowMap.has(seat.rowLabel)) rowMap.set(seat.rowLabel, new Map())
+    rowMap.get(seat.rowLabel).set(seat.seatNumber, seat)
   }
 
   return Array.from(zoneMap.entries())
     .sort(([a], [b]) => a.localeCompare(b, 'ko', { numeric: true }))
     .map(([zone, rowMap]) => ({
       zone,
-      rows: Array.from(rowMap.entries())
-        .sort(([a], [b]) => a.localeCompare(b, 'ko', { numeric: true }))
-        .map(([rowLabel, rowSeats]) => ({
-          rowLabel,
-          seats: [...rowSeats].sort((a, b) => a.seatNumber - b.seatNumber),
-        })),
+      rows: seatLayout
+        ? seatLayout.rows.map((rowLayout, index) => {
+            const rowLabel = `${index + 1}열`
+            const seatsByNumber = rowMap.get(rowLabel) ?? new Map()
+            const cells = []
+            for (let seatNumber = 1; seatNumber <= rowLayout.seatCount; seatNumber++) {
+              if (rowLayout.excludedSeats.includes(seatNumber)) {
+                cells.push({ placeholder: true, key: `${rowLabel}-${seatNumber}` })
+              } else {
+                const seat = seatsByNumber.get(seatNumber)
+                cells.push(seat ? { placeholder: false, seat } : { placeholder: true, key: `${rowLabel}-${seatNumber}` })
+              }
+            }
+            return { rowLabel, cells }
+          })
+        : Array.from(rowMap.entries())
+            .sort(([a], [b]) => a.localeCompare(b, 'ko', { numeric: true }))
+            .map(([rowLabel, seatsByNumber]) => ({
+              rowLabel,
+              cells: Array.from(seatsByNumber.values())
+                .sort((a, b) => a.seatNumber - b.seatNumber)
+                .map((seat) => ({ placeholder: false, seat })),
+            })),
     }))
 }
 
@@ -113,7 +133,7 @@ function SeatMap() {
   }, [festivalId, ticketTypeId])
 
   const ticketType = festival?.ticketTypes.find((t) => t.id === ticketTypeId)
-  const zones = useMemo(() => groupSeatsByZone(seats), [seats])
+  const zones = useMemo(() => groupSeatsByZone(seats, ticketType?.seatLayout), [seats, ticketType])
   const totalAmount = ticketType ? ticketType.price * selectedSeatIds.length : 0
 
   function toggleSeat(seat) {
@@ -213,11 +233,15 @@ function SeatMap() {
               <section key={zone} className={styles.zone}>
                 <h2 className={styles.zoneTitle}>{zone}</h2>
                 <div className={styles.rowList}>
-                  {rows.map(({ rowLabel, seats: rowSeats }) => (
+                  {rows.map(({ rowLabel, cells }) => (
                     <div key={rowLabel} className={styles.row}>
                       <span className={styles.rowLabel}>{rowLabel}</span>
                       <div className={styles.seatList}>
-                        {rowSeats.map((seat) => {
+                        {cells.map((cell) => {
+                          if (cell.placeholder) {
+                            return <span key={cell.key} className={styles.seatPlaceholder} aria-hidden="true" />
+                          }
+                          const seat = cell.seat
                           const selected = selectedSeatIds.includes(seat.id)
                           const statusClass =
                             seat.seatStatus !== 'AVAILABLE'

@@ -1,0 +1,396 @@
+.main {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 40px var(--layout-gutter) 80px;
+  background-color: var(--bgColor-muted);
+}
+
+.page {
+  width: 100%;
+  max-width: 960px;
+  height: fit-content;
+  padding: 32px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: 22px;
+  background-color: var(--bgColor-default);
+  box-shadow: var(--shadow-resting-small);
+}
+
+.card {
+  width: 100%;
+  max-width: 720px;
+  height: fit-content;
+  padding: 32px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: 22px;
+  background-color: var(--bgColor-default);
+  box-shadow: var(--shadow-resting-small);
+}
+
+.loading {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--fgColor-muted);
+  font-size: 14px;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fgColor-default);
+}
+
+.subtitle {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--fgColor-muted);
+}
+
+.noticeBanner {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-neutral-muted);
+  color: var(--fgColor-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sectionHeading {
+  margin-top: 28px;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--fgColor-default);
+}
+
+.emptyZones {
+  margin-top: 20px;
+  font-size: 14px;
+  color: var(--fgColor-muted);
+}
+
+/* ── 구역 카드 (공통) ───────────────────────────────────────────── */
+
+.zoneCard {
+  padding: 16px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-default);
+  text-align: center;
+  transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+}
+
+.zoneCard[role='button'] {
+  cursor: pointer;
+}
+
+.zoneCard[role='button']:hover,
+.zoneCard[role='button']:focus-visible {
+  border-color: var(--borderColor-accent-emphasis);
+  box-shadow: var(--shadow-resting-medium);
+}
+
+.zoneCardSoldOut {
+  opacity: 0.55;
+}
+
+.zoneName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fgColor-default);
+}
+
+.zoneDescription {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--fgColor-muted);
+}
+
+.zoneStock {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--fgColor-muted);
+}
+
+.zonePrice {
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--fgColor-accent);
+}
+
+.standingActions {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.qtyInput {
+  width: 56px;
+  height: 36px;
+  padding: 0 8px;
+  text-align: center;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-default);
+  font: inherit;
+  font-size: 14px;
+}
+
+.standingReserveButton {
+  flex: 1;
+  height: 36px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter var(--duration-fast) ease;
+}
+
+.standingReserveButton:hover {
+  filter: brightness(0.92);
+}
+
+/* ── 전면형(FRONT_STAGE) ───────────────────────────────────────── */
+
+.frontStageWrap {
+  margin-top: 4px;
+}
+
+/* STAGE 바는 구역 리스트와 별개 요소지만, 같은 부모(.frontStageWrap) 아래 나란히 width:100%를
+   쓰기 때문에 폭이 자연히 구역 리스트 전체 폭과 맞는다 — 그리드/개수 계산이 전혀 필요 없다. */
+.stageBarFront {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+/* 한 줄(.flexRow)마다 별도의 flex 컨테이너라, 그 줄에 카드가 몇 개(1~3) 있든 flex:1인 자식들이
+   그 줄 폭을 항상 균등하게 나눠 채운다 — 마지막 줄에 카드가 하나만 남아도 폭이 그대로 100%가 된다. */
+.frontZoneList {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.frontZoneList .flexRow .zoneCard {
+  height: 116px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 중앙형(CENTER_STAGE) ─────────────────────────────────────── */
+
+.centerStageWrap {
+  margin-top: 4px;
+}
+
+/* svg(도넛 조각)와 라벨 레이어가 이 박스 위에 position:absolute; inset:0으로 완전히 포개진다 —
+   퍼센트 기반이라 반응형으로 축소돼도 두 레이어가 항상 같은 비율로 맞는다. */
+.donutWrap {
+  position: relative;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  aspect-ratio: 1 / 1;
+}
+
+.donutSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.donutSlice {
+  fill: var(--bgColor-default);
+  stroke: var(--borderColor-default);
+  stroke-width: 2;
+  transition: fill var(--duration-fast) ease, stroke var(--duration-fast) ease;
+}
+
+.donutSlice[role='button'] {
+  cursor: pointer;
+}
+
+.donutSlice[role='button']:hover,
+.donutSlice[role='button']:focus-visible {
+  fill: var(--bgColor-accent-muted);
+  stroke: var(--borderColor-accent-emphasis);
+  outline: none;
+}
+
+.donutSliceSoldOut {
+  fill: var(--bgColor-muted);
+  stroke: var(--borderColor-muted);
+}
+
+.donutLabelLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.donutLabel {
+  position: absolute;
+  width: 120px;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.donutLabelMuted {
+  opacity: 0.55;
+}
+
+.stageBarCenter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 41.6667%;
+  height: 41.6667%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: var(--borderRadius-full);
+  background-color: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.stageBarCenterSub {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.centerStageList {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .donutWrap {
+    display: none;
+  }
+
+  .centerStageList {
+    display: flex;
+  }
+}
+
+/* ── 스탠딩 구역 ───────────────────────────────────────────────── */
+
+.standingSection {
+  margin-top: 8px;
+}
+
+/* SEATED 그리드(.frontZoneList)와 같은 방식 — 줄(.flexRow)마다 별도 flex 컨테이너라
+   한 줄에 카드가 몇 개(1~3) 있든 그 줄 폭을 항상 균등하게 나눠 채운다. */
+.standingList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 여러 컨텍스트(전면형 SEATED 그리드, 스탠딩 리스트)가 공유하는 한 줄(row) 컨테이너 —
+   자식에게 준 flex:1이 이 컨테이너의 폭을 균등하게 나눠 채운다. */
+.flexRow {
+  display: flex;
+  gap: 14px;
+}
+
+/* ── 안내 상태 (비로그인/에러) ─────────────────────────────────── */
+
+.infoState {
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.infoIconMuted {
+  color: var(--fgColor-muted);
+  margin-bottom: 8px;
+}
+
+.infoTitle {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--fgColor-default);
+}
+
+.infoDescription {
+  font-size: 14px;
+  color: var(--fgColor-muted);
+  line-height: 1.6;
+}
+
+.infoLink {
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fgColor-accent);
+}
+
+.infoLink:hover {
+  text-decoration: underline;
+}
+
+.infoButton {
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 16px;
+  background-color: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.infoButton:hover {
+  filter: brightness(0.92);
+}
+
+@media (max-width: 560px) {
+  .main {
+    padding: 24px var(--layout-gutter) 56px;
+  }
+
+  .page,
+  .card {
+    padding: 24px 20px;
+  }
+}

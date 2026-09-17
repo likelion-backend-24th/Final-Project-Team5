@@ -160,6 +160,13 @@
   cursor: not-allowed;
 }
 
+/* 통로(결번) 자리 — 좌석 번호가 띄엄띄엄 나오는 이유가 보이도록 빈 칸으로 비워둔다. */
+.seatPlaceholder {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
 .seatSample.available {
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   background-color: var(--bgColor-default);

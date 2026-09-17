@@ -20,10 +20,8 @@ import {
   toAbsoluteImageUrl,
 } from '../api/festivalApi'
 import { fetchMyBooths } from '../api/boothApi'
-import { fetchMyReservations } from '../api/reservationApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
-import { MAX_QUANTITY_PER_TICKET_TYPE } from '../constants'
 import BoothListModal from '../components/BoothListModal'
 import BoothCreateModal from '../components/BoothCreateModal'
 import styles from './FestivalDetail.module.css'
@@ -53,12 +51,6 @@ const NOTICE_SECTIONS = [
 
 const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
-function formatDateTime(value) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-}
-
 //"2026.07.18 (토)"처럼 짧게 보여준다 — 상세 페이지 상단 정보 카드용.
 function formatDateShort(value) {
   const date = new Date(value)
@@ -74,14 +66,6 @@ function formatDateRangeShort(startAt, endAt) {
   const end = formatDateShort(endAt)
   if (!start || !end) return ''
   return start === end ? start : `${start} ~ ${end}`
-}
-
-//LocalDate("YYYY-MM-DD") 문자열을 "8월 15일"처럼 보여준다 — 이틀 이상 지속되는 페스티벌의 날짜별 티켓 표시용.
-function formatDayLabel(value) {
-  if (!value) return ''
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
 }
 
 //LocalTime("HH:mm:ss") 문자열을 "18:00"처럼 앞 5자만 보여준다.
@@ -115,14 +99,6 @@ function operatingTimeText(festival) {
   return `매일 ${formatTime(festival.operatingStartTime)}${end}`
 }
 
-//현재 시각이 티켓 판매 기간 밖인지 — 신청 전에 미리 안내해 클릭 후 에러를 받는 일을 줄인다.
-function saleStatus(ticketType) {
-  const now = Date.now()
-  if (ticketType.saleStartAt && now < new Date(ticketType.saleStartAt).getTime()) return 'notStarted'
-  if (ticketType.saleEndAt && now > new Date(ticketType.saleEndAt).getTime()) return 'ended'
-  return 'open'
-}
-
 /** GET /api/festivals/{id} 기준 페스티벌 상세 페이지. */
 function FestivalDetail() {
   const { id } = useParams()
@@ -136,7 +112,6 @@ function FestivalDetail() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [loadError, setLoadError] = useState('')
-  const [quantities, setQuantities] = useState({})
   //유의사항 아코디언 — 한 번에 하나만 펼쳐지고, 처음엔 첫 항목이 펼쳐져 있다.
   const [openNoticeIndex, setOpenNoticeIndex] = useState(0)
   const [showBoothModal, setShowBoothModal] = useState(false)
@@ -145,51 +120,12 @@ function FestivalDetail() {
   const [myBoothLoading, setMyBoothLoading] = useState(false)
   const [showBoothCreateModal, setShowBoothCreateModal] = useState(false)
 
-  function handleQuantityChange(ticketType, value) {
-    const max = Math.min(ticketType.remainQuantity, MAX_QUANTITY_PER_TICKET_TYPE)
-    const next = Math.min(Math.max(1, Number(value) || 1), max)
-    setQuantities((prev) => ({ ...prev, [ticketType.id]: next }))
-  }
-
-  async function handleReserve(ticketType) {
+  function handleReserveClick() {
     if (!user) {
       navigate('/login')
       return
     }
-
-    if (ticketType.ticketMode === 'SEATED') {
-      navigate(`/festivals/${id}/seats?ticketTypeId=${ticketType.id}`)
-      return
-    }
-
-    const quantity = quantities[ticketType.id] ?? 1
-
-    // 이미 결제 대기 중인 예매가 있으면 새로 만들지 않고 그 결제로 이어갈 수 있게 안내한다
-    // (안 그러면 재고가 중복으로 묶이고 결제대기 건도 계속 쌓인다).
-    try {
-      const { data } = await fetchMyReservations()
-      // 다른 페스티벌의 결제대기 건까지 여기서 붙잡으면(동시에 여러 페스티벌 예매를 원하는 게
-      // 자연스러운 경우도 있어) 오히려 불편하다 — 지금 보고 있는 이 페스티벌과 같을 때만 안내한다.
-      const pending = data.data.find(
-        (r) =>
-          r.reservationStatus === 'PENDING' &&
-          new Date(r.expiresAt).getTime() > Date.now() &&
-          String(r.festivalId) === String(id),
-      )
-      if (pending) {
-        const goToPending = window.confirm('결제 진행중인 예매 건이 있습니다. 이동할까요?')
-        if (goToPending) {
-          navigate(
-            `/festivals/${pending.festivalId}/reserve?ticketTypeId=${pending.ticketTypeId}&quantity=${pending.quantity}&reservationId=${pending.id}`,
-          )
-          return
-        }
-      }
-    } catch {
-      // 조회 실패는 이 안내 기능만 건너뛰고 평소처럼 새 예매를 진행한다.
-    }
-
-    navigate(`/festivals/${id}/reserve?ticketTypeId=${ticketType.id}&quantity=${quantity}`)
+    navigate(`/festivals/${id}/zones`)
   }
 
   useEffect(() => {
@@ -448,75 +384,22 @@ function FestivalDetail() {
 
         </div>
 
-        {/* 정보는 왼쪽, 티켓은 오른쪽 sticky 패널 — 화면이 좁으면 아래로 내려간다. */}
+        {/* 정보는 왼쪽, 예매 버튼은 오른쪽 sticky 패널 — 화면이 좁으면 아래로 내려간다. */}
         <aside className={styles.ticketPanel}>
         <section className={styles.ticketSection}>
           <h2 className={styles.sectionTitle}>
             <TicketIcon size={18} aria-hidden="true" />
-            티켓 종류
+            예매
           </h2>
-
-          {festival.ticketTypes.length === 0 ? (
-            <p className={styles.emptyTickets}>등록된 티켓이 없어요.</p>
-          ) : (
-            <ul className={styles.ticketList}>
-              {festival.ticketTypes.map((ticketType) => {
-                const closed = festival.festivalStatus !== 'PUBLISHED'
-                const soldOut = ticketType.remainQuantity <= 0
-                const sale = saleStatus(ticketType)
-                const canReserve = !soldOut && !closed && !isHelper && sale === 'open'
-                const quantity = quantities[ticketType.id] ?? 1
-                const maxQuantity = Math.min(ticketType.remainQuantity, MAX_QUANTITY_PER_TICKET_TYPE)
-                return (
-                  <li key={ticketType.id} className={styles.ticketCard}>
-                    <div>
-                      <p className={styles.ticketName}>
-                        {ticketType.name}
-                        {ticketType.ticketDate && ` · ${formatDayLabel(ticketType.ticketDate)}`}
-                      </p>
-                      {ticketType.description && <p className={styles.ticketStock}>{ticketType.description}</p>}
-                      <p className={styles.ticketStock}>
-                        {soldOut
-                          ? '매진'
-                          : sale === 'notStarted'
-                            ? `${formatDateTime(ticketType.saleStartAt)}부터 판매`
-                            : sale === 'ended'
-                              ? '판매 종료'
-                              : `잔여 ${ticketType.remainQuantity} / ${ticketType.totalQuantity}`}
-                      </p>
-                    </div>
-                    <div className={styles.ticketActions}>
-                      <p className={styles.ticketPrice}>
-                        {ticketType.price <= 0 ? '무료' : `${ticketType.price.toLocaleString()}원`}
-                      </p>
-                      {canReserve && (
-                        <>
-                          {ticketType.ticketMode !== 'SEATED' && (
-                            <input
-                              type="number"
-                              min={1}
-                              max={maxQuantity}
-                              value={quantity}
-                              onChange={(event) => handleQuantityChange(ticketType, event.target.value)}
-                              className={styles.qtyInput}
-                              aria-label={`${ticketType.name} 수량`}
-                            />
-                          )}
-                          <button
-                            type="button"
-                            className={styles.reserveButton}
-                            onClick={() => handleReserve(ticketType)}
-                          >
-                            {ticketType.ticketMode === 'SEATED' ? '좌석 선택하기' : '예매하기'}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+          <p className={styles.ticketStock}>가격 {formatPriceRange(festival.ticketTypes)}</p>
+          <button
+            type="button"
+            className={styles.reserveButtonLarge}
+            disabled={festival.festivalStatus !== 'PUBLISHED' || isHelper}
+            onClick={handleReserveClick}
+          >
+            예매하기
+          </button>
         </section>
         </aside>
       </div>

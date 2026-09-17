@@ -28,6 +28,7 @@ import SeatMap from './pages/SeatMap'
 import SignUp from './pages/SignUp'
 import StoreBooths from './pages/StoreBooths'
 import StoreBoothDetail from './pages/StoreBoothDetail'
+import ZoneSelect from './pages/ZoneSelect'
 
 /** 상단바·푸터는 모든 화면에 고정, 가운데만 라우팅으로 갈아끼운다. */
 function App() {
@@ -91,6 +92,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/festivals" element={<Festivals />} />
         <Route path="/festivals/:id" element={<FestivalDetail />} />
+        <Route path="/festivals/:id/zones" element={<ZoneSelect />} />
         <Route path="/festivals/:id/seats" element={<SeatMap />} />
         <Route path="/festivals/:id/reserve" element={<ReservationCheckout />} />
         <Route path="/login" element={<Login />} />

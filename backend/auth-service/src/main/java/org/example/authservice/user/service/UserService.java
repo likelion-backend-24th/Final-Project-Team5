@@ -10,6 +10,7 @@ import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.helper.repository.HelperInvitationRepository;
 import org.example.authservice.user.dto.UserResponse;
+import org.example.authservice.user.dto.WithdrawAccountRequest;
 import org.example.authservice.user.entity.AccountStatus;
 import org.example.authservice.user.entity.Role;
 import org.example.authservice.user.entity.User;
@@ -139,9 +140,10 @@ public class UserService {
         if (user.getRole() == Role.HELPER) {
             throw new ApiException(UserErrorCode.HELPER_PASSWORD_CHANGE_NOT_ALLOWED);
         }
-        //카카오·구글로 가입/연결된 계정은 비밀번호 변경을 막는다. 소셜 전용 계정은 비밀번호가 null이라
-        //matches()가 항상 false가 되어 "현재 비밀번호 불일치"로 잘못 안내되고 있었다.
-        if (user.getPassword() == null || !oauthAccountRepository.findAllByUser_Id(userId).isEmpty()) {
+        //카카오·구글로만 가입해 비밀번호가 없는 계정은 비밀번호 변경을 막는다(소셜 전용 계정은 비밀번호가 null이라
+        //matches()가 항상 false가 되어 "현재 비밀번호 불일치"로 잘못 안내되고 있었다). 비밀번호 계정에 소셜을
+        //연동한 경우는 두 방식 모두로 로그인하므로 비밀번호 변경도 그대로 허용한다.
+        if (user.getPassword() == null) {
             throw new ApiException(UserErrorCode.SOCIAL_USER_CANNOT_CHANGE_PASSWORD);
         }
         //현재 비밀번호 불일치
@@ -159,22 +161,28 @@ public class UserService {
         refreshTokenRevocationService.revokeAllTokens(user);
     }
 
-    // 회원탈퇴
+    // 회원탈퇴 — 본인 확인은 비밀번호 대신 동의 문구로 받는다(소셜 전용 계정도 같은 절차).
+    // 행은 남기되(다른 서비스의 예매·결제·주최 신청이 user_id로 이 행을 가리킨다) 이메일과 소셜 연결은 풀어서,
+    // 같은 이메일·같은 카카오/구글 계정으로 새로 가입할 수 있게 한다.
     @Transactional
-    public void withdrawAccount(Long userId, String password){
+    public void withdrawAccount(Long userId, String confirmation){
+        if (!WithdrawAccountRequest.CONFIRMATION_PHRASE.equals(confirmation == null ? null : confirmation.trim())) {
+            throw new ApiException(UserErrorCode.WITHDRAW_CONFIRMATION_MISMATCH);
+        }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(UserErrorCode.USER_NOT_FOUND));
-        if (user.getPassword() != null && !passwordEncoder.matches(password,user.getPassword())){
-            throw new ApiException(UserErrorCode.INVALID_CURRENT_PASSWORD);
-        }
         //나중에 티켓 예약이 있으면 어떻게할지 정책 정해야함
 
         user.setName("탈퇴한 사용자");
         user.setStatus(AccountStatus.WITHDRAWN);
         user.setNickname("탈퇴한사용자_" + user.getId());
+        //username은 unique라 원래 이메일을 비워 줘야 재가입이 된다. 형식은 그대로 이메일 모양을 유지한다.
+        user.setUsername("withdrawn_" + user.getId() + "@withdrawn.local");
+        user.setPassword(null);
         user.setWithdrawnAt(LocalDateTime.now());
         userRepository.save(user);
 
+        oauthAccountRepository.deleteAllByUser_Id(user.getId());
         refreshTokenRevocationService.revokeAllTokens(user);
     }
 }

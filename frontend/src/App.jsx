@@ -101,7 +101,9 @@ function App() {
           path="/mypage"
           element={
             <RequireAuth>
-              <MyPage />
+              {/* /mypage와 /reservations는 같은 컴포넌트를 다른 탭으로 연다. key가 없으면 React가 인스턴스를 재사용해
+                  useState(initialTab)이 무시되므로, 상단바에서 옮겨 다닐 때 탭이 바뀌지 않았다. */}
+              <MyPage key="mypage" />
             </RequireAuth>
           }
         />
@@ -109,7 +111,7 @@ function App() {
           path="/reservations"
           element={
             <RequireAuth>
-              <MyPage initialTab="reservations" />
+              <MyPage key="reservations" initialTab="reservations" />
             </RequireAuth>
           }
         />

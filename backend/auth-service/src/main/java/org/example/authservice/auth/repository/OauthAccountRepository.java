@@ -12,4 +12,7 @@ public interface OauthAccountRepository extends JpaRepository<OauthAccount,Long>
 
     // 한 회원에 연결된 소셜 계정 전부(카카오/구글) — 비밀번호 변경 차단·내 정보 응답에 쓴다
     List<OauthAccount> findAllByUser_Id(Long userId);
+
+    // 회원 탈퇴 시 소셜 연결을 끊어 같은 카카오/구글 계정으로 다시 가입할 수 있게 한다
+    void deleteAllByUser_Id(Long userId);
 }

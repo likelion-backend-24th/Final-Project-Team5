@@ -77,9 +77,9 @@ public class JwtTokenProvider {
 
 
     private static final String OAUTH_LINK_PURPOSE = "OAUTH_LINK";
-    private static final long OAUTH_LINK_TOKEN_EXPIRATION_MS = 5 * 60 * 1000; // 5분 — 전환 동의 창을 오래 열어두지 않는다
+    private static final long OAUTH_LINK_TOKEN_EXPIRATION_MS = 5 * 60 * 1000; // 5분 — 연동 동의 창을 오래 열어두지 않는다
 
-    // 기존 비밀번호 계정과 이메일이 같은 소셜 로그인이 들어왔을 때, 전환 동의를 받는 동안만 짧게 쓰는 토큰.
+    // 기존 비밀번호 계정과 이메일이 같은 소셜 로그인이 들어왔을 때, 연동 동의를 받는 동안만 짧게 쓰는 토큰.
     // 이 토큰에 담긴 provider/providerId는 실제 구글 인증을 거쳐 서버가 서명한 값이라, 클라이언트가
     // 임의의 값으로 위조해 다른 계정에 소셜 로그인을 연결시킬 수 없다.
     public String generateOauthLinkToken(String username, String provider, String providerId) {

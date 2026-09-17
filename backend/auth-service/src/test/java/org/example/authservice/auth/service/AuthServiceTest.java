@@ -941,7 +941,7 @@ class AuthServiceTest {
     // ===== confirmOauthLink =====
 
     @Test
-    @DisplayName("전환 동의가 확인되면 비밀번호를 지우고 소셜 계정을 연결해 로그인까지 완료한다")
+    @DisplayName("연동 동의가 확인되면 비밀번호는 그대로 둔 채 소셜 계정을 연결해 로그인까지 완료한다")
     void confirmOauthLink_success() {
         // given
         User existingUser = createActiveUser();
@@ -962,8 +962,9 @@ class AuthServiceTest {
 
         // then
         assertThat(response.getAccessToken()).isEqualTo("access-token");
-        assertThat(existingUser.getPassword()).isNull();
-        verify(refreshTokenRevocationService, times(1)).revokeAllTokens(existingUser);
+        //비밀번호 로그인도 계속 되어야 하므로 비밀번호·기존 세션을 건드리지 않는다
+        assertThat(existingUser.getPassword()).isNotNull();
+        verify(refreshTokenRevocationService, never()).revokeAllTokens(existingUser);
 
         ArgumentCaptor<OauthAccount> oauthCaptor = ArgumentCaptor.forClass(OauthAccount.class);
         verify(oauthAccountRepository, times(1)).save(oauthCaptor.capture());

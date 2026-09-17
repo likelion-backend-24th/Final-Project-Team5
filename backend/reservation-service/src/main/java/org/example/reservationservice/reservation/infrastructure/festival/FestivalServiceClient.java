@@ -5,6 +5,7 @@ import org.example.reservationservice.reservation.infrastructure.festival.dto.Bo
 import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalApiEnvelope;
 import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalDetailResponseDto;
 import org.example.reservationservice.reservation.infrastructure.festival.dto.StockAdjustRequestDto;
+import org.example.reservationservice.reservation.infrastructure.festival.dto.StoreBoothOwnerResponseDto;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -36,6 +37,19 @@ public class FestivalServiceClient {
     public BoothDetailResponseDto getBooth(Long boothId) {
         FestivalApiEnvelope<BoothDetailResponseDto> envelope = festivalServiceRestClient.get()
                 .uri("/api/booths/{id}", boothId)
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        return envelope == null ? null : envelope.data();
+    }
+
+    //대기 호출(call-next) 소유권 검증용 — STOREHOST 본인 전용 API를 그대로 호출하되, 요청자의
+    //X-User-Id·X-User-Role을 그대로 전달해 "본인인지"를 festival-service가 판정하게 한다
+    //(별도 내부 토큰 계약을 새로 만들지 않고 기존 STOREHOST 전용 API를 재사용).
+    public StoreBoothOwnerResponseDto getMyBooth(Long boothId, Long userId, String role) {
+        FestivalApiEnvelope<StoreBoothOwnerResponseDto> envelope = festivalServiceRestClient.get()
+                .uri("/api/store/booths/{id}", boothId)
+                .header("X-User-Id", String.valueOf(userId))
+                .header("X-User-Role", role)
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
         return envelope == null ? null : envelope.data();

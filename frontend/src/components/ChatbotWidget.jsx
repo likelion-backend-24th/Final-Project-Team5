@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { MessageCircleIcon, SendIcon, SparklesIcon, XIcon } from 'lucide-react'
+import { MegaphoneIcon, MessageCircleIcon, SendIcon, SparklesIcon, XIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { requestRecommendations } from '../api/chatbotApi'
+import { fetchMyActiveBoothWaitlists } from '../api/boothApi'
 
 const GREETING = {
   id: 'greeting',
@@ -17,6 +18,9 @@ const ERROR_MESSAGES = {
   INVALID_REQUEST: '메시지는 500자 이내로 입력해 주세요.',
 }
 
+//부스 대기 호출 알림 폴링 주기 — 마이페이지 예약 탭 자동 갱신과 같은 주기로 맞춘다.
+const BOOTH_ALERT_POLL_INTERVAL_MS = 15_000
+
 /**
  * 우하단 고정 AI 추천 챗봇. 대화는 이 컴포넌트 state에만 두고(새로고침하면 초기화) 최근 대화를 함께 보내
  * 후속 질문이 이어지게 한다. 메시지는 role(user/assistant)로만 구분해 그리므로, 나중에 부스 대기 순번 같은
@@ -28,12 +32,57 @@ function ChatbotWidget() {
   const [messages, setMessages] = useState([GREETING])
   const [input, setInput] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [hasUnreadAlert, setHasUnreadAlert] = useState(false)
   const listRef = useRef(null)
+  //이미 알림을 보낸 boothId — setInterval 클로저 안에서도 최신 값을 보려고 ref로 둔다.
+  const notifiedBoothIdsRef = useRef(new Set())
 
   useEffect(() => {
     const list = listRef.current
     if (list) list.scrollTop = list.scrollHeight
   }, [messages, isSending, isOpen])
+
+  //로그인 상태면 15초마다 내 부스 대기 현황을 폴링해, 새로 "내 차례"가 된 부스가 있으면
+  //추천 응답과 같은 방식으로 대화창에 알림 메시지를 밀어 넣는다(서버에는 저장하지 않음).
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    let cancelled = false
+
+    function poll() {
+      fetchMyActiveBoothWaitlists()
+        .then((response) => {
+          if (cancelled) return
+          const newlyCalled = response.data.data.filter(
+            (item) => item.myTurn && !notifiedBoothIdsRef.current.has(item.boothId),
+          )
+          if (newlyCalled.length === 0) return
+
+          newlyCalled.forEach((item) => notifiedBoothIdsRef.current.add(item.boothId))
+          setMessages((prev) => [
+            ...prev,
+            ...newlyCalled.map((item) => ({
+              id: `booth-alert-${item.boothId}-${item.calledNumber}`,
+              role: 'assistant',
+              boothAlert: true,
+              content: `대기번호 ${item.queueNumber}번, 지금 부스에 입장할 차례예요!`,
+              link: `/festivals/${item.festivalId}`,
+            })),
+          ])
+          setHasUnreadAlert(true)
+        })
+        .catch(() => {
+          // 폴링 실패는 조용히 넘어가고 다음 주기에 다시 시도한다.
+        })
+    }
+
+    poll()
+    const interval = setInterval(poll, BOOTH_ALERT_POLL_INTERVAL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [isAuthenticated])
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -65,12 +114,21 @@ function ChatbotWidget() {
     <>
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => {
+          setIsOpen((prev) => !prev)
+          setHasUnreadAlert(false)
+        }}
         aria-label={isOpen ? '추천 챗봇 닫기' : '추천 챗봇 열기'}
         aria-expanded={isOpen}
         className="fixed bottom-6 right-6 z-50 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition hover:bg-blue-700"
       >
         {isOpen ? <XIcon className="h-6 w-6" /> : <MessageCircleIcon className="h-6 w-6" />}
+        {!isOpen && hasUnreadAlert && (
+          <span
+            aria-hidden="true"
+            className="absolute right-0 top-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500"
+          />
+        )}
       </button>
 
       {isOpen && (
@@ -146,12 +204,23 @@ function ChatMessage({ message }) {
               ? 'whitespace-pre-wrap rounded-2xl rounded-br-md bg-blue-600 px-4 py-2.5 text-sm text-white'
               : message.error
                 ? 'whitespace-pre-wrap rounded-2xl rounded-bl-md bg-red-50 px-4 py-2.5 text-sm text-red-700'
-                : 'whitespace-pre-wrap rounded-2xl rounded-bl-md bg-white px-4 py-2.5 text-sm text-gray-800 shadow-sm'
+                : message.boothAlert
+                  ? 'flex items-start gap-2 whitespace-pre-wrap rounded-2xl rounded-bl-md bg-amber-50 px-4 py-2.5 text-sm text-amber-800 shadow-sm'
+                  : 'whitespace-pre-wrap rounded-2xl rounded-bl-md bg-white px-4 py-2.5 text-sm text-gray-800 shadow-sm'
           }
           role={message.error ? 'alert' : undefined}
         >
-          {message.content}
+          {message.boothAlert && <MegaphoneIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
+          <span>{message.content}</span>
         </div>
+        {message.boothAlert && (
+          <Link
+            to={message.link}
+            className="block rounded-2xl border border-amber-100 bg-white px-4 py-3 shadow-sm transition hover:border-amber-300 hover:bg-amber-50"
+          >
+            <p className="text-xs font-bold text-amber-700">부스로 이동하기 →</p>
+          </Link>
+        )}
         {message.recommendations?.map((item) => (
           <Link
             key={item.festivalId}

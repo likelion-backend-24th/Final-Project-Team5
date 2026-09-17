@@ -1,7 +1,10 @@
 package org.example.reservationservice.boothwaitlist.controller;
 
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.example.reservationservice.boothwaitlist.dto.BoothWaitlistQueueStatusResponseDto;
 import org.example.reservationservice.boothwaitlist.dto.BoothWaitlistResponseDto;
+import org.example.reservationservice.boothwaitlist.dto.MyActiveBoothWaitlistResponseDto;
 import org.example.reservationservice.boothwaitlist.service.BoothWaitlistService;
 import org.example.reservationservice.common.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
@@ -33,5 +36,33 @@ public class BoothWaitlistController {
             @RequestHeader("X-User-Id") Long userId
     ) {
         return ResponseEntity.ok(ApiResponse.success("내 대기번호 조회", boothWaitlistService.getMyWaitlist(userId, boothId)));
+    }
+
+    //내가 신청한 모든 부스의 대기 현황 — 챗봇 위젯이 주기적으로 폴링해 "내 차례"를 알아낼 때 쓴다.
+    @GetMapping("/me/active")
+    public ResponseEntity<ApiResponse<List<MyActiveBoothWaitlistResponseDto>>> getMyActiveWaitlists(
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("내 대기 현황 조회", boothWaitlistService.getMyActiveWaitlists(userId)));
+    }
+
+    //STOREHOST가 본인 부스의 대기열 현황(호출 번호·대기 인원)을 조회한다.
+    @GetMapping("/booths/{boothId}/queue-status")
+    public ResponseEntity<ApiResponse<BoothWaitlistQueueStatusResponseDto>> getQueueStatus(
+            @PathVariable Long boothId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("대기열 현황 조회", boothWaitlistService.getQueueStatus(userId, role, boothId)));
+    }
+
+    //STOREHOST가 다음 대기 순번을 호출한다.
+    @PostMapping("/booths/{boothId}/call-next")
+    public ResponseEntity<ApiResponse<BoothWaitlistQueueStatusResponseDto>> callNext(
+            @PathVariable Long boothId,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role
+    ) {
+        return ResponseEntity.ok(ApiResponse.success("다음 순번 호출 성공", boothWaitlistService.callNext(userId, role, boothId)));
     }
 }

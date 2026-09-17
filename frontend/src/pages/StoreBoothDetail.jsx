@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeftIcon, CircleAlertIcon, ImageIcon, LockIcon, StoreIcon } from 'lucide-react'
-import { changeBoothStatus, fetchMyBoothDetail } from '../api/boothApi'
+import { ArrowLeftIcon, CircleAlertIcon, ImageIcon, LockIcon, MegaphoneIcon, StoreIcon } from 'lucide-react'
+import { callNextBoothWaitlist, changeBoothStatus, fetchBoothQueueStatus, fetchMyBoothDetail } from '../api/boothApi'
 import { toAbsoluteImageUrl } from '../api/festivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './AdminList.module.css'
@@ -23,6 +23,9 @@ function StoreBoothDetail() {
   const [errorState, setErrorState] = useState(null)
   const [statusUpdating, setStatusUpdating] = useState(false)
   const [statusError, setStatusError] = useState('')
+  const [queueStatus, setQueueStatus] = useState(null)
+  const [callingNext, setCallingNext] = useState(false)
+  const [callError, setCallError] = useState('')
 
   useEffect(() => {
     if (authLoading || !isStorehost) return
@@ -50,6 +53,39 @@ function StoreBoothDetail() {
       cancelled = true
     }
   }, [id, authLoading, isStorehost])
+
+  useEffect(() => {
+    if (authLoading || !isStorehost) return
+    let cancelled = false
+    fetchBoothQueueStatus(id)
+      .then((response) => {
+        if (!cancelled) setQueueStatus(response.data.data)
+      })
+      .catch(() => {
+        // 대기열 현황은 참고용 정보라, 조회 실패해도 부스 상세 자체는 그대로 보여준다.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [id, authLoading, isStorehost])
+
+  async function handleCallNext() {
+    if (callingNext) return
+    setCallingNext(true)
+    setCallError('')
+    try {
+      const response = await callNextBoothWaitlist(id)
+      setQueueStatus(response.data.data)
+    } catch (error) {
+      setCallError(
+        error.response?.data?.errorCode === 'NO_WAITING_QUEUE'
+          ? '더 이상 호출할 대기자가 없어요.'
+          : '호출에 실패했어요. 잠시 후 다시 시도해주세요.',
+      )
+    } finally {
+      setCallingNext(false)
+    }
+  }
 
   async function handleStatusChange(nextStatus) {
     if (nextStatus === booth.boothStatus || statusUpdating) return
@@ -184,6 +220,28 @@ function StoreBoothDetail() {
             <p className="mt-2 text-xs text-gray-400">대기 상태에서는 관람자에게 부스가 보이지 않아요.</p>
           )}
           {statusError && <p className="mt-2 text-xs text-red-600">{statusError}</p>}
+        </div>
+
+        <div className="mt-6 border-t border-gray-100 pt-5">
+          <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-gray-900">
+            <MegaphoneIcon size={16} aria-hidden="true" />
+            대기열 관리
+          </p>
+          {queueStatus && (
+            <p className="text-sm text-gray-600">
+              현재 호출 번호 <span className="font-bold text-gray-900">{queueStatus.calledNumber}</span>번 · 대기 인원{' '}
+              <span className="font-bold text-gray-900">{queueStatus.waitingCount}</span>명
+            </p>
+          )}
+          <button
+            type="button"
+            disabled={callingNext || queueStatus?.waitingCount === 0}
+            onClick={handleCallNext}
+            className="mt-3 w-full rounded-xl bg-blue-600 py-2.5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {callingNext ? '호출 중…' : '다음 순번 호출'}
+          </button>
+          {callError && <p className="mt-2 text-xs text-red-600">{callError}</p>}
         </div>
       </div>
     </main>

@@ -1,5 +1,6 @@
-package org.example.reservationservice.domain.seat;
+package org.example.reservationservice.seat.repository;
 
+import org.example.reservationservice.seat.entity.ReservationSeat;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

@@ -18,7 +18,8 @@ function Home() {
 
   useEffect(() => {
     let cancelled = false
-    fetchFestivals({ page: 0, size: 100 })
+    //인기순(조회수) — 히어로 배너와 인기 페스티벌 섹션 모두 이 순서를 그대로 쓴다
+    fetchFestivals({ page: 0, size: 100, sort: 'viewCount,desc' })
       .then((response) => {
         if (!cancelled) setFestivals(response.data.data.map(mapFestivalToCard))
       })

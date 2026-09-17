@@ -31,9 +31,6 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
     //방문자용 공개 목록 — 승인(공개) 상태만 페이징 조회
     Page<Festival> findByFestivalStatus(FestivalStatus festivalStatus, Pageable pageable);
 
-    //방문자용 공개 목록 — 진행중(PUBLISHED)·종료(CLOSED) 상태를 함께 페이징 조회(종료된 것도 "종료됨" 배지로 계속 보여준다)
-    Page<Festival> findByFestivalStatusIn(List<FestivalStatus> festivalStatuses, Pageable pageable);
-
     //운영자 심사 목록 — 상태별 전체 조회(페이징 없음)
     List<Festival> findByFestivalStatus(FestivalStatus festivalStatus);
 

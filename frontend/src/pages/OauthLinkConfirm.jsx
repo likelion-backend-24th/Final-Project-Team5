@@ -6,8 +6,9 @@ import { confirmOauthLink } from '../api/authApi'
 
 /**
  * 이미 아이디/비밀번호로 쓰이던 이메일에 구글 로그인을 시도했을 때, 구글 콜백이 조용히 연동하지
- * 않고 이 화면으로 보내 전환 동의를 받는다. 동의하면 비밀번호는 사라지고 앞으로는 소셜 로그인만
- * 쓸 수 있다. 동의하지 않으면 서버에는 아무 변화도 없고, 토큰은 몇 분 뒤 그냥 만료된다.
+ * 않고 이 화면으로 보내 최초 1회 연동 동의를 받는다. 동의하면 구글 계정이 기존 계정에 연결되고, 비밀번호는
+ * 그대로라 이후엔 비밀번호·구글 어느 쪽으로도 로그인된다. 동의하지 않으면 서버에는 아무 변화도 없고,
+ * 토큰은 몇 분 뒤 그냥 만료된다.
  */
 function OauthLinkConfirm() {
   const navigate = useNavigate()
@@ -40,7 +41,7 @@ function OauthLinkConfirm() {
       await applyTokenLogin(response.data.data.accessToken)
       navigate('/', { replace: true })
     } catch {
-      setError('전환에 실패했어요. 로그인 화면에서 다시 시도해주세요.')
+      setError('연동에 실패했어요. 로그인 화면에서 다시 시도해주세요.')
     } finally {
       setSubmitting(false)
     }
@@ -53,15 +54,15 @@ function OauthLinkConfirm() {
   return (
     <main className="flex flex-1 justify-center bg-gray-50 px-6 pt-6 pb-14 sm:pt-10 sm:pb-20">
       <div className="h-fit w-full max-w-md rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-        <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">이미 가입된 이메일이에요</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">기존에 가입된 계정이 있어요</h1>
         <p className="mt-3 text-sm leading-relaxed text-gray-500">
           {email && (
             <>
-              <span className="font-bold text-gray-900">{email}</span>은 이미 아이디/비밀번호로 가입된 계정이에요.
+              <span className="font-bold text-gray-900">{email}</span>은 이미 아이디/비밀번호로 가입된 계정이에요. 해당 계정과 연동할까요?
               <br />
             </>
           )}
-          소셜 로그인으로 전환하면 비밀번호는 더 이상 사용할 수 없고, 앞으로는 소셜 로그인으로만 로그인할 수
+          연동하면 기존 비밀번호는 그대로 유지되고, 다음부터는 아이디/비밀번호와 구글 로그인 어느 쪽으로도 로그인할 수
           있어요.
         </p>
 
@@ -90,7 +91,7 @@ function OauthLinkConfirm() {
             disabled={submitting}
             className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-[15px] font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400"
           >
-            {submitting ? '전환 중…' : '동의하고 전환'}
+            {submitting ? '연동 중…' : '연동하고 로그인'}
             <ArrowRightIcon className="h-4 w-4" />
           </button>
         </div>

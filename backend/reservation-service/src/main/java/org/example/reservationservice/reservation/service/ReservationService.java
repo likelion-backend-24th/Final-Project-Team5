@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.exception.ApiException;
-import org.example.reservationservice.domain.seat.*;
 import org.example.reservationservice.reservation.entity.CheckInCodeGenerator;
 import org.example.reservationservice.reservation.entity.refund.RefundPolicy;
 import org.example.reservationservice.reservation.entity.refund.RefundQuote;
@@ -29,6 +28,13 @@ import org.example.reservationservice.reservation.entity.RefundReceipt;
 import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.example.reservationservice.reservation.exception.ReservationErrorCode;
 import org.example.reservationservice.reservation.repository.ReservationRepository;
+import org.example.reservationservice.seat.entity.ReservationSeat;
+import org.example.reservationservice.seat.entity.Seat;
+import org.example.reservationservice.seat.entity.SeatStatus;
+import org.example.reservationservice.seat.entity.TicketMode;
+import org.example.reservationservice.seat.repository.ReservationSeatRepository;
+import org.example.reservationservice.seat.repository.SeatRepository;
+import org.example.reservationservice.seat.service.SeatBroadcastService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.example.reservationservice.reservation.infrastructure.festival.FestivalServiceClient;
@@ -38,9 +44,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
-
-import static org.example.reservationservice.domain.seat.TicketMode.SEATED;
-import static org.example.reservationservice.domain.seat.TicketMode.STANDING;
 
 @Service
 @RequiredArgsConstructor

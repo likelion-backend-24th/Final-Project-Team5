@@ -1,6 +1,11 @@
-package org.example.reservationservice.domain.seat;
+package org.example.reservationservice.seat.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.reservationservice.seat.repository.SeatRepository;
+import org.example.reservationservice.seat.dto.SeatResponse;
+import org.example.reservationservice.seat.entity.SeatStatus;
+import org.example.reservationservice.seat.dto.SeatGenerationRequest;
+import org.example.reservationservice.seat.entity.Seat;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +22,7 @@ public class SeatGenerationService {
     //같은 ticketTypeId로 이미 좌석이 생성돼 있으면 재생성하지 않고 멱등하게 넘어간다
     //(FestivalPublishRetryScheduler가 재시도할 때 중복 생성되지 않도록).
     @Transactional
-    public void generateSeats(SeatGenerationRequestDto request) {
+    public void generateSeats(SeatGenerationRequest request) {
         if (seatRepository.existsByTicketTypeId(request.ticketTypeId())) {
             return;
         }
@@ -39,10 +44,10 @@ public class SeatGenerationService {
     }
 
     //참가자용 좌석맵 조회 — 인증 불필요(페스티벌 목록/상세 조회와 같은 공개 정책)
-    public List<SeatResponseDto> listSeats(Long festivalId, Long ticketTypeId) {
+    public List<SeatResponse> listSeats(Long festivalId, Long ticketTypeId) {
         return seatRepository.findByFestivalIdAndTicketTypeIdOrderByZoneAscRowLabelAscSeatNumberAsc(festivalId, ticketTypeId)
                 .stream()
-                .map(SeatResponseDto::from)
+                .map(SeatResponse::from)
                 .toList();
     }
 }

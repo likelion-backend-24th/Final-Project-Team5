@@ -13,7 +13,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class OauthLinkConfirmRequest {
 
-    @Schema(description = "소셜 로그인 전환 동의용 임시 토큰(구글 콜백 리다이렉트에 담겨 온다)")
+    @Schema(description = "기존 계정 연동 동의용 임시 토큰(구글 콜백 리다이렉트에 담겨 온다)")
     @NotBlank(message = "토큰은 필수입니다.")
     private String token;
 }

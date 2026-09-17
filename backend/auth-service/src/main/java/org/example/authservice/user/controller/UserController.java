@@ -63,12 +63,12 @@ public class UserController {
     }
 
     //회원탈퇴
-    @Operation(summary = "회원 탈퇴", description = "비밀번호 확인 후 회원탈퇴(WITHDRAWN)를 처리합니다.")
+    @Operation(summary = "회원 탈퇴", description = "동의 문구(\"회원 탈퇴에 동의합니다\")를 확인한 뒤 회원탈퇴(WITHDRAWN)를 처리합니다. 이메일과 소셜 연결은 해제되어 같은 계정으로 다시 가입할 수 있습니다.")
     @DeleteMapping("/me")
     public ResponseEntity<ApiResponse<Void>> withdraw(
             @RequestHeader("X-User-Id") Long userId,
             @Valid  @RequestBody WithdrawAccountRequest request){
-        userService.withdrawAccount(userId,request.getPassword());
+        userService.withdrawAccount(userId, request.getConfirmation());
         return ResponseEntity.ok(ApiResponse.success("회원 탈퇴가 완료되었습니다.",null));
     }
 }

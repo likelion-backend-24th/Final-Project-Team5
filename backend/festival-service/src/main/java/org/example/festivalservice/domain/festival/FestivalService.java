@@ -182,12 +182,13 @@ public class FestivalService {
         }
     }
 
-    //방문자에게 노출 가능한 상태 — 진행중(PUBLISHED)뿐 아니라 종료(CLOSED)된 것도 "종료됨" 배지로 계속 보여준다
+    //상세에서 방문자에게 노출 가능한 상태 — 종료(CLOSED)된 것도 예약 내역에서 타고 들어올 수 있게 "종료됨" 배지로 보여준다.
+    //목록은 진행중(PUBLISHED)만 노출한다(종료된 행사가 목록을 차지하지 않도록).
     private static final List<FestivalStatus> VISIBLE_STATUSES = List.of(FestivalStatus.PUBLISHED, FestivalStatus.CLOSED);
 
-    //페스티벌 목록 조회(페이징), 인증 불필요 — 공개(PUBLISHED)·종료(CLOSED) 상태만 노출
+    //페스티벌 목록 조회(페이징), 인증 불필요 — 공개(PUBLISHED) 상태만 노출
     public Page<FestivalResponseDto> listFestivals(Pageable pageable) {
-        return festivalRepository.findByFestivalStatusIn(VISIBLE_STATUSES, pageable)
+        return festivalRepository.findByFestivalStatus(FestivalStatus.PUBLISHED, pageable)
                 .map(this::toResponseDto);
     }
 

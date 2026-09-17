@@ -34,7 +34,7 @@ public class TicketType {
     private int price;
 
     //이 티켓 종류가 좌석 선택형인지 스탠딩(수량제)인지 구분한다.
-    //STANDING이면 zone/rows/seatsPerRow는 null이고 기존 remainQuantity 차감 로직을 그대로 쓴다.
+    //STANDING이면 zone/seatLayout은 null이고 기존 remainQuantity 차감 로직을 그대로 쓴다.
     @Enumerated(EnumType.STRING)
     @Column(name = "ticket_mode", columnDefinition = "VARCHAR(20)")
     private TicketMode ticketMode;
@@ -42,13 +42,23 @@ public class TicketType {
     //구역명(예: "VIP", "일반") — 좌석맵에서 이 구역 단위로 묶어 보여준다
     @Column(name = "zone")
     private String zone;
-    //좌석 배치 — SEATED일 때만 값이 있다. rows × seatsPerRow = totalQuantity
-    //주의: 컬럼명을 "rows"로 하면 MySQL 8 예약어(ROWS)와 충돌해 DDL이 실패한다 — "seat_rows"로 명시
-    @Column(name = "seat_rows")
-    private Integer rows;
 
-    @Column(name = "seats_per_row")
-    private Integer seatsPerRow;
+    //SEATED 행별 좌석 배치(행마다 좌석수·결번 지정). STANDING이면 null.
+    //JSON을 TEXT 컬럼에 문자열로 저장한다(MySQL/H2 둘 다 지원되는 방식).
+    @Convert(converter = SeatLayoutConverter.class)
+    @Column(name = "seat_layout", columnDefinition = "TEXT")
+    private SeatLayout seatLayout;
+
+    //Festival.stageLayout이 FRONT_STAGE일 때 쓰는 격자 좌표(행/열). CENTER_STAGE면 null.
+    @Column(name = "position_row")
+    private Integer positionRow;
+
+    @Column(name = "position_col")
+    private Integer positionCol;
+
+    //Festival.stageLayout이 CENTER_STAGE일 때 쓰는 각도(0~359, 정북 기준 시계방향). FRONT_STAGE면 null.
+    @Column(name = "position_angle")
+    private Integer positionAngle;
 
     //총 수량 — STANDING이면 원자적 차감 대상, SEATED면 좌석 배치 설정값(참고용)
     @Column(name = "total_quantity")

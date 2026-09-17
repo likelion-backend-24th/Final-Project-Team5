@@ -21,6 +21,8 @@ public record FestivalRequestDto(
         @NotNull FestivalRegion region,
         @NotBlank String locationDetail,
         @NotNull FestivalCategory festivalCategory,
+        //구역(SEATED 티켓타입) 배치 방식 — 전면형/중앙형 중 하나를 주최자가 등록 시 선택한다.
+        @NotNull FestivalStageLayout stageLayout,
         //입장·운영 시간(선택) — 구매자에게 보여주기만 하는 참고 정보. QR 입장 검증에는 관여하지 않는다.
         LocalTime entryStartTime,
         LocalTime operatingStartTime,

@@ -72,6 +72,7 @@ public class FestivalService {
                 .region(request.region())
                 .locationDetail(request.locationDetail())
                 .festivalCategory(request.festivalCategory())
+                .stageLayout(request.stageLayout())
                 .festivalStatus(FestivalStatus.PENDING)
                 .entryStartTime(request.entryStartTime())
                 .operatingStartTime(request.operatingStartTime())

@@ -13,6 +13,7 @@ import org.example.festivalservice.domain.festival.FestivalCategory;
 import org.example.festivalservice.domain.festival.FestivalRegion;
 import org.example.festivalservice.domain.festival.FestivalRepository;
 import org.example.festivalservice.domain.festival.FestivalStatus;
+import org.example.festivalservice.domain.tickettype.TicketTypeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,11 +37,15 @@ class AdminFestivalControllerAcceptanceTest {
     @Autowired
     private BoothRepository boothRepository;
 
+    @Autowired
+    private TicketTypeRepository ticketTypeRepository;
+
     @BeforeEach
     void setUp() {
         //Booth가 festival_id FK를 가지므로, 다른 테스트 클래스가 남긴 부스가 있으면 festivals 삭제가
         //참조무결성 위반으로 실패한다 — 먼저 지운다.
         boothRepository.deleteAll();
+        ticketTypeRepository.deleteAll();
         festivalRepository.deleteAll();
     }
 

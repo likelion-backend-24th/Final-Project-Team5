@@ -18,6 +18,8 @@ public record FestivalResponseDto(
         String locationDetail,
         FestivalCategory festivalCategory,
         FestivalStatus festivalStatus,
+        //구역(SEATED 티켓타입) 배치 방식 — 프론트 구역 선택 화면이 이 값으로 전면형/중앙형 렌더링을 분기한다.
+        FestivalStageLayout stageLayout,
         LocalTime entryStartTime,
         LocalTime operatingStartTime,
         LocalTime operatingEndTime,
@@ -59,6 +61,7 @@ public record FestivalResponseDto(
                 festival.getLocationDetail(),
                 festival.getFestivalCategory(),
                 festival.getFestivalStatus(),
+                festival.getStageLayout(),
                 festival.getEntryStartTime(),
                 festival.getOperatingStartTime(),
                 festival.getOperatingEndTime(),

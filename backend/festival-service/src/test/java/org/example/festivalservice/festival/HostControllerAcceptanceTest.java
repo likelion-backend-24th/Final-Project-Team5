@@ -37,6 +37,7 @@ class HostControllerAcceptanceTest {
           "region": "SEOUL",
           "locationDetail": "서울숲",
           "festivalCategory": "MUSIC",
+          "stageLayout": "FRONT_STAGE",
           "ticketTypes": [
             {"name": "일반", "description": "스탠딩석", "price": 50000, "ticketMode": "STANDING", "quantity": 100, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"},
             {"name": "VIP", "price": 120000, "ticketMode": "STANDING", "quantity": 20, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"}
@@ -98,6 +99,7 @@ class HostControllerAcceptanceTest {
                   "region": "SEOUL",
                   "locationDetail": "서울숲",
                   "festivalCategory": "MUSIC",
+                  "stageLayout": "FRONT_STAGE",
                   "ticketTypes": [
                     {"name": "일반", "price": 50000, "quantity": 0, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"}
                   ]

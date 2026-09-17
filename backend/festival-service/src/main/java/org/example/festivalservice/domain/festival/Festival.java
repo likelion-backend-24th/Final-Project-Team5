@@ -127,6 +127,12 @@ public class Festival {
     @Column(name = "reject_reason", length = 500)
     private String rejectReason;
 
+    //구역(SEATED 티켓타입) 배치 방식 — 페스티벌 전체에 하나만 적용된다. 기존 행은 전면형으로 채워진다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "stage_layout", columnDefinition = "VARCHAR(20) DEFAULT 'FRONT_STAGE'")
+    @Builder.Default
+    private FestivalStageLayout stageLayout = FestivalStageLayout.FRONT_STAGE;
+
     //운영자 심사: 공개 승인 처리 시작 — reservation-service 좌석 생성 확인 전까지는 비공개(PUBLISH_PENDING) 유지
     public void markPublishPending() {
         this.festivalStatus = FestivalStatus.PUBLISH_PENDING;

@@ -16,6 +16,7 @@ import org.example.festivalservice.domain.festival.FestivalCategory;
 import org.example.festivalservice.domain.festival.FestivalRegion;
 import org.example.festivalservice.domain.festival.FestivalRepository;
 import org.example.festivalservice.domain.festival.FestivalStatus;
+import org.example.festivalservice.domain.tickettype.TicketTypeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,11 +38,16 @@ class BoothAcceptanceTest {
     @Autowired
     private BoothRepository boothRepository;
 
+    @Autowired
+    private TicketTypeRepository ticketTypeRepository;
+
+
     private Long festivalId;
 
     @BeforeEach
     void setUp() {
         boothRepository.deleteAll();
+        ticketTypeRepository.deleteAll();
         festivalRepository.deleteAll();
         festivalId = festivalRepository.save(Festival.builder()
                 .hostUserId(1L)

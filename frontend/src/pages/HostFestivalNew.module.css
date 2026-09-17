@@ -239,8 +239,235 @@
   min-width: 0;
 }
 
-.seatLayoutRow {
+.stageLayoutGroup {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.stageLayoutOption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-default);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) ease, background-color var(--duration-fast) ease;
+}
+
+.stageLayoutOption:hover {
+  border-color: var(--borderColor-emphasis);
+}
+
+.stageLayoutOptionActive {
+  border-color: var(--borderColor-accent-emphasis);
+  background-color: var(--bgColor-accent-muted);
+}
+
+.stageLayoutIcon {
+  color: var(--fgColor-muted);
+}
+
+.stageLayoutOptionActive .stageLayoutIcon {
+  color: var(--fgColor-accent);
+}
+
+.stageLayoutTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--fgColor-default);
+}
+
+.stageLayoutDesc {
+  font-size: 12px;
+  color: var(--fgColor-muted);
+  line-height: 1.5;
+}
+
+.ticketRowActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.orderButtons {
+  display: flex;
+  gap: 4px;
+}
+
+.orderButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-small);
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-muted);
+  cursor: pointer;
+}
+
+.orderButton:hover:not(:disabled) {
+  border-color: var(--borderColor-emphasis);
+  color: var(--fgColor-default);
+}
+
+.orderButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.seatLayoutSection {
   margin-top: 10px;
+  padding: 12px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.seatLayoutHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.seatLayoutLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fgColor-muted);
+}
+
+.seatLayoutTotal {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fgColor-accent);
+}
+
+.seatRowList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.seatRowItem {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.seatRowIndex {
+  padding-top: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fgColor-muted);
+}
+
+.seatRowField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.seatRowRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-top: 4px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-muted);
+  cursor: pointer;
+}
+
+.seatRowRemove:hover {
+  border-color: var(--fgColor-danger);
+  color: var(--fgColor-danger);
+}
+
+.addSeatRow {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: var(--borderWidth-thin) dashed var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background: none;
+  color: var(--fgColor-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) ease, color var(--duration-fast) ease;
+}
+
+.addSeatRow:hover {
+  border-color: var(--borderColor-accent-emphasis);
+  color: var(--fgColor-accent);
+}
+
+.directionPicker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.directionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  grid-template-rows: repeat(3, 44px);
+  gap: 6px;
+}
+
+.directionCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-small);
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-default);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color var(--duration-fast) ease, background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+
+.directionCell:hover {
+  border-color: var(--borderColor-emphasis);
+}
+
+.directionCellActive {
+  border-color: var(--borderColor-accent-emphasis);
+  background-color: var(--bgColor-accent-muted);
+  color: var(--fgColor-accent);
+}
+
+.directionStageCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--borderRadius-small);
+  background-color: var(--bgColor-accent-emphasis);
+  color: var(--fgColor-onEmphasis);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
 }
 
 .addTicket {
@@ -369,6 +596,18 @@
 
   .ticketFields {
     grid-template-columns: 1fr;
+  }
+
+  .stageLayoutGroup {
+    grid-template-columns: 1fr;
+  }
+
+  .seatRowItem {
+    grid-template-columns: 1fr;
+  }
+
+  .seatRowIndex {
+    padding-top: 0;
   }
 }
 

@@ -21,14 +21,40 @@ const ERROR_MESSAGES = {
 //부스 대기 호출 알림 폴링 주기 — 마이페이지 예약 탭 자동 갱신과 같은 주기로 맞춘다.
 const BOOTH_ALERT_POLL_INTERVAL_MS = 15_000
 
+//백엔드에는 "이미 확인함" 개념이 없어(호출된 대기 항목은 myTurn=true로 영구히 남는다), 새로고침해도
+//같은 알림을 또 새 알림으로 착각하지 않도록 "이미 알림을 보낸 boothId"를 로그인 계정별로 브라우저에 남겨둔다.
+function notifiedBoothIdsStorageKey(userId) {
+  return `fevalgo:notified-booth-alerts:${userId ?? 'anonymous'}`
+}
+
+function loadNotifiedBoothIds(storageKey) {
+  try {
+    const raw = localStorage.getItem(storageKey)
+    return raw ? new Set(JSON.parse(raw)) : new Set()
+  } catch {
+    // 프라이빗 모드 등으로 localStorage를 못 쓰면 메모리 상태로만 동작한다.
+    return new Set()
+  }
+}
+
+function saveNotifiedBoothIds(storageKey, boothIds) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify([...boothIds]))
+  } catch {
+    // 저장 실패는 조용히 무시 — 다음 폴링에서 다시 시도된다.
+  }
+}
+
 /**
  * 우하단 고정 챗봇 FAB. 평소엔 버튼 1개만 보이다가 누르면 "추천 챗봇"·"부스 알림" 미니 버튼
  * 2개로 펼쳐지는 스피드다이얼이다. 두 기능은 패널과 데이터를 완전히 분리한다 —
  * 추천 대화(chatMessages)와 부스 대기 호출 알림 피드(boothAlerts)는 서로 섞이지 않는다.
- * 대화·알림 모두 이 컴포넌트 state에만 두고 서버에는 저장하지 않는다(새로고침하면 초기화).
+ * 대화·알림 피드는 이 컴포넌트 state에만 두고 서버에는 저장하지 않는다(새로고침하면 초기화).
+ * 단, "이미 알림을 보낸 boothId" 자체는 localStorage에 남겨서, 새로고침해도 이미 확인한 호출을
+ * 또 새 알림으로 착각해 안 읽음 배지를 다시 띄우지 않게 한다(백엔드에 확인 처리 개념이 없어서다).
  */
 function ChatbotWidget() {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
   const [dialOpen, setDialOpen] = useState(false)
   //null | 'recommend' | 'alerts'
   const [activePanel, setActivePanel] = useState(null)
@@ -57,6 +83,9 @@ function ChatbotWidget() {
   useEffect(() => {
     if (!isAuthenticated) return
 
+    const storageKey = notifiedBoothIdsStorageKey(user?.id)
+    notifiedBoothIdsRef.current = loadNotifiedBoothIds(storageKey)
+
     let cancelled = false
 
     function poll() {
@@ -69,6 +98,7 @@ function ChatbotWidget() {
           if (newlyCalled.length === 0) return
 
           newlyCalled.forEach((item) => notifiedBoothIdsRef.current.add(item.boothId))
+          saveNotifiedBoothIds(storageKey, notifiedBoothIdsRef.current)
           setBoothAlerts((prev) => [
             ...prev,
             ...newlyCalled.map((item) => ({
@@ -93,7 +123,7 @@ function ChatbotWidget() {
       cancelled = true
       clearInterval(interval)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, user?.id])
 
   async function handleSubmit(event) {
     event.preventDefault()

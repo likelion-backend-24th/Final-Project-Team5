@@ -5,26 +5,43 @@ import { MemoryRouter } from 'react-router-dom'
 import ChatbotWidget from './ChatbotWidget'
 import { useAuth } from '../context/AuthContext.jsx'
 import { requestRecommendations } from '../api/chatbotApi'
+import { fetchMyActiveBoothWaitlists } from '../api/boothApi'
 vi.mock('../context/AuthContext.jsx')
 vi.mock('../api/chatbotApi')
+vi.mock('../api/boothApi')
 
 beforeEach(() => {
   vi.clearAllMocks()
   useAuth.mockReturnValue({ isAuthenticated: true, isLoading: false })
+  //대부분의 테스트는 부스 알림 폴링과 무관하므로 기본값은 빈 목록으로 둔다.
+  fetchMyActiveBoothWaitlists.mockResolvedValue({ data: { data: [] } })
 })
 
 function renderWidget() {
   return render(<MemoryRouter><ChatbotWidget /></MemoryRouter>)
 }
 
+async function openRecommendPanel(user) {
+  await user.click(screen.getByRole('button', { name: '챗봇 메뉴 열기' }))
+  await user.click(screen.getByRole('button', { name: '추천 챗봇' }))
+}
+
 describe('ChatbotWidget', () => {
-  it('opens and closes the panel from the floating button', async () => {
+  it('opens the speed-dial menu, then opens/closes the recommend panel', async () => {
     const user = userEvent.setup()
     renderWidget()
     expect(screen.queryByRole('dialog')).toBeNull()
-    await user.click(screen.getByRole('button', { name: '추천 챗봇 열기' }))
+
+    await user.click(screen.getByRole('button', { name: '챗봇 메뉴 열기' }))
+    expect(screen.getByRole('button', { name: '추천 챗봇' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '부스 알림' })).toBeTruthy()
+
+    await user.click(screen.getByRole('button', { name: '추천 챗봇' }))
     expect(screen.getByRole('dialog', { name: 'AI 페스티벌 추천 챗봇' })).toBeTruthy()
-    await user.click(screen.getByRole('button', { name: '추천 챗봇 닫기' }))
+    //패널이 열리면 미니 버튼은 접힌다
+    expect(screen.queryByRole('button', { name: '추천 챗봇' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: '챗봇 패널 닫기' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
@@ -35,7 +52,7 @@ describe('ChatbotWidget', () => {
     } } })
     const user = userEvent.setup()
     renderWidget()
-    await user.click(screen.getByRole('button', { name: '추천 챗봇 열기' }))
+    await openRecommendPanel(user)
     await user.type(screen.getByLabelText('추천 요청 메시지'), '서울 재즈')
     await user.click(screen.getByRole('button', { name: '보내기' }))
 
@@ -60,7 +77,7 @@ describe('ChatbotWidget', () => {
     useAuth.mockReturnValue({ isAuthenticated: false, isLoading: false })
     const user = userEvent.setup()
     renderWidget()
-    await user.click(screen.getByRole('button', { name: '추천 챗봇 열기' }))
+    await openRecommendPanel(user)
     expect(screen.queryByLabelText('추천 요청 메시지')).toBeNull()
     expect(screen.getByRole('link', { name: '로그인하기' }).getAttribute('href')).toBe('/login')
   })
@@ -69,9 +86,32 @@ describe('ChatbotWidget', () => {
     requestRecommendations.mockRejectedValue({ response: { status: 503, data: { errorCode: 'CHATBOT_UNAVAILABLE' } } })
     const user = userEvent.setup()
     renderWidget()
-    await user.click(screen.getByRole('button', { name: '추천 챗봇 열기' }))
+    await openRecommendPanel(user)
     await user.type(screen.getByLabelText('추천 요청 메시지'), '아무거나')
     await user.click(screen.getByRole('button', { name: '보내기' }))
     expect((await screen.findByRole('alert')).textContent).toContain('잠시 후 다시 시도')
+  })
+
+  it('shows an empty state in the booth alert feed when nothing has been called yet', async () => {
+    const user = userEvent.setup()
+    renderWidget()
+    await user.click(screen.getByRole('button', { name: '챗봇 메뉴 열기' }))
+    await user.click(screen.getByRole('button', { name: '부스 알림' }))
+    expect(screen.getByRole('dialog', { name: '부스 대기 알림' })).toBeTruthy()
+    expect(screen.getByText(/아직 알림이 없어요/)).toBeTruthy()
+  })
+
+  it('polls booth waitlists and shows a called-number alert with a link to the festival', async () => {
+    fetchMyActiveBoothWaitlists.mockResolvedValue({
+      data: { data: [{ boothId: 1, festivalId: 9, queueNumber: 3, calledNumber: 3, myTurn: true }] },
+    })
+    const user = userEvent.setup()
+    renderWidget()
+
+    await user.click(screen.getByRole('button', { name: '챗봇 메뉴 열기' }))
+    await user.click(screen.getByRole('button', { name: '부스 알림' }))
+    await screen.findByText(/대기번호 3번/)
+    const link = screen.getByRole('link', { name: '부스로 이동하기 →' })
+    expect(link.getAttribute('href')).toBe('/festivals/9')
   })
 })

@@ -22,28 +22,38 @@ const ERROR_MESSAGES = {
 const BOOTH_ALERT_POLL_INTERVAL_MS = 15_000
 
 /**
- * 우하단 고정 AI 추천 챗봇. 대화는 이 컴포넌트 state에만 두고(새로고침하면 초기화) 최근 대화를 함께 보내
- * 후속 질문이 이어지게 한다. 메시지는 role(user/assistant)로만 구분해 그리므로, 나중에 부스 대기 순번 같은
- * 알림을 assistant 메시지로 밀어 넣는 식으로 같은 창을 재사용할 수 있다.
+ * 우하단 고정 챗봇 FAB. 평소엔 버튼 1개만 보이다가 누르면 "추천 챗봇"·"부스 알림" 미니 버튼
+ * 2개로 펼쳐지는 스피드다이얼이다. 두 기능은 패널과 데이터를 완전히 분리한다 —
+ * 추천 대화(chatMessages)와 부스 대기 호출 알림 피드(boothAlerts)는 서로 섞이지 않는다.
+ * 대화·알림 모두 이 컴포넌트 state에만 두고 서버에는 저장하지 않는다(새로고침하면 초기화).
  */
 function ChatbotWidget() {
   const { isAuthenticated, isLoading } = useAuth()
-  const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState([GREETING])
+  const [dialOpen, setDialOpen] = useState(false)
+  //null | 'recommend' | 'alerts'
+  const [activePanel, setActivePanel] = useState(null)
+  const [chatMessages, setChatMessages] = useState([GREETING])
+  const [boothAlerts, setBoothAlerts] = useState([])
   const [input, setInput] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [hasUnreadAlert, setHasUnreadAlert] = useState(false)
   const listRef = useRef(null)
   //이미 알림을 보낸 boothId — setInterval 클로저 안에서도 최신 값을 보려고 ref로 둔다.
   const notifiedBoothIdsRef = useRef(new Set())
+  //폴링 시점에 "부스 알림" 패널이 열려 있는지 확인하려고 ref로도 들고 있는다(effect 재시작 없이 최신값 참조).
+  const activePanelRef = useRef(activePanel)
+
+  useEffect(() => {
+    activePanelRef.current = activePanel
+  }, [activePanel])
 
   useEffect(() => {
     const list = listRef.current
     if (list) list.scrollTop = list.scrollHeight
-  }, [messages, isSending, isOpen])
+  }, [chatMessages, boothAlerts, isSending, activePanel])
 
   //로그인 상태면 15초마다 내 부스 대기 현황을 폴링해, 새로 "내 차례"가 된 부스가 있으면
-  //추천 응답과 같은 방식으로 대화창에 알림 메시지를 밀어 넣는다(서버에는 저장하지 않음).
+  //알림 피드에 밀어 넣는다(서버에는 저장하지 않음).
   useEffect(() => {
     if (!isAuthenticated) return
 
@@ -59,7 +69,7 @@ function ChatbotWidget() {
           if (newlyCalled.length === 0) return
 
           newlyCalled.forEach((item) => notifiedBoothIdsRef.current.add(item.boothId))
-          setMessages((prev) => [
+          setBoothAlerts((prev) => [
             ...prev,
             ...newlyCalled.map((item) => ({
               id: `booth-alert-${item.boothId}-${item.calledNumber}`,
@@ -69,7 +79,8 @@ function ChatbotWidget() {
               link: `/festivals/${item.festivalId}`,
             })),
           ])
-          setHasUnreadAlert(true)
+          //이미 "부스 알림" 패널을 보고 있는 중이면 굳이 안 읽음 배지를 띄우지 않는다.
+          if (activePanelRef.current !== 'alerts') setHasUnreadAlert(true)
         })
         .catch(() => {
           // 폴링 실패는 조용히 넘어가고 다음 주기에 다시 시도한다.
@@ -89,41 +100,62 @@ function ChatbotWidget() {
     const message = input.trim()
     if (!message || isSending) return
 
-    const history = messages
+    const history = chatMessages
       .filter((item) => !item.greeting && !item.error)
       .map((item) => ({ role: item.role, content: item.content }))
-    setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: message }])
+    setChatMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: 'user', content: message }])
     setInput('')
     setIsSending(true)
     try {
       const response = await requestRecommendations(message, history)
       const { reply, recommendations } = response.data.data
-      setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: reply, recommendations }])
+      setChatMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content: reply, recommendations }])
     } catch (error) {
       const errorCode = error.response?.data?.errorCode
       const content = error.response?.status === 401
         ? '로그인이 필요해요. 로그인 후 다시 시도해 주세요.'
         : ERROR_MESSAGES[errorCode] ?? '추천을 가져오지 못했어요. 잠시 후 다시 시도해 주세요.'
-      setMessages((prev) => [...prev, { id: `e-${Date.now()}`, role: 'assistant', content, error: true }])
+      setChatMessages((prev) => [...prev, { id: `e-${Date.now()}`, role: 'assistant', content, error: true }])
     } finally {
       setIsSending(false)
     }
   }
 
+  function openPanel(panel) {
+    setActivePanel(panel)
+    setDialOpen(false)
+    if (panel === 'alerts') setHasUnreadAlert(false)
+  }
+
+  function handleMainButtonClick() {
+    if (activePanel) {
+      setActivePanel(null)
+      return
+    }
+    setDialOpen((prev) => !prev)
+  }
+
+  const mainButtonLabel = activePanel ? '챗봇 패널 닫기' : dialOpen ? '챗봇 메뉴 닫기' : '챗봇 메뉴 열기'
+  const showBadge = hasUnreadAlert && activePanel !== 'alerts'
+
   return (
     <>
+      {dialOpen && !activePanel && (
+        <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end gap-2">
+          <MiniFabButton icon={SparklesIcon} label="추천 챗봇" onClick={() => openPanel('recommend')} />
+          <MiniFabButton icon={MegaphoneIcon} label="부스 알림" onClick={() => openPanel('alerts')} showBadge={hasUnreadAlert} />
+        </div>
+      )}
+
       <button
         type="button"
-        onClick={() => {
-          setIsOpen((prev) => !prev)
-          setHasUnreadAlert(false)
-        }}
-        aria-label={isOpen ? '추천 챗봇 닫기' : '추천 챗봇 열기'}
-        aria-expanded={isOpen}
+        onClick={handleMainButtonClick}
+        aria-label={mainButtonLabel}
+        aria-expanded={dialOpen || Boolean(activePanel)}
         className="fixed bottom-6 right-6 z-50 flex h-14 w-14 cursor-pointer items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition hover:bg-blue-700"
       >
-        {isOpen ? <XIcon className="h-6 w-6" /> : <MessageCircleIcon className="h-6 w-6" />}
-        {!isOpen && hasUnreadAlert && (
+        {activePanel || dialOpen ? <XIcon className="h-6 w-6" /> : <MessageCircleIcon className="h-6 w-6" />}
+        {showBadge && (
           <span
             aria-hidden="true"
             className="absolute right-0 top-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500"
@@ -131,7 +163,7 @@ function ChatbotWidget() {
         )}
       </button>
 
-      {isOpen && (
+      {activePanel === 'recommend' && (
         <section
           role="dialog"
           aria-label="AI 페스티벌 추천 챗봇"
@@ -146,7 +178,7 @@ function ChatbotWidget() {
           </header>
 
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto bg-gray-50 px-4 py-4">
-            {messages.map((item) => (
+            {chatMessages.map((item) => (
               <ChatMessage key={item.id} message={item} />
             ))}
             {isSending && (
@@ -161,7 +193,7 @@ function ChatbotWidget() {
           {!isLoading && !isAuthenticated ? (
             <div className="border-t border-gray-100 px-4 py-4 text-center text-sm text-gray-600">
               로그인 후 이용할 수 있어요.{' '}
-              <Link to="/login" onClick={() => setIsOpen(false)} className="font-bold text-blue-600 hover:underline">
+              <Link to="/login" onClick={() => setActivePanel(null)} className="font-bold text-blue-600 hover:underline">
                 로그인하기
               </Link>
             </div>
@@ -189,7 +221,53 @@ function ChatbotWidget() {
           )}
         </section>
       )}
+
+      {activePanel === 'alerts' && (
+        <section
+          role="dialog"
+          aria-label="부스 대기 알림"
+          className="fixed bottom-24 right-6 z-50 flex h-[520px] max-h-[calc(100vh-7rem)] w-[360px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-2xl"
+        >
+          <header className="flex items-center gap-2 border-b border-gray-100 bg-amber-500 px-4 py-3 text-white">
+            <MegaphoneIcon className="h-5 w-5" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold">부스 대기 알림</p>
+              <p className="text-xs text-amber-50">내 순번이 호출되면 여기로 알려드려요</p>
+            </div>
+          </header>
+
+          <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto bg-gray-50 px-4 py-4">
+            {boothAlerts.length === 0 ? (
+              <p className="pt-10 text-center text-sm text-gray-500">
+                아직 알림이 없어요.
+                <br />
+                대기 신청한 부스의 순번이 호출되면 알려드려요.
+              </p>
+            ) : (
+              boothAlerts.map((item) => <ChatMessage key={item.id} message={item} />)
+            )}
+          </div>
+        </section>
+      )}
     </>
+  )
+}
+
+//스피드다이얼 미니 버튼 — 아이콘 옆에 라벨 텍스트를 붙이되, 모바일에서도 크게 보이지 않도록 작게 유지한다.
+function MiniFabButton({ icon: Icon, label, onClick, showBadge }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="relative flex items-center gap-1.5 rounded-full bg-white py-1.5 pl-3 pr-3.5 text-xs font-bold text-gray-700 shadow-lg ring-1 ring-gray-200 transition hover:bg-gray-50"
+    >
+      <Icon className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
+      <span>{label}</span>
+      {showBadge && (
+        <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500" />
+      )}
+    </button>
   )
 }
 

@@ -15,7 +15,7 @@
 |---|---|
 | 회원/인증 (Auth) | 최승환 |
 | 페스티벌 (Festival) | 송시훈 |
-| 예약 (Reservation) | 김선우 |
+| 예약 (Reservation) | 조민규,송시훈,최승환 |
 | Gateway | 조민규 |
 
 ## 서비스 구성

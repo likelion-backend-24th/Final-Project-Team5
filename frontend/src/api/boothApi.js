@@ -15,6 +15,21 @@ export function fetchMyBoothWaitlist(boothId) {
   return apiClient.get(`/api/booth-waitlists/${boothId}/me`)
 }
 
+//내가 신청한 모든 부스의 대기 현황 — 챗봇 위젯이 폴링해서 "내 차례"를 알아낼 때 쓴다.
+export function fetchMyActiveBoothWaitlists() {
+  return apiClient.get('/api/booth-waitlists/me/active')
+}
+
+//STOREHOST 본인 부스의 대기열 현황(호출 번호·대기 인원) 조회
+export function fetchBoothQueueStatus(boothId) {
+  return apiClient.get(`/api/booth-waitlists/booths/${boothId}/queue-status`)
+}
+
+//STOREHOST가 다음 대기 순번을 호출한다
+export function callNextBoothWaitlist(boothId) {
+  return apiClient.post(`/api/booth-waitlists/booths/${boothId}/call-next`)
+}
+
 //STOREHOST 본인이 개설한 부스 목록(상태 무관)
 export function fetchMyBooths() {
   return apiClient.get('/api/store/booths')

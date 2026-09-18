@@ -1,6 +1,7 @@
 package org.example.reservationservice.boothwaitlist;
 
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -14,6 +15,7 @@ import org.example.reservationservice.reservation.entity.Reservation;
 import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.example.reservationservice.reservation.infrastructure.festival.FestivalServiceClient;
 import org.example.reservationservice.reservation.infrastructure.festival.dto.BoothDetailResponseDto;
+import org.example.reservationservice.reservation.infrastructure.festival.dto.StoreBoothOwnerResponseDto;
 import org.example.reservationservice.reservation.repository.ReservationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ class BoothWaitlistAcceptanceTest {
     private static final Long FESTIVAL_ID = 100L;
     private static final Long BOOTH_ID = 1L;
     private static final Long USER_ID = 1L;
+    private static final Long STOREHOST_ID = 10L;
 
     @Autowired
     private MockMvc mockMvc;
@@ -53,6 +56,8 @@ class BoothWaitlistAcceptanceTest {
         reservationRepository.deleteAll();
         reset(festivalServiceClient);
         when(festivalServiceClient.getBooth(anyLong())).thenReturn(new BoothDetailResponseDto(BOOTH_ID, FESTIVAL_ID, "OPEN"));
+        when(festivalServiceClient.getMyBooth(anyLong(), anyLong(), anyString()))
+                .thenReturn(new StoreBoothOwnerResponseDto(BOOTH_ID, FESTIVAL_ID, STOREHOST_ID));
     }
 
     private void confirmedTicketFor(Long userId) {
@@ -123,5 +128,66 @@ class BoothWaitlistAcceptanceTest {
         mockMvc.perform(get("/api/booth-waitlists/" + BOOTH_ID + "/me").header("X-User-Id", USER_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.queueNumber", org.hamcrest.Matchers.is(1)));
+    }
+
+    @Test
+    void storehostCanCallNextAndQueueStatusReflectsIt() throws Exception {
+        confirmedTicketFor(1L);
+        confirmedTicketFor(2L);
+        mockMvc.perform(post("/api/booth-waitlists/" + BOOTH_ID).header("X-User-Id", 1L));
+        mockMvc.perform(post("/api/booth-waitlists/" + BOOTH_ID).header("X-User-Id", 2L));
+
+        mockMvc.perform(post("/api/booth-waitlists/booths/" + BOOTH_ID + "/call-next")
+                        .header("X-User-Id", STOREHOST_ID)
+                        .header("X-User-Role", "STOREHOST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.calledNumber", org.hamcrest.Matchers.is(1)))
+                .andExpect(jsonPath("$.data.waitingCount", org.hamcrest.Matchers.is(1)));
+
+        mockMvc.perform(get("/api/booth-waitlists/booths/" + BOOTH_ID + "/queue-status")
+                        .header("X-User-Id", STOREHOST_ID)
+                        .header("X-User-Role", "STOREHOST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.calledNumber", org.hamcrest.Matchers.is(1)))
+                .andExpect(jsonPath("$.data.issuedNumber", org.hamcrest.Matchers.is(2)));
+    }
+
+    @Test
+    void callNextFailsWhenNoOneIsWaiting() throws Exception {
+        mockMvc.perform(post("/api/booth-waitlists/booths/" + BOOTH_ID + "/call-next")
+                        .header("X-User-Id", STOREHOST_ID)
+                        .header("X-User-Role", "STOREHOST"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode", org.hamcrest.Matchers.is("NO_WAITING_QUEUE")));
+    }
+
+    @Test
+    void nonOwnerCannotCallNext() throws Exception {
+        confirmedTicketFor(1L);
+        mockMvc.perform(post("/api/booth-waitlists/" + BOOTH_ID).header("X-User-Id", 1L));
+
+        mockMvc.perform(post("/api/booth-waitlists/booths/" + BOOTH_ID + "/call-next")
+                        .header("X-User-Id", 999L)
+                        .header("X-User-Role", "STOREHOST"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode", org.hamcrest.Matchers.is("FORBIDDEN_NOT_OWNER")));
+    }
+
+    @Test
+    void myActiveWaitlistsReportsMyTurnAfterCallNext() throws Exception {
+        confirmedTicketFor(USER_ID);
+        mockMvc.perform(post("/api/booth-waitlists/" + BOOTH_ID).header("X-User-Id", USER_ID));
+
+        mockMvc.perform(get("/api/booth-waitlists/me/active").header("X-User-Id", USER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].myTurn", org.hamcrest.Matchers.is(false)));
+
+        mockMvc.perform(post("/api/booth-waitlists/booths/" + BOOTH_ID + "/call-next")
+                        .header("X-User-Id", STOREHOST_ID)
+                        .header("X-User-Role", "STOREHOST"));
+
+        mockMvc.perform(get("/api/booth-waitlists/me/active").header("X-User-Id", USER_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].myTurn", org.hamcrest.Matchers.is(true)));
     }
 }

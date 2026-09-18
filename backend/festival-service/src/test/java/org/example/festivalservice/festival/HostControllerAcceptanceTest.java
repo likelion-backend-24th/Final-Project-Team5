@@ -37,6 +37,7 @@ class HostControllerAcceptanceTest {
           "region": "SEOUL",
           "locationDetail": "서울숲",
           "festivalCategory": "MUSIC",
+          "stageLayout": "FRONT_STAGE",
           "ticketTypes": [
             {"name": "일반", "description": "스탠딩석", "price": 50000, "ticketMode": "STANDING", "quantity": 100, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"},
             {"name": "VIP", "price": 120000, "ticketMode": "STANDING", "quantity": 20, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"}
@@ -98,6 +99,7 @@ class HostControllerAcceptanceTest {
                   "region": "SEOUL",
                   "locationDetail": "서울숲",
                   "festivalCategory": "MUSIC",
+                  "stageLayout": "FRONT_STAGE",
                   "ticketTypes": [
                     {"name": "일반", "price": 50000, "quantity": 0, "saleStartAt": "2026-09-01T00:00:00", "saleEndAt": "2026-09-30T23:59:59"}
                   ]
@@ -194,5 +196,82 @@ class HostControllerAcceptanceTest {
                 .festivalCategory(FestivalCategory.MUSIC)
                 .festivalStatus(FestivalStatus.PUBLISHED)
                 .build());
+    }
+
+    @Test
+    void createFestivalSucceedsWithSeatedTicketType() throws Exception {
+        String body = """
+                {
+                  "name": "가을 뮤직 페스티벌",
+                  "startAt": "2026-10-01T10:00:00",
+                  "endAt": "2026-10-02T22:00:00",
+                  "region": "SEOUL",
+                  "locationDetail": "서울숲",
+                  "festivalCategory": "MUSIC",
+                  "stageLayout": "FRONT_STAGE",
+                  "ticketTypes": [
+                    {
+                      "name": "VIP",
+                      "price": 120000,
+                      "ticketMode": "SEATED",
+                      "zone": "A구역",
+                      "seatLayout": {
+                        "rows": [
+                          {"seatCount": 10, "excludedSeats": [5, 6]},
+                          {"seatCount": 12, "excludedSeats": []}
+                        ]
+                      },
+                      "positionRow": 1,
+                      "positionCol": 1,
+                      "saleStartAt": "2026-09-01T00:00:00",
+                      "saleEndAt": "2026-09-30T23:59:59"
+                    }
+                  ]
+                }""";
+
+        mockMvc.perform(post(ENDPOINT)
+                        .header("X-User-Id", "1")
+                        .header("X-User-Role", "HOST")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.ticketTypes[0].zone", is("A구역")))
+                //1행: 10석 - 결번 2개 = 8석, 2행: 12석 - 결번 0개 = 12석 → 총 20석
+                .andExpect(jsonPath("$.data.ticketTypes[0].totalQuantity", is(20)))
+                .andExpect(jsonPath("$.data.ticketTypes[0].remainQuantity", is(20)));
+    }
+
+    @Test
+    void createFestivalWithSeatedTicketTypeMissingZoneIsBadRequest() throws Exception {
+        String body = """
+                {
+                  "name": "가을 뮤직 페스티벌",
+                  "startAt": "2026-10-01T10:00:00",
+                  "endAt": "2026-10-02T22:00:00",
+                  "region": "SEOUL",
+                  "locationDetail": "서울숲",
+                  "festivalCategory": "MUSIC",
+                  "stageLayout": "FRONT_STAGE",
+                  "ticketTypes": [
+                    {
+                      "name": "VIP",
+                      "price": 120000,
+                      "ticketMode": "SEATED",
+                      "seatLayout": {
+                        "rows": [{"seatCount": 10, "excludedSeats": []}]
+                      },
+                      "saleStartAt": "2026-09-01T00:00:00",
+                      "saleEndAt": "2026-09-30T23:59:59"
+                    }
+                  ]
+                }""";
+
+        mockMvc.perform(post(ENDPOINT)
+                        .header("X-User-Id", "1")
+                        .header("X-User-Role", "HOST")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode", is("INVALID_SEAT_LAYOUT")));
     }
 }

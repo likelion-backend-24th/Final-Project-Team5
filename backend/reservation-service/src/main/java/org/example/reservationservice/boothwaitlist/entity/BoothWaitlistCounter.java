@@ -26,8 +26,14 @@ public class BoothWaitlistCounter {
     @Column(name = "next_number", nullable = false)
     private int nextNumber;
 
+    //STOREHOST가 "다음 순번 호출"을 누를 때마다 증가하는, 현재까지 호출된 번호. 0이면 아직 아무도
+    //호출하지 않은 상태다. nextNumber(지금까지 발급된 마지막 번호)를 넘어서 호출할 수는 없다.
+    @Column(name = "called_number", nullable = false)
+    private int calledNumber;
+
     public BoothWaitlistCounter(Long boothId) {
         this.boothId = boothId;
         this.nextNumber = 0;
+        this.calledNumber = 0;
     }
 }

@@ -46,9 +46,9 @@ services:
       FESTIVAL_DB_PORT: 3306
       AUTH_SERVICE_URL: http://auth-service:8081
       # 페스티벌 승인(PUBLISHED) 시 SEATED 티켓타입 좌석 생성을 요청하는 내부 호출 대상.
-      # .env의 로컬 개발용 기본값(localhost:8083)은 컨테이너 안에선 festival-service 자기
-      # 자신을 가리켜 좌석 생성 호출이 항상 ConnectException으로 실패하므로, 배포용으로
-      # 여기서 명시적으로 덮어쓴다(2026-09-18 확인된 PUBLISH_PENDING 정체 장애의 원인).
+      # 이 값이 빠지면 코드 기본값(http://localhost:8083)으로 폴백돼 festival-service 컨테이너
+      # 자기 자신을 가리키게 되고, 좌석 생성 호출이 항상 ConnectException으로 실패해
+      # 페스티벌이 PUBLISH_PENDING에서 영원히 넘어가지 못한다(2026-09-18 확인된 장애).
       RESERVATION_SERVICE_URL: http://reservation-service:8083
       # 컨테이너 내부 경로는 항상 이 절대경로로 고정한다(.env의 SAVED_IMAGE 값을 덮어씀).
       # 실제 저장 위치(호스트 쪽)는 아래 volumes 왼쪽 경로로 정한다 — 상대경로를 쓰면

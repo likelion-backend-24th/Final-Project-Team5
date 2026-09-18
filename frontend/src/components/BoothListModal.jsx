@@ -48,8 +48,30 @@ function BoothListModal({ festivalId, onClose }) {
     setLoading(true)
     setLoadError('')
     fetchBoothsForFestival(festivalId)
-      .then((response) => {
-        if (!cancelled) setBooths(response.data.data)
+      .then(async (response) => {
+        if (cancelled) return
+        const list = response.data.data
+        setBooths(list)
+
+        //이미 대기 신청해둔 부스가 있으면 미리 조회해둔다 — 안 그러면 모달을 다시 열 때마다
+        //"대기 신청" 버튼이 처음 상태로 보여서(프론트가 기억을 못 해서) 한 번 더 눌러야
+        //(그때야 409 ALREADY_REQUESTED로 복구) 내 순번을 다시 볼 수 있었다.
+        if (!user) return
+        const openBooths = list.filter((booth) => booth.boothStatus !== 'CLOSED')
+        if (openBooths.length === 0) return
+        const results = await Promise.allSettled(openBooths.map((booth) => fetchMyBoothWaitlist(booth.id)))
+        if (cancelled) return
+        setWaitlistState((prev) => {
+          const next = { ...prev }
+          openBooths.forEach((booth, index) => {
+            const result = results[index]
+            //404(WAITLIST_NOT_FOUND)는 아직 미신청이라는 뜻이라 idle로 둔다.
+            if (result.status === 'fulfilled') {
+              next[booth.id] = { status: 'requested', queueNumber: result.value.data.data.queueNumber }
+            }
+          })
+          return next
+        })
       })
       .catch(() => {
         if (!cancelled) setLoadError('부스 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
@@ -60,7 +82,7 @@ function BoothListModal({ festivalId, onClose }) {
     return () => {
       cancelled = true
     }
-  }, [festivalId])
+  }, [festivalId, user])
 
   async function handleRequestWaitlist(boothId) {
     setWaitlistState((prev) => ({ ...prev, [boothId]: { status: 'submitting' } }))

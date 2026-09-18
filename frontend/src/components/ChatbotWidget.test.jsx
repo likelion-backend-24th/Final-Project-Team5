@@ -12,7 +12,8 @@ vi.mock('../api/boothApi')
 
 beforeEach(() => {
   vi.clearAllMocks()
-  useAuth.mockReturnValue({ isAuthenticated: true, isLoading: false })
+  localStorage.clear()
+  useAuth.mockReturnValue({ isAuthenticated: true, isLoading: false, user: { id: 1 } })
   //대부분의 테스트는 부스 알림 폴링과 무관하므로 기본값은 빈 목록으로 둔다.
   fetchMyActiveBoothWaitlists.mockResolvedValue({ data: { data: [] } })
 })
@@ -113,5 +114,21 @@ describe('ChatbotWidget', () => {
     await screen.findByText(/대기번호 3번/)
     const link = screen.getByRole('link', { name: '부스로 이동하기 →' })
     expect(link.getAttribute('href')).toBe('/festivals/9')
+  })
+
+  it('does not re-show the unread badge for an already-seen alert after remounting (e.g. page refresh)', async () => {
+    fetchMyActiveBoothWaitlists.mockResolvedValue({
+      data: { data: [{ boothId: 1, festivalId: 9, queueNumber: 3, calledNumber: 3, myTurn: true }] },
+    })
+
+    const first = renderWidget()
+    await waitFor(() => expect(first.container.querySelector('.bg-red-500')).toBeTruthy())
+    first.unmount()
+
+    //새로고침을 흉내낸 재마운트 — 백엔드는 여전히 같은 항목을 myTurn:true로 내려주지만
+    //localStorage에 남은 "이미 확인함" 기록 덕분에 안 읽음 배지가 다시 뜨면 안 된다.
+    const second = renderWidget()
+    await waitFor(() => expect(fetchMyActiveBoothWaitlists).toHaveBeenCalledTimes(2))
+    expect(second.container.querySelector('.bg-red-500')).toBeNull()
   })
 })

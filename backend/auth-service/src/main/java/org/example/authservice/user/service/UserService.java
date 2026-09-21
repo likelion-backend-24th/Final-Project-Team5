@@ -9,6 +9,7 @@ import org.example.authservice.auth.service.AccountAccessPolicy;
 import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.helper.repository.HelperInvitationRepository;
+import org.example.authservice.user.dto.InternalUserSummaryResponse;
 import org.example.authservice.user.dto.UserResponse;
 import org.example.authservice.user.dto.WithdrawAccountRequest;
 import org.example.authservice.user.entity.AccountStatus;
@@ -22,10 +23,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
+    private static final int MAX_INTERNAL_USER_IDS = 200;
+
     private final UserRepository userRepository;
     private final HelperInvitationRepository helperInvitations;
     private final AccountAccessPolicy accountAccessPolicy;
@@ -33,6 +37,14 @@ public class UserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final RefreshTokenRevocationService refreshTokenRevocationService;
     private final OauthAccountRepository oauthAccountRepository;
+
+    // 내부 사용자 조회도 기존 중복 제거와 최대 조회 수를 유지한다.
+    public List<InternalUserSummaryResponse> findInternalUserSummaries(List<Long> ids) {
+        List<Long> limited = ids.stream().distinct().limit(MAX_INTERNAL_USER_IDS).toList();
+        return userRepository.findAllById(limited).stream()
+                .map(InternalUserSummaryResponse::from)
+                .toList();
+    }
 
     // 내 정보 조회
     public UserResponse getMyInfo(Long userId) {

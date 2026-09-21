@@ -6,7 +6,7 @@ import org.example.authservice.common.dto.ApiResponse;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.role.exception.RoleErrorCode;
 import org.example.authservice.user.dto.InternalUserSummaryResponse;
-import org.example.authservice.user.repository.UserRepository;
+import org.example.authservice.user.service.UserService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -26,9 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class InternalUserController {
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final int MAX_IDS = 200;
 
-    private final UserRepository userRepository;
+    private final UserService userService;
 
     @Value("${internal.role-grant.token:CHANGE_ME_IN_ENV}")
     private String internalAuthToken;
@@ -41,10 +40,8 @@ public class InternalUserController {
         if (!authorization.equals(BEARER_PREFIX + internalAuthToken)) {
             throw new ApiException(RoleErrorCode.INVALID_INTERNAL_TOKEN);
         }
-        List<Long> limited = ids.stream().distinct().limit(MAX_IDS).toList();
-        List<InternalUserSummaryResponse> users = userRepository.findAllById(limited).stream()
-                .map(InternalUserSummaryResponse::from)
-                .toList();
+        //사용자 조회 범위와 DTO 구성은 서비스에서 관리한다.
+        List<InternalUserSummaryResponse> users = userService.findInternalUserSummaries(ids);
         return ResponseEntity.ok(ApiResponse.success("사용자 요약 조회 성공", users));
     }
 }

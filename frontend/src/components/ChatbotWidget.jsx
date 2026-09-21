@@ -8,7 +8,7 @@ import { fetchMyActiveBoothWaitlists } from '../api/boothApi'
 const GREETING = {
   id: 'greeting',
   role: 'assistant',
-  content: '안녕하세요! 어떤 페스티벌을 찾으세요? 지역·날짜·예산·분위기를 말해주시면 맞는 걸 골라드릴게요.',
+  content: '안녕하세요! 어떤 페스티벌을 찾으세요? 지역·날짜·예산·분위기를 말해주시면 마음에 드실 만한 페스티벌을 골라드릴게요.',
   //인사말은 서버로 보내는 대화 이력에서 뺀다
   greeting: true,
 }

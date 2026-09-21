@@ -116,8 +116,9 @@ public class BoothWaitlistService {
         if (updated == 0) {
             throw new ApiException(BoothWaitlistErrorCode.NO_WAITING_QUEUE);
         }
+        //갱신 결과를 확인할 수 없으면 서버 오류 대신 대기 상태 충돌로 안내한다.
         BoothWaitlistCounter counter = boothWaitlistCounterRepository.findById(boothId)
-                .orElseThrow(() -> new IllegalStateException("방금 갱신한 카운터를 찾을 수 없습니다: boothId=" + boothId));
+                .orElseThrow(() -> new ApiException(BoothWaitlistErrorCode.COUNTER_CONFLICT));
         return BoothWaitlistQueueStatusResponseDto.of(counter.getCalledNumber(), counter.getNextNumber());
     }
 
@@ -147,8 +148,9 @@ public class BoothWaitlistService {
         boothWaitlistCounterRepository.increment(boothId);
         //같은 트랜잭션 안에서의 조회라 방금 반영한 증가값을 그대로 읽는다(다른 트랜잭션의 커밋을
         //기다릴 필요 없음 — 자기 자신이 쓴 값은 커밋 전에도 항상 보인다).
+        //발급한 번호를 확인할 수 없으면 신청을 완료하지 않고 상태 충돌을 알린다.
         return boothWaitlistCounterRepository.findById(boothId)
-                .orElseThrow(() -> new IllegalStateException("방금 만든 카운터를 찾을 수 없습니다: boothId=" + boothId))
+                .orElseThrow(() -> new ApiException(BoothWaitlistErrorCode.COUNTER_CONFLICT))
                 .getNextNumber();
     }
 

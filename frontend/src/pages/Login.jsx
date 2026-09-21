@@ -49,7 +49,8 @@ function loginDestination(from) {
   const path = typeof from === 'string'
     ? from
     : `${from?.pathname ?? ''}${from?.search ?? ''}${from?.hash ?? ''}`
-  if (!path.startsWith('/') || path.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(path)) return '/'
+  const hasUnsafeCharacter = Array.from(path).some((char) => char === '\\' || char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)
+  if (!path.startsWith('/') || path.startsWith('//') || hasUnsafeCharacter) return '/'
   return path
 }
 

@@ -19,6 +19,7 @@ import HostSettlements from './pages/HostSettlements'
 import Login from './pages/Login'
 import MyPage from './pages/Mypage'
 import OauthLinkConfirm from './pages/OauthLinkConfirm'
+import PaymentRedirect from './pages/PaymentRedirect'
 import Placeholder from './pages/Placeholder'
 import Privacy from './pages/Privacy'
 import ProfileSetup from './pages/ProfileSetup'
@@ -99,6 +100,7 @@ function App() {
         <Route path="/festivals/:id/reserve" element={<ReservationCheckout />} />
         <Route path="/login" element={<Login />} />
         <Route path="/oauth/link-confirm" element={<OauthLinkConfirm />} />
+        <Route path="/payments/redirect" element={<PaymentRedirect />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route

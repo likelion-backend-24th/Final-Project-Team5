@@ -126,7 +126,7 @@ function mapFestivalSubmission(raw) {
     id: String(raw.id),
     name: raw.name,
     host: raw.hostNickname ?? '주최자 정보 없음',
-    image: toAbsoluteImageUrl(raw.thumbnailImageUrl) ?? '/placeholder.svg',
+    image: toAbsoluteImageUrl(raw.thumbnailImageUrl) ?? '/placeholder.jpg',
     date: formatDateRange(raw.startAt, raw.endAt),
     location: raw.location,
     category: FESTIVAL_CATEGORY_LABELS[raw.festivalCategory] ?? raw.festivalCategory,

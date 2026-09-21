@@ -278,6 +278,28 @@ class CheckInAcceptanceTest {
         }
     }
 
+    @Test
+    void 부분_환불_후_남은_티켓의_QR을_조회할_수_있다() throws Exception {
+        Reservation reservation = saveConfirmedReservation(FESTIVAL_ID, 2);
+        reservation.refund(1);
+        reservationRepository.save(reservation);
+
+        mockMvc.perform(get("/api/reservations/" + reservation.getId() + "/qr").header("X-User-Id", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.qrToken").value(reservation.getQrToken()));
+    }
+
+    @Test
+    void 남은_티켓이_없으면_부분_환불_상태라도_QR을_제공하지_않는다() throws Exception {
+        Reservation reservation = reservationRepository.save(Reservation.builder()
+                .userId(1L).festivalId(FESTIVAL_ID).ticketTypeId(TICKET_TYPE_ID).quantity(1).refundedQuantity(1)
+                .reservationStatus(ReservationStatus.PARTIALLY_REFUNDED).qrToken("empty-ticket").build());
+
+        mockMvc.perform(get("/api/reservations/" + reservation.getId() + "/qr").header("X-User-Id", 1L))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.errorCode").value("RESERVATION_NOT_CONFIRMED"));
+    }
+
     private Reservation saveConfirmedReservation(Long festivalId, int quantity) {
         Reservation reservation = Reservation.builder()
                 .userId(1L)

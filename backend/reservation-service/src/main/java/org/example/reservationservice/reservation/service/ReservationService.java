@@ -227,7 +227,8 @@ public class ReservationService {
     //참가자 본인의 확정된 예매에 대해 입장용 QR을 발급(조회)한다
     public ReservationQrResponseDto getQrForReservation(Long id, Long userId) {
         Reservation reservation = getOwnedReservation(id, userId);
-        if (reservation.getReservationStatus() != ReservationStatus.CONFIRMED) {
+        //부분 환불 뒤에도 남은 티켓은 입장할 수 있으므로 같은 기준으로 QR을 제공한다.
+        if (!reservation.isAdmittable() || reservation.remainingQuantity() <= 0) {
             throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CONFIRMED);
         }
         String qrImageUrl = qrImageBaseUrl + "?size=200x200&data="

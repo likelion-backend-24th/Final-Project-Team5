@@ -101,7 +101,8 @@ function StoreBoothDetail() {
     }
   }
 
-  if (authLoading || loading) {
+  //권한이 없으면 조회를 시작하지 않으므로 데이터 로딩보다 권한 안내를 먼저 보여준다.
+  if (authLoading || (isStorehost && loading)) {
     return (
       <main className={styles.main}>
         <p className={styles.loading}>불러오는 중…</p>

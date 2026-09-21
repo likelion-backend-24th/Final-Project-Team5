@@ -5,6 +5,7 @@ import { fetchBoothsForFestival, fetchMyBoothWaitlist, requestBoothWaitlist } fr
 import { toAbsoluteImageUrl } from '../api/festivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from './Badge'
+import FadeImage from './FadeImage'
 
 const BOOTH_STATUS_LABELS = {
   OPEN: '운영중',
@@ -181,7 +182,7 @@ function BoothCard({ booth, user, waitlist, onRequestWaitlist }) {
     <li className="overflow-hidden rounded-2xl border border-gray-200">
       <div className="flex gap-3 p-4">
         {booth.imageUrl ? (
-          <img
+          <FadeImage
             src={toAbsoluteImageUrl(booth.imageUrl)}
             alt=""
             className="h-16 w-16 shrink-0 rounded-xl object-cover"

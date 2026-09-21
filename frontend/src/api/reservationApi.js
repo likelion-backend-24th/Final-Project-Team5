@@ -1,9 +1,16 @@
 import apiClient from './client'
+import { invalidateQueries } from './queryCache'
+
+//예매·취소는 잔여 수량을 바꾸므로, 캐시된 페스티벌 상세·목록을 비워 다음 진입 때 새로 받게 한다.
+function invalidateFestivalCache(response) {
+  invalidateQueries('festival')
+  return response
+}
 
 //참가자가 티켓 예매를 신청한다 (POST /api/reservations)
 //SEATED 티켓은 seatIds를, STANDING 티켓은 quantity를 넘긴다.
 export function createReservation({ festivalId, ticketTypeId, quantity, seatIds }) {
-  return apiClient.post('/api/reservations', { festivalId, ticketTypeId, quantity, seatIds })
+  return apiClient.post('/api/reservations', { festivalId, ticketTypeId, quantity, seatIds }).then(invalidateFestivalCache)
 }
 
 //참가자 본인의 예매 목록을 조회한다 (GET /api/reservations/me)
@@ -23,7 +30,7 @@ export function fetchReservationQr(id) {
 
 //참가자 본인이 결제대기 중인 예매를 직접 취소한다 (PATCH /api/reservations/{id}/cancel)
 export function cancelReservation(id) {
-  return apiClient.patch(`/api/reservations/${id}/cancel`)
+  return apiClient.patch(`/api/reservations/${id}/cancel`).then(invalidateFestivalCache)
 }
 
 //환불 버튼을 누르기 전에 위약금·환급 예상액을 미리 확인한다 (GET /api/reservations/{id}/refund-quote)

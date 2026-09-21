@@ -8,6 +8,18 @@
   --color-brand-magenta: #c033a0;
   --color-brand-coral: #fc4c21;
   --color-brand-navy: #101a44;
+
+  /* 이미지가 로드된 뒤 부드럽게 나타나게 하는 페이드인(FadeImage). transition 대신 애니메이션을 써서
+     카드 hover 확대 같은 기존 transition과 속성이 겹치지 않게 한다. */
+  --animate-fade-in: fade-in 0.4s ease-out both;
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 }
 
 /* FevalGo 디자인 토큰.

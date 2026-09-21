@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import Badge, { badgeVariantForLabel } from './Badge'
+import FadeImage from './FadeImage'
 
 //모바일에서 스와이프로 슬라이드를 넘기기 위한 최소 이동 거리(px). 너무 작으면 스크롤·탭과 헷갈린다.
 const SWIPE_THRESHOLD_PX = 40
@@ -61,7 +62,13 @@ function HeroCarousel({ slides = [] }) {
                 tabIndex={active ? 0 : -1}
               >
                 {festival.image ? (
-                  <img src={festival.image} alt={festival.title} className="h-full w-full object-cover" />
+                  <FadeImage
+                    src={festival.image}
+                    alt={festival.title}
+                    loading="eager"
+                    fetchPriority={i === 0 ? 'high' : undefined}
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
                   <div className="h-full w-full bg-gradient-to-br from-brand-navy to-brand-blue" aria-hidden="true" />
                 )}

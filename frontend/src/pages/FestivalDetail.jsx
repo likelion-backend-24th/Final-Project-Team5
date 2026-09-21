@@ -15,15 +15,19 @@ import {
   FESTIVAL_CATEGORY_LABELS,
   FESTIVAL_REGION_LABELS,
   FESTIVAL_VISIBLE_STATUS_LABELS,
+  festivalDetailKey,
   fetchFestivalDetail,
   formatLocation,
   toAbsoluteImageUrl,
 } from '../api/festivalApi'
 import { fetchMyBooths } from '../api/boothApi'
+import { useCachedQuery } from '../api/queryCache'
 import { useAuth } from '../context/AuthContext.jsx'
 import Badge from '../components/Badge'
 import BoothListModal from '../components/BoothListModal'
 import BoothCreateModal from '../components/BoothCreateModal'
+import FadeImage from '../components/FadeImage'
+import { Skeleton } from '../components/Skeleton'
 import styles from './FestivalDetail.module.css'
 
 const BOOTH_STATUS_LABELS = { WAITING: '대기', OPEN: '운영중', CLOSED: '마감' }
@@ -100,6 +104,29 @@ function operatingTimeText(festival) {
 }
 
 /** GET /api/festivals/{id} 기준 페스티벌 상세 페이지. */
+//실제 상세와 같은 hero·2단 레이아웃 뼈대라 데이터가 오면 자리가 그대로 채워진다.
+function DetailSkeleton() {
+  return (
+    <main className={styles.main} role="status" aria-label="불러오는 중">
+      <div className={`${styles.hero} animate-pulse motion-reduce:animate-none`} />
+      <div className={styles.content}>
+        <div className={styles.info}>
+          <Skeleton className="h-6 w-24 rounded-full" />
+          <Skeleton className="h-9 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-4 w-2/5" />
+          <Skeleton className="mt-4 h-28 w-full" />
+        </div>
+        <div className={styles.ticketPanel}>
+          <Skeleton className="h-6 w-1/3" />
+          <Skeleton className="mt-4 h-16 w-full" />
+          <Skeleton className="mt-3 h-12 w-full rounded-xl" />
+        </div>
+      </div>
+    </main>
+  )
+}
+
 function FestivalDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -108,10 +135,12 @@ function FestivalDetail() {
   //이 화면은 도우미에게 담당 행사 정보를 확인하는 용도로만 쓰인다.
   const isHelper = user?.role === 'HELPER'
   const isStorehost = user?.role === 'STOREHOST'
-  const [festival, setFestival] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [notFound, setNotFound] = useState(false)
-  const [loadError, setLoadError] = useState('')
+  //재방문·목록 카드 pointerdown 프리페치로 캐시가 있으면 로딩 없이 바로 그리고, 오래됐으면 뒤에서 갱신한다.
+  const { data: festival, error, isLoading: loading } = useCachedQuery(festivalDetailKey(id), () =>
+    fetchFestivalDetail(id),
+  )
+  const notFound = error?.response?.status === 404
+  const loadError = error && !notFound ? '페스티벌 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.' : ''
   //유의사항 아코디언 — 한 번에 하나만 펼쳐지고, 처음엔 첫 항목이 펼쳐져 있다.
   const [openNoticeIndex, setOpenNoticeIndex] = useState(0)
   const [showBoothModal, setShowBoothModal] = useState(false)
@@ -127,33 +156,6 @@ function FestivalDetail() {
     }
     navigate(`/festivals/${id}/zones`)
   }
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setNotFound(false)
-    setLoadError('')
-
-    fetchFestivalDetail(id)
-      .then((response) => {
-        if (!cancelled) setFestival(response.data.data)
-      })
-      .catch((error) => {
-        if (cancelled) return
-        if (error.response?.status === 404) {
-          setNotFound(true)
-        } else {
-          setLoadError('페스티벌 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [id])
 
   //STOREHOST면 내 부스 목록을 불러와 이 페스티벌에 이미 개설한 부스가 있는지 확인한다.
   useEffect(() => {
@@ -178,11 +180,7 @@ function FestivalDetail() {
   }, [id, isStorehost])
 
   if (loading) {
-    return (
-      <main className={styles.main}>
-        <p className={styles.loading}>불러오는 중…</p>
-      </main>
-    )
+    return <DetailSkeleton />
   }
 
   if (notFound) {
@@ -210,12 +208,14 @@ function FestivalDetail() {
   }
 
   return (
-    <main className={styles.main}>
+    <main className={`${styles.main} animate-fade-in motion-reduce:animate-none`}>
       <div className={styles.hero}>
         {festival.thumbnailImageUrl ? (
-          <img
+          <FadeImage
             src={toAbsoluteImageUrl(festival.thumbnailImageUrl)}
             alt={festival.name}
+            loading="eager"
+            fetchPriority="high"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         ) : (
@@ -346,7 +346,7 @@ function FestivalDetail() {
         {festival.detailImageUrls?.length > 0 && (
           <div className={styles.gallery}>
             {festival.detailImageUrls.map((url) => (
-              <img key={url} src={toAbsoluteImageUrl(url)} alt="" className={styles.galleryImage} />
+              <FadeImage key={url} src={toAbsoluteImageUrl(url)} alt="" className={styles.galleryImage} />
             ))}
           </div>
         )}

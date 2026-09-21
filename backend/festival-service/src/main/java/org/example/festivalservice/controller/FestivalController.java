@@ -48,8 +48,12 @@ public class FestivalController {
         return ResponseEntity.ok(ApiResponse.success("페스티벌 상세 조회", detail));
     }
 
-    //nginx → gateway를 거치며 X-Forwarded-For가 "클라이언트, nginx" 순으로 쌓이므로 첫 값이 실제 클라이언트다
+    //외부에서 덧붙일 수 있는 전달 목록보다 nginx가 연결 IP로 덮어쓴 값을 우선한다.
     private static String clientIp(String forwardedFor, HttpServletRequest request) {
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
         if (forwardedFor != null && !forwardedFor.isBlank()) {
             return forwardedFor.split(",")[0].trim();
         }

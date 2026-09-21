@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRightIcon, CircleAlertIcon, EyeIcon, EyeOffIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { GoogleIcon, KakaoIcon } from '../components/SocialIcons'
@@ -44,9 +44,19 @@ function inputClass(hasError) {
   return `${inputBaseClass} ${hasError ? 'border-red-500' : 'border-gray-300'}`
 }
 
+//외부 주소나 브라우저가 주소로 재해석할 문자는 받지 않고 서비스 안의 예매 경로만 복원한다.
+function loginDestination(from) {
+  const path = typeof from === 'string'
+    ? from
+    : `${from?.pathname ?? ''}${from?.search ?? ''}${from?.hash ?? ''}`
+  if (!path.startsWith('/') || path.startsWith('//') || /[\\\u0000-\u001f\u007f]/.test(path)) return '/'
+  return path
+}
+
 /** feval-go wireframe 기준 로그인 화면. */
 function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login } = useAuth()
   const [searchParams] = useSearchParams()
   const [form, setForm] = useState({ username: '', password: '' })
@@ -89,8 +99,8 @@ function Login() {
 
     try {
       await login(form.username.trim(), form.password)
-      //역할별로 갈 화면이 다르지만(도우미는 전용 메인) 라우팅이 알아서 갈라주므로 여기서는 항상 홈으로 보낸다.
-      navigate('/')
+      //도우미 전용 화면은 기존 라우팅에 맡기고 참가자는 로그인 전에 고르던 예매 화면으로 돌려보낸다.
+      navigate(loginDestination(location.state?.from))
     } catch (error) {
       const errorCode = error.response?.data?.errorCode
       setSubmitError(LOGIN_ERROR_MESSAGES[errorCode] ?? '로그인에 실패했어요. 잠시 후 다시 시도해주세요.')

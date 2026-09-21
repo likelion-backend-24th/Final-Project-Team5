@@ -299,8 +299,13 @@ public class ReservationService {
             throw new ApiException(ReservationErrorCode.ALREADY_CHECKED_IN);
         }
 
-        reservation.checkIn();
-        return ReservationVerifyResponseDto.from(reservation);
+        //조회 이후 다른 스캐너가 입장 처리했을 수 있으므로 DB에서 한 번만 갱신한다.
+        Instant checkedInAt = Instant.now();
+        if (reservationRepository.checkInIfNotCheckedIn(reservation.getId(), checkedInAt) == 0) {
+            throw new ApiException(ReservationErrorCode.ALREADY_CHECKED_IN);
+        }
+        return new ReservationVerifyResponseDto(reservation.getId(), reservation.getTicketTypeId(),
+                reservation.remainingQuantity(), checkedInAt);
     }
 
     //검증자가 이 페스티벌을 다룰 권한이 있는지 확인한다(내부 메서드).

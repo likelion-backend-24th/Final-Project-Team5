@@ -3,6 +3,9 @@ package org.example.reservationservice.reservation.repository;
 import org.example.reservationservice.reservation.entity.Reservation;
 import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.List;
@@ -19,6 +22,11 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     //QR 스캔이 실패했을 때 도우미가 손으로 입력한 입장 코드로 예매를 조회할 때 사용
     Optional<Reservation> findByCheckInCode(String checkInCode);
+
+    //동시에 같은 티켓을 스캔해도 먼저 입장 시각을 기록한 요청만 성공해야 한다.
+    @Modifying
+    @Query("UPDATE Reservation r SET r.checkedInAt = :now WHERE r.id = :id AND r.checkedInAt IS NULL")
+    int checkInIfNotCheckedIn(@Param("id") Long id, @Param("now") Instant now);
 
     //입장 코드 발급 시 중복 확인
     boolean existsByCheckInCode(String checkInCode);

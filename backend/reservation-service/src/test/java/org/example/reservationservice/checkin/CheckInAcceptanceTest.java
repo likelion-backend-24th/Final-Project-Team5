@@ -12,6 +12,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.example.reservationservice.reservation.entity.Reservation;
 import org.example.reservationservice.reservation.repository.ReservationRepository;
 import org.example.reservationservice.reservation.entity.ReservationStatus;
@@ -248,6 +251,31 @@ class CheckInAcceptanceTest {
         mockMvc.perform(helperVerify(FESTIVAL_ID, qrBody(pending.getQrToken())))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("RESERVATION_NOT_CONFIRMED"));
+    }
+
+    @Test
+    void 두_스캐너가_동시에_검증해도_한_번만_입장_처리된다() throws Exception {
+        Reservation reservation = saveConfirmedReservation(FESTIVAL_ID, 1);
+        CountDownLatch ready = new CountDownLatch(2);
+        //두 요청 모두 미입장 상태를 읽은 뒤 갱신하도록 순서를 고정한다.
+        when(festivalServiceClient.getFestival(FESTIVAL_ID)).thenAnswer(invocation -> {
+            ready.countDown();
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            return startedFestival(FESTIVAL_ID);
+        });
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> mockMvc.perform(
+                    helperVerify(FESTIVAL_ID, qrBody(reservation.getQrToken()))).andReturn().getResponse());
+            var second = executor.submit(() -> mockMvc.perform(
+                    helperVerifyCode(FESTIVAL_ID, codeBody(reservation.getCheckInCode()))).andReturn().getResponse());
+            var responses = List.of(first.get(10, TimeUnit.SECONDS), second.get(10, TimeUnit.SECONDS));
+
+            assertThat(responses).extracting(response -> response.getStatus()).containsExactlyInAnyOrder(200, 409);
+            assertThat(responses.stream().filter(response -> response.getStatus() == 409).findFirst().orElseThrow()
+                    .getContentAsString()).contains("ALREADY_CHECKED_IN");
+            assertThat(reservationRepository.findById(reservation.getId()).orElseThrow().getCheckedInAt()).isNotNull();
+        }
     }
 
     private Reservation saveConfirmedReservation(Long festivalId, int quantity) {

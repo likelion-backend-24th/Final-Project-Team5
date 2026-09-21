@@ -347,7 +347,8 @@ public class ReservationService {
     //Payment-Service → Reservation-Service 내부 호출: 결제 성공 확정
     @Transactional
     public void confirmReservation(Long id, ReservationConfirmRequestDto request) {
-        Reservation reservation = reservationRepository.findById(id)
+        //만료 배치와 같은 잠금을 잡아 확정·취소 중 먼저 끝난 상태를 기준으로 판단한다.
+        Reservation reservation = reservationRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
 
         if (reservation.getReservationStatus() == ReservationStatus.CONFIRMED) {

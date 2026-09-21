@@ -3,7 +3,7 @@ const cardClass = 'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:
 function MyPageInfoTab({ user }) {
   const rows = [
     { label: '닉네임', value: user.nickname },
-    { label: '이메일 (username)', value: user.username },
+    { label: '이메일(아이디)', value: user.username },
     { label: '이름', value: user.name },
     { label: '가입일', value: user.createdAt?.slice(0, 10) },
   ]

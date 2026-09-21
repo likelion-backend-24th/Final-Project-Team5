@@ -6,6 +6,7 @@ import org.example.reservationservice.reservation.infrastructure.festival.dto.Fe
 import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalDetailResponseDto;
 import org.example.reservationservice.reservation.infrastructure.festival.dto.StockAdjustRequestDto;
 import org.example.reservationservice.reservation.infrastructure.festival.dto.StoreBoothOwnerResponseDto;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -14,15 +15,16 @@ import org.springframework.web.client.RestClient;
  * Festival-Service 호출만 담당한다. 도메인 검증(PUBLISHED 여부, ticketType 소속 여부 등)은
  * 상위 서비스(ReservationService) 책임이다.
  *
- * 재고 차감·복구 API는 festival-service 쪽에 아직 내부 토큰 검증이 없어 인증 헤더 없이도
- * 호출되지만, 팀 내부 계약상 다른 서비스간 호출과 형평을 맞춰 여기서는 헤더를 붙이지 않는다.
- * festival-service에 토큰 검증이 추가되면 그때 같이 헤더를 붙여야 한다.
+ * 재고 차감·복구는 공개 조회와 달리 내부 호출 인증이 필요하므로 토큰을 함께 전달한다.
  */
 @Component
 @RequiredArgsConstructor
 public class FestivalServiceClient {
 
     private final RestClient festivalServiceRestClient;
+
+    @Value("${internal.auth-token:CHANGE_ME_IN_ENV}")
+    private String internalAuthToken;
 
     public FestivalDetailResponseDto getFestival(Long festivalId) {
         FestivalApiEnvelope<FestivalDetailResponseDto> envelope = festivalServiceRestClient.get()
@@ -59,6 +61,7 @@ public class FestivalServiceClient {
     public void deductStock(Long ticketTypeId, int quantity) {
         festivalServiceRestClient.patch()
                 .uri("/internal/v1/ticket-types/{id}/stock", ticketTypeId)
+                .header("Authorization", "Bearer " + internalAuthToken)
                 .body(new StockAdjustRequestDto(quantity))
                 .retrieve()
                 .toBodilessEntity();
@@ -68,6 +71,7 @@ public class FestivalServiceClient {
     public void restoreStock(Long ticketTypeId, int quantity) {
         festivalServiceRestClient.patch()
                 .uri("/internal/v1/ticket-types/{id}/stock/restore", ticketTypeId)
+                .header("Authorization", "Bearer " + internalAuthToken)
                 .body(new StockAdjustRequestDto(quantity))
                 .retrieve()
                 .toBodilessEntity();

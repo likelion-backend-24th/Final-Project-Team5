@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import QRCode from 'react-qr-code'
 import { ArrowRightIcon, ArrowUpDownIcon, CreditCardIcon, ImageIcon, QrCodeIcon, RotateCcwIcon, TicketIcon, XIcon } from 'lucide-react'
 import { fetchFestivalDetail, toAbsoluteImageUrl } from '../api/festivalApi'
 import { cancelReservation, fetchMyReservations, fetchReservationQr } from '../api/reservationApi'
@@ -16,6 +17,18 @@ const STATUS_META = {
   입장완료: 'bg-green-50 text-green-700',
   환불: 'bg-orange-50 text-orange-700',
   완료: 'bg-gray-100 text-gray-600',
+}
+
+//미확정 예매와 본인 소유가 아닌 예매는 재시도로 해결되지 않으므로 원인을 구분해 안내한다.
+const QR_ERROR_MESSAGES = {
+  RESERVATION_NOT_CONFIRMED: '결제가 확정되고 남은 티켓이 있는 예매만 QR을 볼 수 있어요.',
+  RESERVATION_NOT_FOUND: '예매 정보를 찾을 수 없어요.',
+  FORBIDDEN_NOT_OWNER: '본인의 예매만 QR을 볼 수 있어요.',
+}
+
+function toQrErrorMessage(error) {
+  const errorCode = error.response?.data?.errorCode
+  return QR_ERROR_MESSAGES[errorCode] || 'QR을 불러오지 못했어요. 잠시 후 다시 시도해주세요.'
 }
 
 function formatDate(value) {
@@ -95,8 +108,8 @@ function QrModal({ reservationId, onClose }) {
             setError('')
           }
         })
-        .catch(() => {
-          if (!cancelled) setError((prev) => prev || 'QR을 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
+        .catch((requestError) => {
+          if (!cancelled) setError(toQrErrorMessage(requestError))
         })
     }
     load()
@@ -138,11 +151,14 @@ function QrModal({ reservationId, onClose }) {
             </div>
 
             {/* 입장 처리된 티켓은 실제 QR 대신 고정 그림을 보여준다(흐리게만 하면 QR 모양이 남는다). */}
-            <img
-              src={qr.checkedInAt ? USED_QR_PLACEHOLDER : qr.qrImageUrl}
-              alt={qr.checkedInAt ? '입장 완료된 티켓' : '입장용 QR 코드'}
-              className="mx-auto mt-4 h-48 w-48"
-            />
+            {qr.checkedInAt ? (
+              <img src={USED_QR_PLACEHOLDER} alt="입장 완료된 티켓" className="mx-auto mt-4 h-48 w-48" />
+            ) : (
+              //입장 토큰이 외부 이미지 서버로 전송되지 않도록 브라우저 안에서 QR을 만든다.
+              <div className="mx-auto mt-4 w-fit bg-white p-4">
+                <QRCode value={qr.qrToken} size={160} role="img" aria-label="입장용 QR 코드" />
+              </div>
+            )}
 
             {qr.checkedInAt && (
               <p className="mt-3 text-sm font-bold text-gray-500">

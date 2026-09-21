@@ -46,10 +46,11 @@ function SiteHeader() {
             aria-label="페스티벌 검색"
             className="w-full rounded-full border border-gray-200 bg-white py-2.5 pl-4 pr-11 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           />
+          {/* 작은 아이콘도 모바일에서 누를 수 있도록 클릭 영역은 44px로 확보한다. */}
           <button
             type="submit"
             aria-label="검색"
-            className="absolute right-3 top-1/2 flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
           >
             <SearchIcon className="h-4 w-4" />
           </button>
@@ -83,6 +84,7 @@ function SiteHeader() {
           ) : (
             <Link
               to="/login"
+              aria-label="로그인·회원가입"
               className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-100"
             >
               <LogInIcon className="h-4 w-4" />
@@ -90,8 +92,10 @@ function SiteHeader() {
             </Link>
           )}
 
+          {/* 모바일에서 글자가 숨겨져도 링크의 목적은 읽을 수 있어야 한다. */}
           <Link
             to={isHelper ? '/check-in' : '/reservations'}
+            aria-label={isHelper ? '입장 검증' : '내 예약'}
             className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-black transition hover:bg-gray-50"
           >
             {isHelper ? <ScanLineIcon className="h-4 w-4" /> : <BookmarkIcon className="h-4 w-4" />}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRightIcon, ArrowUpDownIcon, CreditCardIcon, ImageIcon, QrCodeIcon, RotateCcwIcon, TicketIcon, XIcon } from 'lucide-react'
 import { fetchFestivalDetail, toAbsoluteImageUrl } from '../api/festivalApi'
 import { cancelReservation, fetchMyReservations, fetchReservationQr } from '../api/reservationApi'
+import FadeImage from './FadeImage'
 import RefundModal from './RefundModal'
 
 const cardClass = 'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8'
@@ -358,7 +359,7 @@ function MyPageReservationsTab() {
               >
                 <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-100 text-gray-400">
                   {r.festivalImage ? (
-                    <img src={r.festivalImage} alt="" className="h-full w-full object-cover" />
+                    <FadeImage src={r.festivalImage} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <ImageIcon className="h-6 w-6" />
                   )}

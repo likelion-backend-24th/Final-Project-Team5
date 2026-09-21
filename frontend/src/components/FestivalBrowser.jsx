@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { FESTIVAL_CATEGORY_LABELS } from '../api/festivalApi'
 import CategoryChips from './CategoryChips'
 import FestivalCard from './FestivalCard'
+import { FestivalGridSkeleton } from './Skeleton'
 
 const CATEGORY_CHIPS = [
   { id: 'all', label: '전체' },
@@ -11,7 +12,7 @@ const CATEGORY_CHIPS = [
 
 const HOME_PREVIEW_LIMIT = 8
 
-function FestivalBrowser({ festivals: allFestivals = [] }) {
+function FestivalBrowser({ festivals: allFestivals = [], loading = false }) {
   const [category, setCategory] = useState('all')
   const festivals = useMemo(
     () => (category === 'all' ? allFestivals : allFestivals.filter((f) => f.category === category)),
@@ -36,12 +37,16 @@ function FestivalBrowser({ festivals: allFestivals = [] }) {
 </Link>
         </div>
 
-        {festivals.length === 0 ? (
+        {loading ? (
+          <div className="mt-5">
+            <FestivalGridSkeleton count={HOME_PREVIEW_LIMIT} />
+          </div>
+        ) : festivals.length === 0 ? (
           <p className="py-10 text-center text-sm text-gray-500">
             해당 카테고리에 등록된 페스티벌이 없습니다.
           </p>
         ) : (
-          <div className="mt-5 grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-5 grid animate-fade-in grid-cols-2 gap-5 motion-reduce:animate-none md:grid-cols-3 lg:grid-cols-4">
             {previewFestivals.map((festival) => (
               <FestivalCard
                 key={festival.id}

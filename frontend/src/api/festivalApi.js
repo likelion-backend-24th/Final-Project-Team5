@@ -1,4 +1,5 @@
 import apiClient, { API_BASE_URL } from './client'
+import { prefetchQuery } from './queryCache'
 
 export function fetchFestivals(params) {
   return apiClient.get('/api/festivals', { params })
@@ -6,6 +7,16 @@ export function fetchFestivals(params) {
 
 export function fetchFestivalDetail(id) {
   return apiClient.get(`/api/festivals/${id}`)
+}
+
+//캐시 key는 모두 'festival'로 시작해야 예매·취소 뒤 invalidateQueries('festival') 한 번으로 함께 비워진다.
+export const festivalListKey = (params) => `festivals:${JSON.stringify(params)}`
+export const festivalDetailKey = (id) => `festival:${id}`
+
+//상세 GET은 서버에서 조회수를 집계하므로(인기순 근거) hover처럼 "지나가기만 해도" 발생하는 이벤트로
+//미리 받으면 조회수가 부풀려진다. 클릭 직전(pointerdown)에만 부른다.
+export function prefetchFestivalDetail(id) {
+  prefetchQuery(festivalDetailKey(id), () => fetchFestivalDetail(id))
 }
 
 export const FESTIVAL_CATEGORIES = [

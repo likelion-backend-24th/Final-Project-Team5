@@ -13,6 +13,11 @@ import {
 import { fetchFestivalDetail } from '../api/festivalApi'
 import { cancelReservation, createReservation, fetchReservationDetail } from '../api/reservationApi'
 import { completePayment, preparePayment } from '../api/paymentApi'
+import {
+  clearPendingPaymentRedirect,
+  getPaymentRedirectUrl,
+  savePendingPaymentRedirect,
+} from '../api/paymentRedirectStore'
 import { useAuth } from '../context/AuthContext.jsx'
 import styles from './ReservationCheckout.module.css'
 
@@ -198,6 +203,7 @@ function ReservationCheckout() {
     setPayError('')
     setStep('reserving')
 
+    let preparedPaymentId = null
     try {
       if (!reservationIdRef.current) {
         const reservationRes = await createReservation({
@@ -232,6 +238,8 @@ function ReservationCheckout() {
         prepareRes = await preparePayment(reservationIdRef.current)
       }
       const { paymentId, storeId, channelKey, totalAmount: amount } = prepareRes.data.data
+      preparedPaymentId = paymentId
+      savePendingPaymentRedirect({ paymentId, reservationId: reservationIdRef.current })
 
       setStep('opening')
       const selectedMethod = PAY_METHODS.find((m) => m.key === payMethod) ?? PAY_METHODS[0]
@@ -247,6 +255,9 @@ function ReservationCheckout() {
           orderName: `${festival.name} - ${ticketType.name} x ${effectiveQuantity}`,
           totalAmount: amount,
           currency: 'KRW',
+          // 토스페이먼츠는 모바일에서 리다이렉트 결제창만 지원하므로 복귀 URL이 필수다.
+          // PC는 기존 Promise/iframe 흐름을 유지하고 모바일만 이 경로로 돌아온다.
+          redirectUrl: getPaymentRedirectUrl(),
           //무통장입금 가상계좌의 입금자명은 customer.fullName에서 가져간다. 안 넘기면 "-"로 발급되던 문제.
           customer: { fullName: user?.name ?? user?.nickname ?? undefined, email: user?.username ?? undefined },
           ...selectedMethod.toRequest(),
@@ -260,6 +271,7 @@ function ReservationCheckout() {
       ])
 
       if (paymentResult?.code != null) {
+        clearPendingPaymentRedirect(paymentId)
         // 사용자가 결제창을 닫았거나 PG사에서 거절한 경우. 예매는 PENDING으로 남아있다가
         // 10분 뒤 자동 만료되므로 여기서 별도로 취소 처리하지 않는다.
         setPayError(paymentResult.message || '결제가 취소되었어요.')
@@ -268,11 +280,13 @@ function ReservationCheckout() {
       }
 
       const completeRes = await completePayment(paymentId)
+      clearPendingPaymentRedirect(paymentId)
       // 무통장입금은 이 시점에 입금이 끝난 게 아니라 계좌가 발급된 것뿐이라(백엔드가
       // VIRTUAL_ACCOUNT_ISSUED로 기록), 카드·카카오페이처럼 바로 '완료' 화면을 보여주면 안 된다.
       // 실제 입금 확인은 PortOne 웹훅이 비동기로 처리한다(Task 7-5).
       setStep(completeRes.data.data.status === 'VIRTUAL_ACCOUNT_ISSUED' ? 'virtualAccountIssued' : 'success')
     } catch (error) {
+      if (preparedPaymentId) clearPendingPaymentRedirect(preparedPaymentId)
       if (error?.message?.startsWith('PAYMENT_WIDGET_TIMEOUT:')) {
         const methodLabel = error.message.split(':')[1]
         setPayError(`${methodLabel} 결제창이 응답하지 않아요. 다른 결제 수단으로 다시 시도해주세요.`)

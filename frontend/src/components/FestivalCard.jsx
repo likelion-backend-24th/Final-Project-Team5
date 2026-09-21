@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import { CalendarIcon, ImageIcon, MapPinIcon } from 'lucide-react'
+import { prefetchFestivalDetail } from '../api/festivalApi'
 import { CATEGORY_LABELS } from '../data/festivals'
 import Badge, { badgeVariantForLabel } from './Badge'
+import FadeImage from './FadeImage'
 
 /**
  * badge를 넘기면 썸네일 좌상단 배지를 그것으로 덮어쓴다(마감임박 D-day 등).
@@ -15,14 +17,14 @@ function FestivalCard({ festival, badge, categoryLabel }) {
   return (
     <Link
       to={`/festivals/${festival.id}`}
+      onPointerDown={() => prefetchFestivalDetail(festival.id)}
       className="group block overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:shadow-md"
     >
       <div className="relative aspect-square w-full overflow-hidden bg-gray-100">
         {festival.image ? (
-          <img
+          <FadeImage
             src={festival.image}
             alt={festival.title}
-            loading="lazy"
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
           />
         ) : (

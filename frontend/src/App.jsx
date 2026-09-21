@@ -19,7 +19,9 @@ import HostSettlements from './pages/HostSettlements'
 import Login from './pages/Login'
 import MyPage from './pages/Mypage'
 import OauthLinkConfirm from './pages/OauthLinkConfirm'
+import PaymentRedirect from './pages/PaymentRedirect'
 import Placeholder from './pages/Placeholder'
+import Privacy from './pages/Privacy'
 import ProfileSetup from './pages/ProfileSetup'
 import RequireAuth from './components/RequireAuth'
 import ReservationCheckout from './pages/ReservationCheckout'
@@ -28,6 +30,7 @@ import SeatMap from './pages/SeatMap'
 import SignUp from './pages/SignUp'
 import StoreBooths from './pages/StoreBooths'
 import StoreBoothDetail from './pages/StoreBoothDetail'
+import Terms from './pages/Terms'
 import ZoneSelect from './pages/ZoneSelect'
 
 /** 상단바·푸터는 모든 화면에 고정, 가운데만 라우팅으로 갈아끼운다. */
@@ -57,8 +60,8 @@ function App() {
           {/* 메인의 '행사 정보' 버튼이 담당 행사 상세로 보낸다(공개 조회 API라 도우미도 볼 수 있다). */}
           <Route path="/festivals/:id" element={<FestivalDetail />} />
           <Route path="/mypage" element={<MyPage />} />
-          <Route path="/terms" element={<Placeholder title="이용약관" />} />
-          <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <SiteFooter />
@@ -75,8 +78,8 @@ function App() {
         <SiteHeader />
         <Routes>
           <Route path="/welcome" element={<ProfileSetup />} />
-          <Route path="/terms" element={<Placeholder title="이용약관" />} />
-          <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="*" element={<Navigate to="/welcome" replace />} />
         </Routes>
         <SiteFooter />
@@ -97,6 +100,7 @@ function App() {
         <Route path="/festivals/:id/reserve" element={<ReservationCheckout />} />
         <Route path="/login" element={<Login />} />
         <Route path="/oauth/link-confirm" element={<OauthLinkConfirm />} />
+        <Route path="/payments/redirect" element={<PaymentRedirect />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route
@@ -132,8 +136,8 @@ function App() {
         <Route path="/store/booths/:id" element={<StoreBoothDetail />} />
         <Route path="/check-in" element={<CheckIn />} />
         <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/terms" element={<Placeholder title="이용약관" />} />
-        <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route
           path="*"
           element={

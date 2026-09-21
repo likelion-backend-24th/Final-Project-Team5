@@ -20,6 +20,7 @@ import Login from './pages/Login'
 import MyPage from './pages/Mypage'
 import OauthLinkConfirm from './pages/OauthLinkConfirm'
 import Placeholder from './pages/Placeholder'
+import Privacy from './pages/Privacy'
 import ProfileSetup from './pages/ProfileSetup'
 import RequireAuth from './components/RequireAuth'
 import ReservationCheckout from './pages/ReservationCheckout'
@@ -59,7 +60,7 @@ function App() {
           <Route path="/festivals/:id" element={<FestivalDetail />} />
           <Route path="/mypage" element={<MyPage />} />
           <Route path="/terms" element={<Terms />} />
-          <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <SiteFooter />
@@ -77,7 +78,7 @@ function App() {
         <Routes>
           <Route path="/welcome" element={<ProfileSetup />} />
           <Route path="/terms" element={<Terms />} />
-          <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route path="*" element={<Navigate to="/welcome" replace />} />
         </Routes>
         <SiteFooter />
@@ -134,7 +135,7 @@ function App() {
         <Route path="/check-in" element={<CheckIn />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/terms" element={<Terms />} />
-        <Route path="/privacy" element={<Placeholder title="개인정보처리방침" />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route
           path="*"
           element={

@@ -1,3 +1,5 @@
+import { isExpectedPaymentRedirectReturn } from './paymentRedirectStore'
+
 // accessToken을 메모리 + localStorage에 함께 보관한다. 메모리 전용이면 새로고침마다
 // accessToken이 사라져 매번 /api/auth/reissue로 리프레시 토큰을 로테이션해야 하는데, 짧은
 // 시간 안에 새로고침을 연달아 하면 로테이션이 겹쳐 리프레시 토큰 재사용 탐지가 오작동해
@@ -78,6 +80,10 @@ const HEARTBEAT_STALE_MS = 6000
 // 모든 탭이 닫혔다가 다시 열렸는지 확인한다. 하트비트가 전혀 없으면(이 브라우저의 첫 방문) 로그인한
 // 적이 없으므로 로그아웃 처리할 필요가 없다고 보고 true를 돌려준다.
 export function wasSessionContinuous() {
+  if (isExpectedPaymentRedirectReturn()) {
+    return true
+  }
+
   try {
     const last = localStorage.getItem(HEARTBEAT_KEY)
     if (last === null) return true

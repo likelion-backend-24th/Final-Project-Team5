@@ -69,6 +69,12 @@ export const FESTIVAL_VISIBLE_STATUS_LABELS = {
   CLOSED: '종료됨',
 }
 
+//공개된 행사라도 시작 전에는 진행중으로 오해하지 않도록 날짜를 함께 확인한다.
+export function festivalVisibleStatusLabel(festival, now = new Date()) {
+  if (festival.festivalStatus === 'PUBLISHED' && new Date(festival.startAt) > now) return '진행 예정'
+  return FESTIVAL_VISIBLE_STATUS_LABELS[festival.festivalStatus] ?? festival.festivalStatus
+}
+
 function formatDate(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''

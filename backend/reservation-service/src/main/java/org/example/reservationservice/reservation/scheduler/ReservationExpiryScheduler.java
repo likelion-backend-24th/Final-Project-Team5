@@ -63,16 +63,32 @@ public class ReservationExpiryScheduler {
         }
     }
 
-    //SEATED 예매 만료 — 연결된 좌석을 로컬에서 AVAILABLE로 되돌린다(크로스 서비스 호출 불필요)
+    //SEATED 예매 만료 — 연결된 좌석을 로컬에서 AVAILABLE로 되돌리고, 되돌린 개수만큼 festival-service 잔여 수량도 복구한다.
     private void releaseSeats(Reservation reservation, List<ReservationSeat> reservationSeats) {
+        int releasedCount = 0;
         for (ReservationSeat reservationSeat : reservationSeats) {
             Seat seat = reservationSeat.getSeat();
             int updated = seatRepository.releaseSeat(seat.getId());
             if (updated == 0) {
                 log.warn("만료 처리된 예매 {}의 좌석 {} 원복 실패(이미 HELD가 아님)", reservation.getId(), seat.getId());
             } else {
+                releasedCount++;
                 seatBroadcastService.broadcast(seat.getFestivalId(), seat.getTicketTypeId(), seat.getId(), SeatStatus.AVAILABLE);
             }
+        }
+        if (releasedCount > 0) {
+            restoreSeatStock(reservation, releasedCount);
+        }
+    }
+
+    //STANDING과 같은 실패 정책: festival-service 복구가 실패해도 만료 처리 자체는 유지하고 로그만 남긴다
+    //(TODO: festival-service 장애 시 재시도할 방법은 restoreStandingStock과 마찬가지로 별도 설계 필요).
+    private void restoreSeatStock(Reservation reservation, int releasedCount) {
+        try {
+            festivalServiceClient.restoreStock(reservation.getTicketTypeId(), releasedCount);
+        } catch (RuntimeException e) {
+            log.error("만료 처리된 좌석 예매 {}의 잔여 수량 복구 실패 (ticketTypeId={}, qty={})",
+                    reservation.getId(), reservation.getTicketTypeId(), releasedCount, e);
         }
     }
 

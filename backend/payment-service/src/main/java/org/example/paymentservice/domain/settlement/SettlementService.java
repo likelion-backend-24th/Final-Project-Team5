@@ -33,6 +33,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.client.HttpClientErrorException;
 
 @Service
 @RequiredArgsConstructor
@@ -192,6 +193,9 @@ public class SettlementService {
                 evidence.add(new Evidence(payment, reservation, method, remote.paidAt(), result));
             }
             return new Calculation(context, evidence, null);
+        } catch (HttpClientErrorException.NotFound e) {
+            //PG에 결제 근거가 없으면 원장을 건너뛰지 않고 확인 가능한 보류 사유로 남긴다.
+            return new Calculation(context, List.of(), "PG_PAYMENT_NOT_FOUND");
         } catch (IllegalArgumentException e) {
             //산출 중 발견한 불일치는 예외가 아니라 보류 사유로 변환한다(SettlementCalculator도 같은 방식으로 던진다).
             return new Calculation(context, List.of(), e.getMessage());

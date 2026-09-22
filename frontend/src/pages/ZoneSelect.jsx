@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowRightIcon, LockIcon } from 'lucide-react'
 import { fetchFestivalDetail } from '../api/festivalApi'
 import { fetchMyReservations } from '../api/reservationApi'
@@ -23,6 +23,8 @@ function saleStatus(ticketType) {
 
 //매진/판매전/판매종료 판정 + 표시 문구 — ZoneCard(카드형)와 도넛 조각(중앙형)이 같은 기준을 공유한다.
 function getZoneStatus(ticketType) {
+  //수량제 티켓은 좌석이 아니므로 잔여 수량도 장수로 안내한다.
+  const unit = ticketType.ticketMode === 'STANDING' ? '장' : '석'
   const soldOut = ticketType.remainQuantity <= 0
   const sale = saleStatus(ticketType)
   const unavailable = soldOut || sale !== 'open'
@@ -32,7 +34,7 @@ function getZoneStatus(ticketType) {
       ? `${formatDateTime(ticketType.saleStartAt)}부터 판매`
       : sale === 'ended'
         ? '판매 종료'
-        : `잔여 ${ticketType.remainQuantity}석`
+        : `잔여 ${ticketType.remainQuantity}${unit}`
   return { unavailable, stockText }
 }
 
@@ -285,7 +287,7 @@ function StandingZones({ standingZones, disabled, onReserveStanding, quantities,
   if (standingZones.length === 0) return null
   return (
     <section className={styles.standingSection}>
-      <h2 className={styles.sectionHeading}>스탠딩 구역</h2>
+      <h2 className={styles.sectionHeading}>티켓 종류</h2>
       <FlexRows
         items={standingZones}
         className={styles.standingList}
@@ -309,6 +311,7 @@ function StandingZones({ standingZones, disabled, onReserveStanding, quantities,
 /** stageLayout(FRONT_STAGE/CENTER_STAGE)에 따라 구역을 배치해 보여주고, 선택 시 좌석 선택/예매 화면으로 이동한다. */
 function ZoneSelect() {
   const { id } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const { user, isLoading: authLoading } = useAuth()
   const isHelper = user?.role === 'HELPER'
@@ -365,7 +368,7 @@ function ZoneSelect() {
           String(r.festivalId) === String(id),
       )
       if (pending) {
-        const goToPending = window.confirm('결제 진행중인 예매 건이 있습니다. 이동할까요?')
+        const goToPending = window.confirm('결제 진행중인 예매 건이 있어요. 이동할까요?')
         if (goToPending) {
           navigate(
             `/festivals/${pending.festivalId}/reserve?ticketTypeId=${pending.ticketTypeId}&quantity=${pending.quantity}&reservationId=${pending.id}`,
@@ -398,7 +401,8 @@ function ZoneSelect() {
             <LockIcon size={40} aria-hidden="true" className={styles.infoIconMuted} />
             <h1 className={styles.infoTitle}>로그인이 필요해요</h1>
             <p className={styles.infoDescription}>구역을 선택하려면 먼저 로그인해주세요.</p>
-            <Link to="/login" className={styles.infoButton}>
+            {/* 로그인 뒤 같은 구역 선택 화면으로 돌아와 예매를 이어가도록 한다. */}
+            <Link to="/login" state={{ from: location }} className={styles.infoButton}>
               로그인하러 가기
               <ArrowRightIcon size={16} aria-hidden="true" />
             </Link>

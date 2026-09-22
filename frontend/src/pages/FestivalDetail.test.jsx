@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import FestivalDetail from './FestivalDetail'
 import { useAuth } from '../context/AuthContext.jsx'
 import { fetchFestivalDetail } from '../api/festivalApi'
@@ -37,10 +38,37 @@ function renderPage() {
   )
 }
 
+function LoginDestination() {
+  const location = useLocation()
+  return <p>{location.state?.from?.pathname}</p>
+}
+
 describe('FestivalDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useAuth.mockReturnValue({ user: null })
+  })
+
+  it('shows upcoming before the published festival starts', async () => {
+    fetchFestivalDetail.mockResolvedValue({ data: { data: detail } })
+    renderPage()
+    expect(await screen.findByText('진행 예정')).toBeTruthy()
+    expect(screen.queryByText('진행중')).toBeNull()
+  })
+
+  it('passes the zone selection destination when booking requires login', async () => {
+    fetchFestivalDetail.mockResolvedValue({ data: { data: detail } })
+    render(
+      <MemoryRouter initialEntries={['/festivals/7']}>
+        <Routes>
+          <Route path="/festivals/:id" element={<FestivalDetail />} />
+          <Route path="/login" element={<LoginDestination />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /예매하기/ }))
+    expect(await screen.findByText('/festivals/7/zones')).toBeTruthy()
   })
 
   it('shows a skeleton first and then the festival', async () => {
@@ -74,5 +102,31 @@ describe('FestivalDetail', () => {
     fetchFestivalDetail.mockRejectedValue({ response: { status: 500 } })
     renderPage()
     expect(await screen.findByText(/페스티벌 정보를 불러오지 못했어요/)).toBeTruthy()
+  })
+
+  it('lists ticket types with name, description and price', async () => {
+    fetchFestivalDetail.mockResolvedValue({
+      data: {
+        data: {
+          ...detail,
+          ticketTypes: [
+            {
+              id: 1,
+              name: '1일권',
+              description: '하루 자유 입장',
+              price: 30000,
+              saleStartAt: '2030-09-01T00:00:00',
+              saleEndAt: '2030-09-30T23:59:59',
+            },
+          ],
+        },
+      },
+    })
+    renderPage()
+
+    expect(await screen.findByText('1일권')).toBeTruthy()
+    expect(screen.getByText('하루 자유 입장')).toBeTruthy()
+    expect(screen.getByText('30,000원')).toBeTruthy()
+    expect(screen.getByText(/판매기간 09.01 ~ 09.30/)).toBeTruthy()
   })
 })

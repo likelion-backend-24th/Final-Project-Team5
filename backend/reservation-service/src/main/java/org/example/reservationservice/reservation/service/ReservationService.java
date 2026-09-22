@@ -157,6 +157,11 @@ public class ReservationService {
             seatBroadcastService.broadcast(festival.id(), request.ticketTypeId(), seatId, SeatStatus.HELD);
         }
 
+        //좌석은 holdSeat()의 원자적 UPDATE가 실제 재고 가드라 remainQuantity 차감이 판매 자체를 막는 데 쓰이진
+        //않지만, festival-service가 GET /api/festivals/{id}로 노출하는 잔여 수량을 좌석 판매에도 맞춰
+        //보여주기 위해 잡은 좌석 수만큼 STANDING과 같은 원자적 차감 API를 그대로 호출한다.
+        deductStockOrThrow(request.ticketTypeId(), request.seatIds().size());
+
         Reservation reservation = Reservation.builder()
                 .userId(userId)
                 .festivalId(festival.id())
@@ -167,15 +172,23 @@ public class ReservationService {
                 .reservationStatus(ReservationStatus.PENDING)
                 .expiresAt(Instant.now().plus(RESERVATION_HOLD_DURATION))
                 .build();
-        reservationRepository.save(reservation);
 
-        List<ReservationSeat> reservationSeats = request.seatIds().stream()
-                .map(seatId -> ReservationSeat.builder()
-                        .reservation(reservation)
-                        .seat(seats.stream().filter(s -> s.getId().equals(seatId)).findFirst().orElseThrow())
-                        .build())
-                .toList();
-        reservationSeatRepository.saveAll(reservationSeats);
+        try {
+            reservationRepository.save(reservation);
+
+            List<ReservationSeat> reservationSeats = request.seatIds().stream()
+                    .map(seatId -> ReservationSeat.builder()
+                            .reservation(reservation)
+                            .seat(seats.stream().filter(s -> s.getId().equals(seatId)).findFirst().orElseThrow())
+                            .build())
+                    .toList();
+            reservationSeatRepository.saveAll(reservationSeats);
+        } catch (RuntimeException e) {
+            log.error("좌석 예매 저장 실패 — 차감한 재고 복구 시도: ticketType={}, qty={}",
+                    request.ticketTypeId(), request.seatIds().size(), e);
+            festivalServiceClient.restoreStock(request.ticketTypeId(), request.seatIds().size());
+            throw e;
+        }
 
         return reservation;
     }
@@ -227,7 +240,8 @@ public class ReservationService {
     //참가자 본인의 확정된 예매에 대해 입장용 QR을 발급(조회)한다
     public ReservationQrResponseDto getQrForReservation(Long id, Long userId) {
         Reservation reservation = getOwnedReservation(id, userId);
-        if (reservation.getReservationStatus() != ReservationStatus.CONFIRMED) {
+        //부분 환불 뒤에도 남은 티켓은 입장할 수 있으므로 같은 기준으로 QR을 제공한다.
+        if (!reservation.isAdmittable() || reservation.remainingQuantity() <= 0) {
             throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CONFIRMED);
         }
         String qrImageUrl = qrImageBaseUrl + "?size=200x200&data="
@@ -299,8 +313,13 @@ public class ReservationService {
             throw new ApiException(ReservationErrorCode.ALREADY_CHECKED_IN);
         }
 
-        reservation.checkIn();
-        return ReservationVerifyResponseDto.from(reservation);
+        //조회 이후 다른 스캐너가 입장 처리했을 수 있으므로 DB에서 한 번만 갱신한다.
+        Instant checkedInAt = Instant.now();
+        if (reservationRepository.checkInIfNotCheckedIn(reservation.getId(), checkedInAt) == 0) {
+            throw new ApiException(ReservationErrorCode.ALREADY_CHECKED_IN);
+        }
+        return new ReservationVerifyResponseDto(reservation.getId(), reservation.getTicketTypeId(),
+                reservation.remainingQuantity(), checkedInAt);
     }
 
     //검증자가 이 페스티벌을 다룰 권한이 있는지 확인한다(내부 메서드).
@@ -342,7 +361,8 @@ public class ReservationService {
     //Payment-Service → Reservation-Service 내부 호출: 결제 성공 확정
     @Transactional
     public void confirmReservation(Long id, ReservationConfirmRequestDto request) {
-        Reservation reservation = reservationRepository.findById(id)
+        //만료 배치와 같은 잠금을 잡아 확정·취소 중 먼저 끝난 상태를 기준으로 판단한다.
+        Reservation reservation = reservationRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
 
         if (reservation.getReservationStatus() == ReservationStatus.CONFIRMED) {
@@ -567,14 +587,20 @@ public class ReservationService {
     private void releaseSeatsOrRestoreStock(Reservation reservation) {
         List<ReservationSeat> reservationSeats = reservationSeatRepository.findByReservationId(reservation.getId());
         if (!reservationSeats.isEmpty()) {
+            int releasedCount = 0;
             for (ReservationSeat reservationSeat : reservationSeats) {
                 Seat seat = reservationSeat.getSeat();
                 int updated = seatRepository.releaseSeat(seat.getId());
                 if (updated > 0) {
+                    releasedCount++;
                     seatBroadcastService.broadcast(seat.getFestivalId(), seat.getTicketTypeId(), seat.getId(), SeatStatus.AVAILABLE);
                 } else {
                     log.warn("예매 {} 취소 시 좌석 {} 원복 실패(이미 HELD가 아님)", reservation.getId(), seat.getId());
                 }
+            }
+            //실제로 되돌린 좌석 수만큼만 festival-service 잔여 수량을 복구한다(이미 원복된 좌석은 중복으로 세지 않는다).
+            if (releasedCount > 0) {
+                festivalServiceClient.restoreStock(reservation.getTicketTypeId(), releasedCount);
             }
         } else {
             festivalServiceClient.restoreStock(reservation.getTicketTypeId(), reservation.getQuantity());

@@ -16,6 +16,14 @@ describe('fetchOrganizers', () => {
     vi.clearAllMocks()
   })
 
+  it('이미지가 없는 행사에 실제 존재하는 기본 이미지를 사용한다', async () => {
+    fetchPendingFestivals.mockResolvedValue({ data: { data: [{ id: 1, thumbnailImageUrl: null }] } })
+
+    const festivals = await fetchFestivalSubmissions()
+
+    expect(festivals[0].image).toBe('/placeholder.jpg')
+  })
+
   it('실제 HOST 계정과 페스티벌을 사용자 ID로 집계한다', async () => {
     fetchAdminHosts.mockResolvedValue({
       data: {

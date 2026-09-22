@@ -16,6 +16,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
@@ -64,6 +68,42 @@ class SettlementAcceptanceTest {
                 approved, approved, approved, approved, null, null, "tx", List.of()));
         service.calculateFestival(42L, false); return repository.findByFestivalIdAndTestPayment(42L, false).orElseThrow().getId();
     }
+    @Test void missingPortOnePaymentCreatesHeldLedger() {
+        missingPaymentEvidence();
+        when(portone.getPayment(anyString())).thenThrow(HttpClientErrorException.create(
+                HttpStatus.NOT_FOUND, "Not Found", null, null, null));
+
+        service.calculateFestival(42L, false);
+
+        var settlement = repository.findByActiveFestivalId(42L).orElseThrow();
+        assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.HELD);
+        assertThat(settlement.getHoldReason()).isEqualTo("PG_PAYMENT_NOT_FOUND");
+    }
+
+    @Test void portOneServerFailureRemainsRetryable() {
+        missingPaymentEvidence();
+        when(portone.getPayment(anyString())).thenThrow(new HttpServerErrorException(HttpStatus.SERVICE_UNAVAILABLE));
+
+        assertThatThrownBy(() -> service.calculateFestival(42L, false)).isInstanceOf(HttpServerErrorException.class);
+        assertThat(repository.findByActiveFestivalId(42L)).isEmpty();
+    }
+
+    @Test void portOneTimeoutRemainsRetryable() {
+        missingPaymentEvidence();
+        when(portone.getPayment(anyString())).thenThrow(new ResourceAccessException("timeout"));
+
+        assertThatThrownBy(() -> service.calculateFestival(42L, false)).isInstanceOf(ResourceAccessException.class);
+        assertThat(repository.findByActiveFestivalId(42L)).isEmpty();
+    }
+
+    private void missingPaymentEvidence() {
+        Payment p = payments.save(Payment.builder().paymentId("missing-payment").reservationId(999L)
+                .userId(30L).ticketAmount(100000).currency("KRW").status(PaymentStatus.PAID).build());
+        when(festivals.context(42L)).thenReturn(new FestivalSettlementClient.Context(42L, 10L, "행사", approved, "CLOSED"));
+        when(reservations.settlementContext(42L)).thenReturn(List.of(new ReservationForPaymentResponse(999L, 30L, "CONFIRMED",
+                100000, 1L, 2, null, 42L, 10L, 50000L, 0, p.getPaymentId())));
+    }
+
     @Test void hostOwnershipPaginationAndSensitiveFields() throws Exception {
         var s = repository.save(new Settlement(42L, 10L, "행사", approved, false));
         mvc.perform(get("/api/host/settlements/" + s.getId()).header("X-User-Id", 20).header("X-User-Role", "HOST"))

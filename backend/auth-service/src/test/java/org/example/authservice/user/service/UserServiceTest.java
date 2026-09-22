@@ -6,6 +6,7 @@ import org.example.authservice.auth.repository.OauthAccountRepository;
 import org.example.authservice.auth.repository.RefreshTokenRepository;
 import org.example.authservice.auth.service.RefreshTokenRevocationService;
 import org.example.authservice.common.exception.ApiException;
+import org.example.authservice.user.dto.InternalUserSummaryResponse;
 import org.example.authservice.user.dto.UserResponse;
 import org.example.authservice.user.entity.AccountStatus;
 import org.example.authservice.user.entity.Role;
@@ -23,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,6 +58,19 @@ class UserServiceTest {
 
     @Mock
     private OauthAccountRepository oauthAccountRepository;
+
+    @Test
+    @DisplayName("내부 사용자 조회는 중복을 제거하고 200명까지만 기존 요약으로 반환한다")
+    void findInternalUserSummaries_preservesLimitAndResponse() {
+        User user = createActiveUser();
+        user.setId(1L);
+        List<Long> ids = LongStream.rangeClosed(1, 201).flatMap(id -> LongStream.of(id, id)).boxed().toList();
+        List<Long> limited = LongStream.rangeClosed(1, 200).boxed().toList();
+        given(userRepository.findAllById(limited)).willReturn(List.of(user));
+
+        assertThat(userService.findInternalUserSummaries(ids)).containsExactly(InternalUserSummaryResponse.from(user));
+        verify(userRepository).findAllById(limited);
+    }
 
     @Test
     @DisplayName("존재하는 userId로 조회하면 내 정보를 정확히 반환한다")

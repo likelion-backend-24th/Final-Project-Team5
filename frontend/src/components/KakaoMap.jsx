@@ -1,0 +1,99 @@
+import { useEffect, useRef, useState } from 'react'
+import { loadKakaoMaps, mapKakaoRegionToFestivalRegion } from '../lib/kakaoMap'
+
+//지도가 없을 때 보여줄 기본 중심 좌표 — 서울시청.
+const DEFAULT_CENTER = { latitude: 37.5665, longitude: 126.978 }
+
+/**
+ * 카카오맵 표시/클릭-선택 겸용 컴포넌트.
+ * mode="pick": 클릭한 좌표를 역지오코딩해 { latitude, longitude, region, locationDetail }를 onPick으로 올려준다.
+ * mode="view": 주어진 좌표에 마커만 찍어 보여준다(클릭 비활성).
+ * latitude/longitude가 없으면 pick 모드는 서울시청을 기본 중심으로 시작하고, view 모드는 아예 렌더링하지 않는 게 낫다(호출부에서 조건부 렌더링).
+ */
+function KakaoMap({ mode = 'view', latitude, longitude, onPick, height = 280 }) {
+  const containerRef = useRef(null)
+  const mapObjRef = useRef(null)
+  const markerRef = useRef(null)
+  const [status, setStatus] = useState('loading') // 'loading' | 'ready' | 'error'
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    loadKakaoMaps()
+      .then((kakao) => {
+        if (cancelled || !containerRef.current) return
+
+        const center = new kakao.maps.LatLng(
+          latitude ?? DEFAULT_CENTER.latitude,
+          longitude ?? DEFAULT_CENTER.longitude,
+        )
+        const map = new kakao.maps.Map(containerRef.current, {
+          center,
+          level: latitude != null ? 4 : 12,
+        })
+        mapObjRef.current = map
+
+        if (latitude != null && longitude != null) {
+          markerRef.current = new kakao.maps.Marker({ position: center, map })
+        }
+
+        if (mode === 'pick') {
+          const geocoder = new kakao.maps.services.Geocoder()
+          kakao.maps.event.addListener(map, 'click', (mouseEvent) => {
+            const latlng = mouseEvent.latLng
+            if (markerRef.current) {
+              markerRef.current.setPosition(latlng)
+            } else {
+              markerRef.current = new kakao.maps.Marker({ position: latlng, map })
+            }
+
+            geocoder.coord2Address(latlng.getLng(), latlng.getLat(), (result, geocodeStatus) => {
+              if (geocodeStatus !== kakao.maps.services.Status.OK || cancelled) return
+              const address = result[0]?.address
+              const roadAddress = result[0]?.road_address
+              onPick?.({
+                latitude: latlng.getLat(),
+                longitude: latlng.getLng(),
+                region: mapKakaoRegionToFestivalRegion(address?.region_1depth_name),
+                locationDetail: roadAddress?.address_name || address?.address_name || '',
+              })
+            })
+          })
+        }
+
+        setStatus('ready')
+      })
+      .catch((error) => {
+        if (cancelled) return
+        setErrorMessage(error.message)
+        setStatus('error')
+      })
+
+    return () => {
+      cancelled = true
+    }
+    //지도는 한 번만 만든다 — latitude/longitude/onPick을 의도적으로 deps에서 뺐다. view 모드는 상세 데이터가
+    //로딩된 뒤 조건부 렌더링으로만 좌표를 넘기므로 마운트 시점 값 그대로 충분하고, pick 모드는 클릭마다
+    //onPick을 다시 호출할 뿐 좌표 prop 자체가 바뀌지 않는다.
+  }, [mode])
+
+  return (
+    <div>
+      <div
+        ref={containerRef}
+        style={{ width: '100%', height, borderRadius: 16, overflow: 'hidden', backgroundColor: '#f3f4f6' }}
+      />
+      {status === 'error' && (
+        <p style={{ marginTop: 6, fontSize: 12, color: 'var(--fgColor-danger, #dc2626)' }}>{errorMessage}</p>
+      )}
+      {mode === 'pick' && status === 'ready' && (
+        <p style={{ marginTop: 6, fontSize: 12, color: 'var(--fgColor-muted, #6b7280)' }}>
+          지도를 클릭하면 행정구역·상세주소가 자동으로 채워져요. 이후에도 직접 수정할 수 있어요.
+        </p>
+      )}
+    </div>
+  )
+}
+
+export default KakaoMap

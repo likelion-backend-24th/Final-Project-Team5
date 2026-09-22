@@ -20,6 +20,9 @@ public record FestivalRequestDto(
         //장소 — 행정구역(시/도) 드롭다운 + 상세주소 텍스트
         @NotNull FestivalRegion region,
         @NotBlank String locationDetail,
+        //카카오맵 클릭으로 찍은 좌표(선택) — 둘 다 채워지거나 둘 다 null이어야 한다(FestivalService에서 검증)
+        Double latitude,
+        Double longitude,
         @NotNull FestivalCategory festivalCategory,
         //구역(SEATED 티켓타입) 배치 방식 — 전면형/중앙형 중 하나를 주최자가 등록 시 선택한다.
         @NotNull FestivalStageLayout stageLayout,

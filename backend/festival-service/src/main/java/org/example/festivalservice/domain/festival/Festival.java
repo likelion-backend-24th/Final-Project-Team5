@@ -45,6 +45,13 @@ public class Festival {
     @Column(name = "location_detail")
     private String locationDetail;
 
+    //카카오맵에서 클릭으로 찍은 좌표(선택) — 상세 페이지 지도 표시용. 좌표 없이 등록된 기존/구버전 행은 null.
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     //입장 시작 시간(몇 시부터 입장 가능한지, 날짜 아닌 시각만). QR 체크인 로직에서는 쓰지 않고
     //구매자에게 안내만 하는 참고용 값이다.
     @Column(name = "entry_start_time")

@@ -29,6 +29,7 @@ import Badge from '../components/Badge'
 import BoothListModal from '../components/BoothListModal'
 import BoothCreateModal from '../components/BoothCreateModal'
 import FadeImage from '../components/FadeImage'
+import KakaoMap from '../components/KakaoMap'
 import { Skeleton } from '../components/Skeleton'
 import styles from './FestivalDetail.module.css'
 
@@ -306,6 +307,10 @@ function FestivalDetail() {
             <span className={styles.infoCardValue}>{formatPriceRange(festival.ticketTypes)}</span>
           </div>
         </div>
+
+        {festival.latitude != null && festival.longitude != null && (
+          <KakaoMap mode="view" latitude={festival.latitude} longitude={festival.longitude} height={220} />
+        )}
 
         {isStorehost && (
           <>

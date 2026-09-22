@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -20,4 +21,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByReservationIdIn(Collection<Long> ids);
 
     Optional<Payment> findByPaymentId(String paymentId);
+
+    // 데모 자동 입금 대상 — 가상계좌가 발급된 지 일정 시간이 지났는데 아직 입금 확인이 안 된 결제
+    List<Payment> findByStatusAndVirtualAccountIssuedAtBefore(PaymentStatus status, Instant before);
 }

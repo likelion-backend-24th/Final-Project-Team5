@@ -1,5 +1,7 @@
 package org.example.paymentservice.infrastructure.portone;
 
+import java.util.Optional;
+import org.example.paymentservice.domain.payment.DemoDepositRemote;
 import org.example.paymentservice.infrastructure.portone.dto.PortOnePaymentResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,10 @@ import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -32,7 +38,11 @@ class PortOnePaymentClientTest {
                 .baseUrl("https://api.portone.io")
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "PortOne test-secret");
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new PortOnePaymentClient(builder.build());
+        // 데모 입금 결제가 아니면 실제 API로 가야 하므로 오버레이는 항상 비어 있게 둔다.
+        DemoDepositRemote demoDepositRemote = mock(DemoDepositRemote.class);
+        when(demoDepositRemote.remoteView(anyString())).thenReturn(Optional.empty());
+        when(demoDepositRemote.cancel(anyString(), any(), anyString())).thenReturn(Optional.empty());
+        client = new PortOnePaymentClient(builder.build(), demoDepositRemote);
         ReflectionTestUtils.setField(client, "storeId", STORE_ID);
     }
 

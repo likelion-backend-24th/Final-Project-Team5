@@ -73,9 +73,27 @@ public class Payment {
     private Boolean testPayment;
     // 예매 확정 호출이 성공한 시각. null이면 결제는 PAID인데 예매 확정이 안 된 상태라 완료 API 재호출 때 다시 시도한다.
     private Instant reservationConfirmedAt;
+    // 가상계좌가 처음 발급된 시각. 데모 자동 입금은 이 시각을 기준으로 지연을 계산한다(재조회로 다시 발급 상태가 와도 유지).
+    private Instant virtualAccountIssuedAt;
+    // 데모 자동 입금이 처리된 시각. null이 아니면 PortOne 실제 상태 대신 로컬 입금 기록을 원격 상태로 간주한다.
+    private Instant demoDepositedAt;
 
     public void markReservationConfirmed() {
         reservationConfirmedAt = Instant.now();
+    }
+
+    public void markVirtualAccountIssued() {
+        if (virtualAccountIssuedAt == null) {
+            virtualAccountIssuedAt = Instant.now();
+        }
+    }
+
+    public void markDemoDeposited() {
+        demoDepositedAt = Instant.now();
+    }
+
+    public boolean isDemoDeposited() {
+        return demoDepositedAt != null;
     }
 
     // PortOne 승인 응답에서 결제수단·승인 시각·채널을 복사하고 수수료율을 확정한다. 이후 정산은 이 스냅샷만 본다.

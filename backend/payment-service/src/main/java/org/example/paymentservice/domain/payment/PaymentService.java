@@ -164,13 +164,34 @@ public class PaymentService {
     }
 
     private void handleVirtualAccountIssued(Payment payment, PortOnePaymentResponse remote) {
-        payment.transitionTo(PaymentStatus.VIRTUAL_ACCOUNT_ISSUED);
+        // 입금 전 재조회(웹훅 재전송·완료 API 재호출)는 같은 상태가 다시 오므로 전이 없이 발급 시각만 보존한다.
+        if (payment.getStatus() != PaymentStatus.VIRTUAL_ACCOUNT_ISSUED) {
+            payment.transitionTo(PaymentStatus.VIRTUAL_ACCOUNT_ISSUED);
+        }
+        payment.markVirtualAccountIssued();
         paymentRepository.save(payment);
 
         if (remote.method() != null && remote.method().expiredAt() != null) {
             reservationServiceClient.extendReservationHold(
                     payment.getReservationId(), new ExtendReservationHoldRequest(remote.method().expiredAt()));
         }
+    }
+
+    // 데모 자동 입금 — 이 사이트는 테스트 채널 결제만 쓰므로 가상계좌 발급 후 일정 시간이 지나면 입금된 것으로 본다.
+    // 우리 DB를 직접 PAID로 바꾸지 않고 입금 기록만 남긴 뒤 평소와 같은 동기화 경로를 태운다.
+    // 이후 PortOne 조회는 DemoDepositRemote가 이 기록을 PAID 응답으로 바꿔 주므로 검증·예매 확정·정산 대사가 그대로 돈다.
+    public void demoDeposit(String paymentId) {
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
+                .orElseThrow(() -> new ApiException(PaymentErrorCode.PAYMENT_NOT_FOUND));
+        if (payment.getStatus() != PaymentStatus.VIRTUAL_ACCOUNT_ISSUED) {
+            return;
+        }
+        // 입금 기록은 남았는데 동기화가 실패했던 결제는 기록을 다시 만들지 않고 동기화만 재시도한다.
+        if (!payment.isDemoDeposited()) {
+            payment.markDemoDeposited();
+            payment = paymentRepository.save(payment);
+        }
+        syncPayment(payment);
     }
 
     // 프론트 결과나 웹훅 본문의 금액·통화를 신뢰하지 않고, PortOne 조회 결과를 우리 주문금액과 대조한다.

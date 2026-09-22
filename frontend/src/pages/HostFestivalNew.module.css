@@ -32,6 +32,74 @@
   color: var(--fgColor-default);
 }
 
+.stepMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stepCount {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fgColor-accent);
+}
+
+.stepProgress {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.stepProgressSegment {
+  height: 6px;
+  border-radius: 999px;
+  background-color: var(--bgColor-muted);
+}
+
+.stepProgressSegmentActive {
+  background-color: var(--bgColor-accent-emphasis);
+}
+
+.stepLabel {
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fgColor-muted);
+}
+
+.stepNav {
+  margin-top: 4px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.stepNavTwo {
+  grid-template-columns: 1fr 2fr;
+}
+
+.stepBack {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: 18px;
+  background-color: var(--bgColor-default);
+  color: var(--fgColor-default);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) ease;
+}
+
+.stepBack:hover {
+  background-color: var(--bgColor-muted);
+}
+
 .banner {
   margin-top: 16px;
   display: flex;

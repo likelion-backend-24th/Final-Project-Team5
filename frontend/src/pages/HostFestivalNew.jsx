@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  ArrowLeftIcon,
   ArrowRightIcon,
   ChevronDownIcon,
   ChevronUpIcon,
@@ -338,6 +339,26 @@ function validate(form, thumbnail, detailImages) {
   return { fieldErrors, ticketErrors }
 }
 
+//4단계 마법사 — 한 번에 다 보여주던 폼을 "기본 정보 → 운영 정보 → 분류·이미지 → 무대·티켓 설정"으로 나눈다.
+//form state는 하나로 유지하고 화면만 갈아끼우므로, 단계를 오가도 입력값이 유실되지 않는다.
+const TOTAL_STEPS = 4
+
+const STEP_LABELS = {
+  1: '기본 정보',
+  2: '운영 정보',
+  3: '분류·이미지',
+  4: '무대·티켓 설정',
+}
+
+//"다음" 클릭 시 이 단계에 해당하는 필드만 막는다 — validate()는 항상 전체를 검사하지만,
+//다른 단계의 에러(예: 아직 안 채운 4단계 티켓 종류)까지 1단계에서 막아버리면 안 되기 때문이다.
+const STEP_FIELD_KEYS = {
+  1: ['name', 'startAt', 'endAt', 'region', 'locationDetail'],
+  2: ['operatingEndTime'],
+  3: ['festivalCategory', 'thumbnail', 'detailImages'],
+  4: ['ticketTypes'],
+}
+
 /** 백엔드 스펙(POST /api/host/festivals) 기준 주최자용 페스티벌 등록 화면. */
 function HostFestivalNew() {
   const { user, isLoading: authLoading } = useAuth()
@@ -368,6 +389,8 @@ function HostFestivalNew() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(null)
   const [showAiDraftModal, setShowAiDraftModal] = useState(false)
+  const [step, setStep] = useState(1)
+  const [aiDraftNotice, setAiDraftNotice] = useState('')
 
   //AI 초안 적용 — 소개글은 있으면 덮어쓰고, 티켓 종류 제안이 있으면 기존 입력을 통째로 대체한다(비어있으면
   //기존 입력을 그대로 둔다). 가격·수량·판매기간처럼 AI가 안 준 값은 기본값으로 채우고, 전부 이후 폼에서
@@ -397,6 +420,11 @@ function HostFestivalNew() {
     setErrors((prev) => ({ ...prev, description: undefined, ticketTypes: undefined }))
     setTicketErrors({})
     setShowAiDraftModal(false)
+    setAiDraftNotice(
+      (draft.ticketTypeSuggestions?.length ?? 0) > 0
+        ? `AI 초안이 적용됐어요. 티켓 종류 ${draft.ticketTypeSuggestions.length}개는 4단계(무대·티켓 설정)에서 확인해주세요.`
+        : 'AI 초안이 소개글에 적용됐어요.',
+    )
   }
 
   //선택할 때마다 이전 선택을 교체한다 (1장만 허용)
@@ -631,9 +659,33 @@ function HostFestivalNew() {
     })
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault()
+  //현재 단계에 해당하는 필드만 확인하고 다음 단계로 넘어간다. validate()는 항상 폼 전체를 검사하므로,
+  //아직 채우지 않은 다른 단계의 에러 때문에 진행이 막히지 않도록 이 단계의 필드만 걸러서 본다.
+  function goToNextStep() {
+    const { fieldErrors, ticketErrors: nextTicketErrors } = validate(form, thumbnail, detailImages)
+    setErrors(fieldErrors)
+    setTicketErrors(nextTicketErrors)
+    const hasBlockingError = STEP_FIELD_KEYS[step].some((key) => fieldErrors[key])
+    if (hasBlockingError) return
+    setStep((prev) => Math.min(prev + 1, TOTAL_STEPS))
+  }
 
+  function handleBack() {
+    setStep((prev) => Math.max(prev - 1, 1))
+  }
+
+  //폼 전체를 감싸는 <form>의 제출 이벤트 — 마지막 단계가 아니면 "다음"과 같은 동작(다음 단계로),
+  //마지막 단계면 실제 등록을 진행한다. 인풋에서 Enter를 눌러도 이 한 곳으로 모인다.
+  function handleFormSubmit(event) {
+    event.preventDefault()
+    if (step < TOTAL_STEPS) {
+      goToNextStep()
+      return
+    }
+    submitFestival()
+  }
+
+  async function submitFestival() {
     const { fieldErrors, ticketErrors: nextTicketErrors } = validate(form, thumbnail, detailImages)
     setErrors(fieldErrors)
     setTicketErrors(nextTicketErrors)
@@ -779,24 +831,48 @@ function HostFestivalNew() {
   return (
     <main className={styles.main}>
       <div className={styles.card}>
-        <h1 className={styles.title}>페스티벌 등록</h1>
+        <div className={styles.stepMeta}>
+          <h1 className={styles.title}>페스티벌 등록</h1>
+          <span className={styles.stepCount}>{step} / {TOTAL_STEPS}</span>
+        </div>
+        <div className={styles.stepProgress}>
+          {Array.from({ length: TOTAL_STEPS }, (_, index) => (
+            <div
+              key={index}
+              className={`${styles.stepProgressSegment} ${index < step ? styles.stepProgressSegmentActive : ''}`}
+            />
+          ))}
+        </div>
+        <p className={styles.stepLabel}>{STEP_LABELS[step]}</p>
 
-        <p className={styles.banner}>
-          <InfoIcon size={16} aria-hidden="true" />
-          등록 후 운영자 승인이 완료되어야 목록에 공개됩니다.
-        </p>
+        {step === 1 && (
+          <p className={styles.banner}>
+            <InfoIcon size={16} aria-hidden="true" />
+            등록 후 운영자 승인이 완료되어야 목록에 공개됩니다.
+          </p>
+        )}
 
-        <button
-          type="button"
-          onClick={() => setShowAiDraftModal(true)}
-          className="mb-4 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
-          style={{ width: '100%' }}
-        >
-          <SparklesIcon size={16} aria-hidden="true" />
-          AI로 초안 채우기
-        </button>
-        {showAiDraftModal && (
-          <AiDraftModal onClose={() => setShowAiDraftModal(false)} onApply={handleApplyAiDraft} />
+        {step === 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowAiDraftModal(true)}
+              className="mb-4 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
+              style={{ width: '100%' }}
+            >
+              <SparklesIcon size={16} aria-hidden="true" />
+              AI로 초안 채우기
+            </button>
+            {aiDraftNotice && (
+              <p className={styles.banner} role="status">
+                <SparklesIcon size={16} aria-hidden="true" />
+                {aiDraftNotice}
+              </p>
+            )}
+            {showAiDraftModal && (
+              <AiDraftModal onClose={() => setShowAiDraftModal(false)} onApply={handleApplyAiDraft} />
+            )}
+          </>
         )}
 
         {submitError && (
@@ -806,7 +882,8 @@ function HostFestivalNew() {
           </p>
         )}
 
-        <form className={styles.form} onSubmit={handleSubmit} noValidate>
+        <form className={styles.form} onSubmit={handleFormSubmit} noValidate>
+          {step === 1 && (
           <div className={styles.field}>
             <label htmlFor="name" className={styles.label}>
               페스티벌 이름
@@ -822,7 +899,9 @@ function HostFestivalNew() {
             />
             {errors.name && <p className={styles.errorText}>{errors.name}</p>}
           </div>
+          )}
 
+          {step === 1 && (
           <div className={styles.field}>
             <label htmlFor="description" className={styles.label}>
               소개 <span className={styles.optional}>(선택)</span>
@@ -836,7 +915,9 @@ function HostFestivalNew() {
               rows={5}
             />
           </div>
+          )}
 
+          {step === 1 && (
           <div className={styles.row}>
             <div className={styles.field}>
               <label htmlFor="startAt-date" className={styles.label}>
@@ -854,14 +935,18 @@ function HostFestivalNew() {
               {errors.endAt && <p className={styles.errorText}>{errors.endAt}</p>}
             </div>
           </div>
+          )}
 
+          {step === 1 && (
           <div className={styles.field}>
             <label className={styles.label}>
               위치 <span className={styles.optional}>(선택, 지도를 클릭하면 아래 지역·상세주소가 자동으로 채워져요)</span>
             </label>
             <KakaoMap mode="pick" latitude={form.latitude} longitude={form.longitude} onPick={handleMapPick} />
           </div>
+          )}
 
+          {step === 1 && (
           <div className={styles.row}>
             <div className={styles.field}>
               <label htmlFor="region" className={styles.label}>
@@ -900,7 +985,9 @@ function HostFestivalNew() {
               {errors.locationDetail && <p className={styles.errorText}>{errors.locationDetail}</p>}
             </div>
           </div>
+          )}
 
+          {step === 2 && (
           <div className={styles.field}>
             <label htmlFor="entryStartTime" className={styles.label}>
               입장 시작 시간 <span className={styles.optional}>(선택, 구매자에게 안내되는 참고용 정보)</span>
@@ -913,7 +1000,9 @@ function HostFestivalNew() {
               onChange={handleChange('entryStartTime')}
             />
           </div>
+          )}
 
+          {step === 2 && (
           <div className={styles.row}>
             <div className={styles.field}>
               <label htmlFor="operatingStartTime" className={styles.label}>
@@ -943,7 +1032,10 @@ function HostFestivalNew() {
               {errors.operatingEndTime && <p className={styles.errorText}>{errors.operatingEndTime}</p>}
             </div>
           </div>
+          )}
 
+          {step === 3 && (
+          <>
           <div className={styles.field}>
             <span className={styles.label}>카테고리</span>
             <div className={styles.categoryGroup} role="radiogroup" aria-label="카테고리">
@@ -1044,7 +1136,11 @@ function HostFestivalNew() {
               </div>
             )}
           </div>
+          </>
+          )}
 
+          {step === 4 && (
+          <>
           <div className={styles.field}>
             <span className={styles.label}>무대 배치 방식</span>
             <div className={styles.stageLayoutGroup} role="radiogroup" aria-label="무대 배치 방식">
@@ -1369,11 +1465,21 @@ function HostFestivalNew() {
               티켓 종류 추가
             </button>
           </div>
+          </>
+          )}
 
-          <button type="submit" className={styles.submit} disabled={submitting}>
-            {submitting ? '등록 중…' : '등록하기'}
-            <ArrowRightIcon size={16} aria-hidden="true" />
-          </button>
+          <div className={step === 1 ? styles.stepNav : `${styles.stepNav} ${styles.stepNavTwo}`}>
+            {step > 1 && (
+              <button type="button" className={styles.stepBack} onClick={handleBack}>
+                <ArrowLeftIcon size={16} aria-hidden="true" />
+                이전
+              </button>
+            )}
+            <button type="submit" className={styles.submit} disabled={submitting}>
+              {step < TOTAL_STEPS ? '다음' : submitting ? '등록 중…' : '등록하기'}
+              <ArrowRightIcon size={16} aria-hidden="true" />
+            </button>
+          </div>
         </form>
       </div>
     </main>

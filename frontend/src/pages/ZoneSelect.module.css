@@ -9,6 +9,7 @@
 
 .page {
   width: 100%;
+  min-width: 0;
   max-width: 960px;
   height: fit-content;
   padding: 32px;
@@ -20,6 +21,7 @@
 
 .card {
   width: 100%;
+  min-width: 0;
   max-width: 720px;
   height: fit-content;
   padding: 32px;
@@ -76,6 +78,7 @@
 /* ── 구역 카드 (공통) ───────────────────────────────────────────── */
 
 .zoneCard {
+  min-width: 0;
   padding: 16px;
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
@@ -126,6 +129,7 @@
 .standingActions {
   margin-top: 10px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -133,7 +137,7 @@
 
 .qtyInput {
   width: 56px;
-  height: 36px;
+  height: 44px;
   padding: 0 8px;
   text-align: center;
   border: var(--borderWidth-thin) solid var(--borderColor-default);
@@ -146,7 +150,7 @@
 
 .standingReserveButton {
   flex: 1;
-  height: 36px;
+  height: 44px;
   padding: 0 16px;
   border: none;
   border-radius: var(--borderRadius-medium);
@@ -296,6 +300,11 @@
 }
 
 @media (max-width: 720px) {
+  /* 좁은 화면에서도 카드와 예매 버튼이 화면 밖으로 밀리지 않도록 한 열로 배치한다. */
+  .flexRow {
+    flex-direction: column;
+  }
+
   .donutWrap {
     display: none;
   }

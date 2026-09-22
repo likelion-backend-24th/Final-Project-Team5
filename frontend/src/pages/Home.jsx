@@ -19,11 +19,12 @@ function Home() {
   const { user } = useAuth()
   const isHost = user?.role === 'HOST'
 
-  //홈을 다시 찾을 때는 캐시된 목록으로 바로 그리고 뒤에서 갱신한다. 실패하면 예전처럼 빈 목록으로 둔다.
-  const { data, isLoading } = useCachedQuery(festivalListKey(HOME_LIST_PARAMS), () =>
+  //조회 실패를 행사 없음으로 오해하지 않도록 캐시의 오류도 화면에 전달한다.
+  const { data, error, isLoading } = useCachedQuery(festivalListKey(HOME_LIST_PARAMS), () =>
     fetchFestivals(HOME_LIST_PARAMS),
   )
   const festivals = useMemo(() => (data ?? []).map(mapFestivalToCard), [data])
+  const loadError = error ? '페스티벌 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.' : ''
 
   const heroSlides = useMemo(() => festivals.slice(0, HERO_SLIDE_LIMIT), [festivals])
   // 마감임박 기준: 공연 시작까지 D-3일 이내
@@ -42,7 +43,7 @@ function Home() {
       {/* HOST는 등록/조회 진입이 자주 쓰는 동작이라 배너를 맨 위로 올려 바로 보이게 한다. */}
       {isHost && <OrganizerCta isFirst />}
       {isLoading ? <HeroSkeleton /> : <HeroCarousel slides={heroSlides} />}
-      <FestivalBrowser festivals={festivals} loading={isLoading} />
+      <FestivalBrowser festivals={festivals} loading={isLoading} loadError={loadError} />
       <ClosingSoon festivals={closingSoon} />
       {!isHost && <OrganizerCta />}
     </main>

@@ -12,7 +12,7 @@ const CATEGORY_CHIPS = [
 
 const HOME_PREVIEW_LIMIT = 8
 
-function FestivalBrowser({ festivals: allFestivals = [], loading = false }) {
+function FestivalBrowser({ festivals: allFestivals = [], loading = false, loadError = '' }) {
   const [category, setCategory] = useState('all')
   const festivals = useMemo(
     () => (category === 'all' ? allFestivals : allFestivals.filter((f) => f.category === category)),
@@ -41,9 +41,12 @@ function FestivalBrowser({ festivals: allFestivals = [], loading = false }) {
           <div className="mt-5">
             <FestivalGridSkeleton count={HOME_PREVIEW_LIMIT} />
           </div>
+        ) : loadError ? (
+          //목록 화면과 같은 안내를 써서 통신 실패와 빈 카테고리를 구분한다.
+          <p className="py-10 text-sm text-gray-500">{loadError}</p>
         ) : festivals.length === 0 ? (
           <p className="py-10 text-center text-sm text-gray-500">
-            해당 카테고리에 등록된 페스티벌이 없습니다.
+            해당 카테고리에 등록된 페스티벌이 없어요.
           </p>
         ) : (
           <div className="mt-5 grid animate-fade-in grid-cols-2 gap-5 motion-reduce:animate-none md:grid-cols-3 lg:grid-cols-4">

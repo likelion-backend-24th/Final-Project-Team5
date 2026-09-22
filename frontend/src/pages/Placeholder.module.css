@@ -11,6 +11,8 @@
 }
 
 .title {
+  /* 모바일에서도 한국어 단어 중간에서 제목이 끊기지 않도록 한다. */
+  word-break: keep-all;
   font-size: 28px;
   font-weight: 700;
   color: var(--fgColor-default);

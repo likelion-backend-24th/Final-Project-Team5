@@ -19,6 +19,7 @@ import {
   festivalDetailKey,
   fetchFestivalDetail,
   formatLocation,
+  isFestivalCancelling,
   toAbsoluteImageUrl,
 } from '../api/festivalApi'
 import { fetchMyBooths } from '../api/boothApi'
@@ -255,7 +256,12 @@ function FestivalDetail() {
           {festival.festivalStatus === 'CLOSED' && (
             <Badge variant="secondary">{FESTIVAL_VISIBLE_STATUS_LABELS.CLOSED}</Badge>
           )}
-          {ddayLabel(festival.startAt) && <Badge variant="secondary">{ddayLabel(festival.startAt)}</Badge>}
+          {isFestivalCancelling(festival.festivalStatus) && (
+            <Badge variant="danger">{FESTIVAL_VISIBLE_STATUS_LABELS[festival.festivalStatus]}</Badge>
+          )}
+          {!isFestivalCancelling(festival.festivalStatus) && ddayLabel(festival.startAt) && (
+            <Badge variant="secondary">{ddayLabel(festival.startAt)}</Badge>
+          )}
         </div>
         <h1 className={styles.title}>{festival.name}</h1>
 
@@ -372,6 +378,11 @@ function FestivalDetail() {
         {festival.festivalStatus === 'CLOSED' && (
           <p className={styles.description} style={{ color: 'var(--fgColor-danger)' }}>
             종료된 페스티벌이라 예매를 신청할 수 없어요.
+          </p>
+        )}
+        {isFestivalCancelling(festival.festivalStatus) && (
+          <p className={styles.description} style={{ color: 'var(--fgColor-danger)' }}>
+            주최자 사정으로 취소된 페스티벌이에요. 이미 결제한 티켓은 위약금 없이 전액 환불돼요.
           </p>
         )}
 

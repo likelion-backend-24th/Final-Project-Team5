@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import QRCode from 'react-qr-code'
 import { ArrowRightIcon, ArrowUpDownIcon, CreditCardIcon, ImageIcon, QrCodeIcon, RotateCcwIcon, TicketIcon, XIcon } from 'lucide-react'
-import { fetchFestivalDetail, toAbsoluteImageUrl } from '../api/festivalApi'
+import { fetchFestivalDetail, isFestivalCancelling, toAbsoluteImageUrl } from '../api/festivalApi'
 import { cancelReservation, fetchMyReservations, fetchReservationQr } from '../api/reservationApi'
 import FadeImage from './FadeImage'
 import RefundModal from './RefundModal'
@@ -16,6 +16,7 @@ const STATUS_META = {
   예정: 'bg-blue-50 text-blue-600',
   입장완료: 'bg-green-50 text-green-700',
   환불: 'bg-orange-50 text-orange-700',
+  환불예정: 'bg-orange-50 text-orange-700',
   완료: 'bg-gray-100 text-gray-600',
 }
 
@@ -47,11 +48,13 @@ function formatDateRange(startAt, endAt) {
 //백엔드 reservationStatus(PENDING/CONFIRMED/CANCELLED/REFUNDED/PARTIALLY_REFUNDED)를
 //화면 라벨로 변환한다. CONFIRMED는 현장 입장 여부와 페스티벌 종료 여부로 다시 나눈다 —
 //이미 입장한 티켓을 계속 "예정"으로 보여주면 참가자가 티켓을 썼는지 알 수 없다.
-function toStatusLabel(reservationStatus, festivalEndAt, checkedInAt) {
+function toStatusLabel(reservationStatus, festivalEndAt, checkedInAt, festivalStatus) {
   if (reservationStatus === 'PENDING') return '결제대기'
   //부분 환불된 예매는 남은 장수가 그대로 유효하므로 확정 예매와 같게 취급한다.
   if (reservationStatus === 'CONFIRMED' || reservationStatus === 'PARTIALLY_REFUNDED') {
     if (checkedInAt) return '입장완료'
+    //주최자가 행사를 취소하면 환불 배치가 순서대로 전액 환불하므로, 그 전까지는 '예정' 대신 환불 예정으로 보여준다.
+    if (isFestivalCancelling(festivalStatus)) return '환불예정'
     return festivalEndAt && new Date(festivalEndAt) < new Date() ? '완료' : '예정'
   }
   if (reservationStatus === 'REFUNDED') return '환불'
@@ -233,7 +236,8 @@ function MyPageReservationsTab() {
               festivalImage: toAbsoluteImageUrl(festival?.thumbnailImageUrl),
               festivalDate: festival ? formatDateRange(festival.startAt, festival.endAt) : '',
               ticketTypeName: ticketType?.name ?? '',
-              statusLabel: toStatusLabel(reservation.reservationStatus, festival?.endAt, reservation.checkedInAt),
+              festivalStatus: festival?.festivalStatus,
+              statusLabel: toStatusLabel(reservation.reservationStatus, festival?.endAt, reservation.checkedInAt, festival?.festivalStatus),
             }
           }),
         )
@@ -386,6 +390,11 @@ function MyPageReservationsTab() {
                     {r.festivalName}
                   </Link>
                   <p className="mt-0.5 text-sm text-gray-500">{r.festivalDate}</p>
+                  {isFestivalCancelling(r.festivalStatus) && (
+                    <p className="text-xs font-semibold text-orange-600">
+                      주최자 사정으로 취소된 행사예요. 남은 티켓은 위약금 없이 전액 환불돼요.
+                    </p>
+                  )}
                   <p className="text-sm text-gray-400">
                     {r.ticketTypeName} · {r.quantity}장
                     {r.refundedQuantity > 0 && (
@@ -414,9 +423,10 @@ function MyPageReservationsTab() {
                       QR 보기
                     </button>
                   )}
-                  {/* 이미 입장한 티켓은 환불 대상이 아니라 버튼 자체를 숨긴다(눌러도 서버가 거절한다). */}
+                  {/* 이미 입장한 티켓은 환불 대상이 아니라 버튼 자체를 숨긴다(눌러도 서버가 거절한다).
+                      주최자가 취소한 행사는 본인 환불(위약금 적용)이 아니라 전액 환불 배치가 처리하므로 역시 숨긴다. */}
                   {(r.reservationStatus === 'CONFIRMED' || r.reservationStatus === 'PARTIALLY_REFUNDED')
-                    && !r.checkedInAt && (
+                    && !r.checkedInAt && !isFestivalCancelling(r.festivalStatus) && (
                     <button
                       type="button"
                       onClick={() => setRefundTarget(r)}

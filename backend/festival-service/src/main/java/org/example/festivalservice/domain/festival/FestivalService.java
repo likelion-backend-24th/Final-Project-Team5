@@ -201,8 +201,10 @@ public class FestivalService {
     }
 
     //상세에서 방문자에게 노출 가능한 상태 — 종료(CLOSED)된 것도 예약 내역에서 타고 들어올 수 있게 "종료됨" 배지로 보여준다.
-    //목록은 진행중(PUBLISHED)만 노출한다(종료된 행사가 목록을 차지하지 않도록).
-    private static final List<FestivalStatus> VISIBLE_STATUSES = List.of(FestivalStatus.PUBLISHED, FestivalStatus.CLOSED);
+    //취소 진행 중·취소된 행사도 이미 결제한 참가자가 내 예매에서 이름·환불 안내를 봐야 하므로 상세는 열어 둔다.
+    //목록은 진행중(PUBLISHED)만 노출한다(종료·취소된 행사가 목록을 차지하지 않도록).
+    private static final List<FestivalStatus> VISIBLE_STATUSES = List.of(FestivalStatus.PUBLISHED, FestivalStatus.CLOSED,
+            FestivalStatus.CANCELLATION_PENDING, FestivalStatus.CANCELLED);
 
     //페스티벌 목록 조회(페이징), 인증 불필요 — 공개(PUBLISHED) 상태만 노출
     public Page<FestivalResponseDto> listFestivals(Pageable pageable) {
@@ -210,7 +212,7 @@ public class FestivalService {
                 .map(this::toResponseDto);
     }
 
-    //페스티벌 상세 조회, 인증 불필요 — 공개·종료 상태가 아니면 404(미승인·반려 페스티벌은 존재 자체를 숨김)
+    //페스티벌 상세 조회, 인증 불필요 — 공개·종료·취소 상태가 아니면 404(미승인·반려 페스티벌은 존재 자체를 숨김)
     public FestivalResponseDto getFestivalDetail(Long id) {
         Festival festival = festivalRepository.findByIdAndFestivalStatusIn(id, VISIBLE_STATUSES)
                 .orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND));

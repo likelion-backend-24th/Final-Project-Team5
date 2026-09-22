@@ -11,6 +11,7 @@ import {
   reviewFestivalSubmission,
   fetchOrganizers,
 } from '../../data/admin'
+import CancellationRequests from './CancellationRequests'
 
 const STATUS_FILTERS = [
   { key: 'ALL', label: '전체' },
@@ -743,11 +744,27 @@ function SlideOver({ open, onClose, title, children }) {
   )
 }
 
+/* ---------- 행사 취소 승인 ---------- */
+
+//정산 대시보드 하단에 있을 때는 운영자가 찾지 못해 승인이 멈췄다. 주최자 심사와 같은 자리에 둔다.
+function CancellationApprovals() {
+  return (
+    <div>
+      <h2 className="text-lg font-extrabold text-gray-900">행사 취소 승인</h2>
+      <p className="mt-1 text-sm text-gray-500">
+        주최자가 요청한 행사 취소를 승인하면 남은 티켓이 위약금 없이 전액 환불되고, 정산은 환불이 끝날 때까지 보류돼요.
+      </p>
+      <CancellationRequests />
+    </div>
+  )
+}
+
 /* ---------- 주최자 관리 (탭 1) ---------- */
 
 const SUB_TABS = [
   { key: 'organizer', label: '주최자 신청 승인' },
   { key: 'festival', label: '페스티벌 등록 승인' },
+  { key: 'cancellation', label: '행사 취소 승인' },
   { key: 'list', label: '주최자 목록' },
 ]
 
@@ -763,6 +780,7 @@ function OrganizerManagement() {
   function renderSub() {
     if (sub === 'organizer') return <OrganizerApprovals />
     if (sub === 'festival') return <FestivalApprovals key={festivalQuery} initialQuery={festivalQuery} />
+    if (sub === 'cancellation') return <CancellationApprovals />
     return <OrganizerList onViewFestivals={viewOrganizerFestivals} />
   }
 

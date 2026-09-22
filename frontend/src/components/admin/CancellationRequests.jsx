@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { CircleAlertIcon } from 'lucide-react'
-import { approveFestivalCancellation, fetchCancellationRequests } from '../../api/adminApi'
+import { approveFestivalCancellation, fetchCancellationRequests, rejectFestivalCancellation } from '../../api/adminApi'
 
 const CANCELLATION_ERROR_MESSAGES = {
   CANCELLATION_NOT_REQUESTED: '취소 요청이 없는 페스티벌이에요.',
+  CANCELLATION_ALREADY_APPROVED: '이미 승인돼 환불이 진행 중인 요청은 반려할 수 없어요.',
   FORBIDDEN_ADMIN_ROLE: '운영자만 행사 취소를 승인할 수 있어요.',
   FESTIVAL_NOT_FOUND: '존재하지 않는 페스티벌이에요.',
 }
@@ -14,9 +15,9 @@ function toErrorMessage(error) {
 }
 
 /**
- * 주최자가 요청한 행사 취소를 운영자가 승인하는 목록(정산 대시보드 하단 섹션 안).
+ * 주최자가 요청한 행사 취소를 운영자가 승인하는 목록(주최자 관리 > 행사 취소 승인 탭).
  * 승인하면 payment-service 환불 배치가 남은 티켓을 위약금 없이 전액 환불하므로 되돌릴 수 없다.
- * 카드·제목은 부모(SettlementDashboard) 섹션이 그리고 여기서는 목록만 렌더링한다.
+ * 제목·설명은 부모(OrganizerManagement)가 그리고 여기서는 목록만 렌더링한다.
  */
 function CancellationRequests() {
   const [requests, setRequests] = useState([])
@@ -48,17 +49,16 @@ function CancellationRequests() {
     }
   }, [refreshKey])
 
-  async function handleApprove(request) {
+  //승인·반려는 같은 잠금을 쓴다 — 한 요청에 두 버튼이 연달아 눌리는 일을 막는다.
+  async function run(action, successNotice) {
     if (busyRef.current) return
-    if (!window.confirm(`'${request.name}'의 주최자 귀책 전액 환불을 승인할까요? 승인 후 환불 작업은 되돌릴 수 없습니다.`)) return
-
     busyRef.current = true
     setWorking(true)
     setActionError('')
     setNotice('')
     try {
-      await approveFestivalCancellation(request.festivalId)
-      setNotice('승인했어요. 환불 배치가 결제 건을 순서대로 처리해요.')
+      await action()
+      setNotice(successNotice)
       setRefreshKey((value) => value + 1)
     } catch (error) {
       setActionError(toErrorMessage(error))
@@ -66,6 +66,16 @@ function CancellationRequests() {
       busyRef.current = false
       setWorking(false)
     }
+  }
+
+  function handleApprove(request) {
+    if (!window.confirm(`'${request.name}'의 주최자 귀책 전액 환불을 승인할까요? 승인 후 환불 작업은 되돌릴 수 없습니다.`)) return
+    run(() => approveFestivalCancellation(request.festivalId), '승인했어요. 환불 배치가 결제 건을 순서대로 처리해요.')
+  }
+
+  function handleReject(request) {
+    if (!window.confirm(`'${request.name}'의 취소 요청을 반려할까요? 행사는 요청 전 상태로 돌아가고 주최자는 다시 요청할 수 있어요.`)) return
+    run(() => rejectFestivalCancellation(request.festivalId), '반려했어요. 행사가 요청 전 상태로 돌아갔어요.')
   }
 
   return (
@@ -105,14 +115,27 @@ function CancellationRequests() {
                 </p>
                 <p className="mt-0.5 break-words text-xs text-gray-500">{request.reason}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => handleApprove(request)}
-                disabled={working || request.approved}
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {request.approved ? '환불 진행 중' : '전액 환불 승인'}
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                {/* 승인된 요청은 환불이 돌고 있어 반려할 수 없으므로 버튼을 아예 감춘다 */}
+                {!request.approved && (
+                  <button
+                    type="button"
+                    onClick={() => handleReject(request)}
+                    disabled={working}
+                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    반려
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleApprove(request)}
+                  disabled={working || request.approved}
+                  className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-bold text-gray-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {request.approved ? '환불 진행 중' : '전액 환불 승인'}
+                </button>
+              </div>
             </li>
           ))}
         </ul>

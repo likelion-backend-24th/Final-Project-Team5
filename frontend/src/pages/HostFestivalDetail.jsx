@@ -244,7 +244,9 @@ function HostFestivalDetail() {
         </Link>
 
         <HostHelperAccounts festivalId={id} />
-        {['PUBLISHED', 'CLOSED', 'CANCELLATION_PENDING'].includes(festival.festivalStatus) && (
+        {/* 시작된 행사는 서버가 취소 요청을 거절하므로(FESTIVAL_ALREADY_STARTED) 카드 자체를 보여주지 않는다. */}
+        {(festival.festivalStatus === 'CANCELLATION_PENDING'
+          || (festival.festivalStatus === 'PUBLISHED' && new Date(festival.startAt) > new Date())) && (
           <HostFestivalCancellation
             festivalId={id}
             festivalStatus={festival.festivalStatus}

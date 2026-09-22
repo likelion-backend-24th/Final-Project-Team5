@@ -30,3 +30,8 @@ export function fetchCancellationRequests() {
 export function approveFestivalCancellation(festivalId) {
   return apiClient.post(`/api/admin/festivals/${festivalId}/approve-cancellation`)
 }
+
+//행사 취소 요청 반려 — 요청 전 상태(공개/종료)로 되돌린다. 이미 승인된 요청은 서버가 거절한다
+export function rejectFestivalCancellation(festivalId) {
+  return apiClient.post(`/api/admin/festivals/${festivalId}/reject-cancellation`)
+}

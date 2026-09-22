@@ -76,6 +76,23 @@ public class FestivalCancellationService {
         return festival.getFestivalStatus();
     }
 
+    //운영자가 취소 요청을 반려한다. 승인 뒤에는 환불 배치가 이미 돈을 돌려주고 있으므로 되돌릴 수 없다.
+    @Transactional
+    public FestivalStatus rejectCancellation(Long id, String role) {
+        if (!ADMIN_ROLE.equals(role)) {
+            throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
+        }
+        Festival festival = getFestival(id);
+        if (festival.getFestivalStatus() != FestivalStatus.CANCELLATION_PENDING) {
+            throw new ApiException(FestivalErrorCode.CANCELLATION_NOT_REQUESTED);
+        }
+        if (festival.getCancellationApprovedAt() != null) {
+            throw new ApiException(FestivalErrorCode.CANCELLATION_ALREADY_APPROVED);
+        }
+        festival.rejectCancellation();
+        return festival.getFestivalStatus();
+    }
+
     //운영자 화면용 — 취소 대기 중인 페스티벌과 승인 여부
     @Transactional(readOnly = true)
     public List<FestivalCancellationRequestResponseDto> listCancellationRequests(String role) {

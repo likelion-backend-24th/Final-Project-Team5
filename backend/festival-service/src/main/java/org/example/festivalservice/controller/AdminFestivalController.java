@@ -57,4 +57,14 @@ public class AdminFestivalController {
         return ResponseEntity.ok(ApiResponse.success("전액 환불 승인",
                 festivalCancellationService.approveCancellation(id, userId, role)));
     }
+
+    //운영자가 행사 취소 요청을 반려한다 — 요청 전 상태(공개/종료)로 되돌리며, 이미 승인된 요청은 반려할 수 없다
+    @PostMapping("/{id}/reject-cancellation")
+    public ResponseEntity<ApiResponse<FestivalStatus>> rejectCancellation(
+            @PathVariable Long id,
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role) {
+        return ResponseEntity.ok(ApiResponse.success("취소 요청 반려",
+                festivalCancellationService.rejectCancellation(id, role)));
+    }
 }

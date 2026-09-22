@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import java.time.LocalDateTime;
@@ -31,5 +32,29 @@ class FestivalCancellationAcceptanceTest {
                 .andExpect(status().isOk());
         mvc.perform(get("/internal/v1/festivals/" + f.getId() + "/settlement-context").header("Authorization", "Bearer settlement-test"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test void adminRejectsBeforeApprovalAndFestivalReturnsToPreviousStatus() throws Exception {
+        var f = repository.save(Festival.builder().hostUserId(10L).name("reject festival").startAt(LocalDateTime.now().plusDays(2))
+                .endAt(LocalDateTime.now().plusDays(4)).festivalStatus(FestivalStatus.PUBLISHED).build());
+        String request = "/api/host/festivals/" + f.getId() + "/cancellation-request";
+        String reject = "/api/admin/festivals/" + f.getId() + "/reject-cancellation";
+        //취소 요청이 없는 행사는 반려할 수 없다
+        mvc.perform(post(reject).header("X-User-Id", 1).header("X-User-Role", "ADMIN")).andExpect(status().isConflict());
+        mvc.perform(post(request).header("X-User-Id", 10).header("X-User-Role", "HOST")
+                .contentType("application/json").content("{\"reason\":\"행사 취소\"}")).andExpect(status().isOk());
+        mvc.perform(post(reject).header("X-User-Id", 10).header("X-User-Role", "HOST")).andExpect(status().isForbidden());
+        mvc.perform(post(reject).header("X-User-Id", 1).header("X-User-Role", "ADMIN"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data").value("PUBLISHED"));
+        var restored = repository.findById(f.getId()).orElseThrow();
+        assertThat(restored.getFestivalStatus()).isEqualTo(FestivalStatus.PUBLISHED);
+        assertThat(restored.getCancelReason()).isNull();
+        assertThat(restored.getCancelledByUserId()).isNull();
+        //반려 뒤 주최자가 다시 요청할 수 있고, 승인된 요청은 더 이상 반려할 수 없다
+        mvc.perform(post(request).header("X-User-Id", 10).header("X-User-Role", "HOST")
+                .contentType("application/json").content("{\"reason\":\"다시 취소\"}")).andExpect(status().isOk());
+        mvc.perform(post("/api/admin/festivals/" + f.getId() + "/approve-cancellation").header("X-User-Id", 1).header("X-User-Role", "ADMIN"))
+                .andExpect(status().isOk());
+        mvc.perform(post(reject).header("X-User-Id", 1).header("X-User-Role", "ADMIN")).andExpect(status().isConflict());
     }
 }

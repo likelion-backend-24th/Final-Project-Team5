@@ -95,11 +95,30 @@ public class Festival {
     @Column(name = "cancellation_approved_by_user_id")
     private Long cancellationApprovedByUserId;
 
+    //취소 요청 직전 상태(PUBLISHED/CLOSED). 운영자가 반려하면 이 상태로 되돌린다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status_before_cancellation", columnDefinition = "VARCHAR(30)")
+    private FestivalStatus statusBeforeCancellation;
+
     //상태 검증은 FestivalCancellationService가 맡고, 엔티티는 전이만 기록한다.
     public void requestCancellation(Long actor, String reason) {
+        statusBeforeCancellation = festivalStatus;
         festivalStatus = FestivalStatus.CANCELLATION_PENDING;
         cancelledByUserId = actor;
         cancelReason = reason;
+    }
+
+    //반려 — 요청 전 상태로 되돌리고 요청 기록을 지워 주최자가 다시 요청할 수 있게 한다.
+    //이 컬럼이 생기기 전에 요청된 행은 이전 상태를 모르므로 종료 시각으로 판단한다.
+    public void rejectCancellation() {
+        if (statusBeforeCancellation != null) {
+            festivalStatus = statusBeforeCancellation;
+        } else {
+            festivalStatus = endAt.isBefore(LocalDateTime.now()) ? FestivalStatus.CLOSED : FestivalStatus.PUBLISHED;
+        }
+        statusBeforeCancellation = null;
+        cancelledByUserId = null;
+        cancelReason = null;
     }
 
     public void approveCancellation(Long actor) {

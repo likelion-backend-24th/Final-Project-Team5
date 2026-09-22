@@ -53,6 +53,10 @@ public class FestivalService {
                 && !request.operatingEndTime().isAfter(request.operatingStartTime())) {
             throw new ApiException(FestivalErrorCode.INVALID_OPERATING_HOURS);
         }
+        //카카오맵 좌표는 선택 항목이지만, 지도 클릭으로 찍은 값이라 둘 중 하나만 오는 경우는 요청 자체가 잘못된 것이다.
+        if ((request.latitude() == null) != (request.longitude() == null)) {
+            throw new ApiException(FestivalErrorCode.INVALID_COORDINATES);
+        }
         String thumbnailImageUrl = request.thumbnailImageUrl();
         List<String> detailImageUrls = request.detailImageUrls() == null ? List.of() : request.detailImageUrls();
         if (detailImageUrls.size() > MAX_DETAIL_IMAGE_COUNT) {
@@ -71,6 +75,8 @@ public class FestivalService {
                 .endAt(request.endAt())
                 .region(request.region())
                 .locationDetail(request.locationDetail())
+                .latitude(request.latitude())
+                .longitude(request.longitude())
                 .festivalCategory(request.festivalCategory())
                 .stageLayout(request.stageLayout())
                 .festivalStatus(FestivalStatus.PENDING)

@@ -14,9 +14,9 @@ function toErrorMessage(error) {
 }
 
 /**
- * 주최자가 요청한 행사 취소를 운영자가 승인하는 목록(정산 대시보드 하단 섹션 안).
+ * 주최자가 요청한 행사 취소를 운영자가 승인하는 목록(주최자 관리 > 행사 취소 승인 탭).
  * 승인하면 payment-service 환불 배치가 남은 티켓을 위약금 없이 전액 환불하므로 되돌릴 수 없다.
- * 카드·제목은 부모(SettlementDashboard) 섹션이 그리고 여기서는 목록만 렌더링한다.
+ * 제목·설명은 부모(OrganizerManagement)가 그리고 여기서는 목록만 렌더링한다.
  */
 function CancellationRequests() {
   const [requests, setRequests] = useState([])

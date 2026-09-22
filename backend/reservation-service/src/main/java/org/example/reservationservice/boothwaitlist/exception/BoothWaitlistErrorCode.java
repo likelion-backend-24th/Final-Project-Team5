@@ -17,7 +17,8 @@ public enum BoothWaitlistErrorCode implements ErrorCode {
     FESTIVAL_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "부스 정보를 확인할 수 없습니다."),
     FORBIDDEN_STOREHOST_ROLE(HttpStatus.FORBIDDEN, "부스 운영자 권한이 없습니다."),
     FORBIDDEN_NOT_OWNER(HttpStatus.FORBIDDEN, "본인이 개설한 부스만 관리할 수 있습니다."),
-    NO_WAITING_QUEUE(HttpStatus.CONFLICT, "더 이상 호출할 대기자가 없습니다.");
+    NO_WAITING_QUEUE(HttpStatus.CONFLICT, "더 이상 호출할 대기자가 없습니다."),
+    COUNTER_CONFLICT(HttpStatus.CONFLICT, "대기 상태를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.");
 
     private final HttpStatus httpStatus;
     private final String message;

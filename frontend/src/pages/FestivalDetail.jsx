@@ -15,6 +15,7 @@ import {
   FESTIVAL_CATEGORY_LABELS,
   FESTIVAL_REGION_LABELS,
   FESTIVAL_VISIBLE_STATUS_LABELS,
+  festivalVisibleStatusLabel,
   festivalDetailKey,
   fetchFestivalDetail,
   formatLocation,
@@ -151,7 +152,8 @@ function FestivalDetail() {
 
   function handleReserveClick() {
     if (!user) {
-      navigate('/login')
+      //로그인 뒤 예매를 이어갈 구역 선택 경로를 전달한다.
+      navigate('/login', { state: { from: { pathname: `/festivals/${id}/zones` } } })
       return
     }
     navigate(`/festivals/${id}/zones`)
@@ -232,7 +234,7 @@ function FestivalDetail() {
             {FESTIVAL_CATEGORY_LABELS[festival.festivalCategory] ?? festival.festivalCategory}
           </Badge>
           {festival.festivalStatus === 'PUBLISHED' && (
-            <Badge variant="secondary">{FESTIVAL_VISIBLE_STATUS_LABELS.PUBLISHED}</Badge>
+            <Badge variant="secondary">{festivalVisibleStatusLabel(festival)}</Badge>
           )}
           {festival.festivalStatus === 'CLOSED' && (
             <Badge variant="secondary">{FESTIVAL_VISIBLE_STATUS_LABELS.CLOSED}</Badge>

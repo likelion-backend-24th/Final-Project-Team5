@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import FestivalDetail from './FestivalDetail'
 import { useAuth } from '../context/AuthContext.jsx'
 import { fetchFestivalDetail } from '../api/festivalApi'
@@ -37,10 +38,37 @@ function renderPage() {
   )
 }
 
+function LoginDestination() {
+  const location = useLocation()
+  return <p>{location.state?.from?.pathname}</p>
+}
+
 describe('FestivalDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useAuth.mockReturnValue({ user: null })
+  })
+
+  it('shows upcoming before the published festival starts', async () => {
+    fetchFestivalDetail.mockResolvedValue({ data: { data: detail } })
+    renderPage()
+    expect(await screen.findByText('진행 예정')).toBeTruthy()
+    expect(screen.queryByText('진행중')).toBeNull()
+  })
+
+  it('passes the zone selection destination when booking requires login', async () => {
+    fetchFestivalDetail.mockResolvedValue({ data: { data: detail } })
+    render(
+      <MemoryRouter initialEntries={['/festivals/7']}>
+        <Routes>
+          <Route path="/festivals/:id" element={<FestivalDetail />} />
+          <Route path="/login" element={<LoginDestination />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: /예매하기/ }))
+    expect(await screen.findByText('/festivals/7/zones')).toBeTruthy()
   })
 
   it('shows a skeleton first and then the festival', async () => {

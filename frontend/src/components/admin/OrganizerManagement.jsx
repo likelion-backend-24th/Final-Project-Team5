@@ -82,35 +82,40 @@ function Toolbar({ status, setStatus, query, setQuery, sort, setSort }) {
 
 function Pagination({ page, pages, setPage }) {
   if (pages <= 1) return null
+  //페이지가 많아도 현재 위치 주변만 보여줘 모바일에서 버튼이 화면 밖으로 밀리지 않게 한다.
+  const visiblePages = Array.from({ length: Math.min(pages, page + 2) - Math.max(1, page - 2) + 1 }, (_, i) => Math.max(1, page - 2) + i)
   return (
-    <div className="mt-6 flex items-center justify-center gap-1">
+    <div className="mt-6 flex flex-wrap items-center justify-center gap-1">
       <button
         type="button"
         onClick={() => setPage(Math.max(1, page - 1))}
         disabled={page === 1}
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
         aria-label="이전 페이지"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
-      {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
+      {visiblePages[0] > 1 && <span className="px-1 text-gray-400">…</span>}
+      {visiblePages.map((p) => (
         <button
           key={p}
           type="button"
           onClick={() => setPage(p)}
+          aria-current={p === page ? 'page' : undefined}
           className={
-            'h-9 w-9 rounded-lg text-sm font-bold transition ' +
+            'h-11 w-11 shrink-0 rounded-lg text-sm font-bold transition ' +
             (p === page ? 'bg-blue-600 text-white' : 'border border-gray-200 text-gray-600 hover:bg-gray-50')
           }
         >
           {p}
         </button>
       ))}
+      {visiblePages[visiblePages.length - 1] < pages && <span className="px-1 text-gray-400">…</span>}
       <button
         type="button"
         onClick={() => setPage(Math.min(pages, page + 1))}
         disabled={page === pages}
-        className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
         aria-label="다음 페이지"
       >
         <ChevronRight className="h-4 w-4" />
@@ -441,7 +446,7 @@ function FestivalApprovals({ initialQuery = '' }) {
             return (
               <li key={f.id} className="flex flex-col gap-4 rounded-2xl border border-gray-200 p-5 sm:flex-row">
                 <img
-                  src={f.image || '/placeholder.svg'}
+                  src={f.image || '/placeholder.jpg'}
                   alt={f.name}
                   className="h-40 w-full shrink-0 rounded-xl object-cover sm:h-28 sm:w-40"
                   crossOrigin="anonymous"

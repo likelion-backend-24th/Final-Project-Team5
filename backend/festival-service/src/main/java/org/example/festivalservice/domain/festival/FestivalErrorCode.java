@@ -34,7 +34,8 @@ public enum FestivalErrorCode implements ErrorCode {
     IMAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이미지 업로드에 실패했습니다."),
     INVALID_SEAT_LAYOUT(HttpStatus.BAD_REQUEST, "좌석 배치(zone/rows/seatsPerRow)가 올바르지 않습니다."),
     SEAT_GENERATION_FAILED(HttpStatus.SERVICE_UNAVAILABLE, "좌석 생성 처리 중입니다. 잠시 후 다시 확인해주세요."),
-    PUBLISH_PENDING_CANNOT_REJECT(HttpStatus.CONFLICT, "좌석 생성 처리 중인 페스티벌은 반려할 수 없습니다.");
+    PUBLISH_PENDING_CANNOT_REJECT(HttpStatus.CONFLICT, "좌석 생성 처리 중인 페스티벌은 반려할 수 없습니다."),
+    INVALID_COORDINATES(HttpStatus.BAD_REQUEST, "위도와 경도는 함께 입력해야 합니다.");
 
     private final HttpStatus httpStatus;
 

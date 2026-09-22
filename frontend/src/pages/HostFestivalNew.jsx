@@ -11,12 +11,30 @@ import {
   LockIcon,
   PanelTopIcon,
   PlusIcon,
+  SparklesIcon,
   Trash2Icon,
 } from 'lucide-react'
 import { FESTIVAL_CATEGORIES as CATEGORY_OPTIONS, FESTIVAL_REGIONS as REGION_OPTIONS } from '../api/festivalApi'
 import { createFestival, uploadFestivalImages } from '../api/hostFestivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
+import KakaoMap from '../components/KakaoMap'
+import AiDraftModal from '../components/AiDraftModal'
 import styles from './HostFestivalNew.module.css'
+
+//AI 초안이 값을 안 주는 항목(가격·수량·판매기간)에 쓸 기본값 — Gemini가 근거 없이 숫자를 지어내지 않게
+//하고, 대신 여기서 예측 가능한 값으로 채운다. 호스트가 생성 후 그대로 두든 고치든 자유롭게 조정한다.
+const AI_DRAFT_DEFAULT_PRICE = '10000'
+const AI_DRAFT_DEFAULT_QUANTITY = '50'
+
+function nowDateTime() {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(Math.floor(now.getMinutes() / 10) * 10).padStart(2, '0')
+  return `${y}-${m}-${d}T${hh}:${mm}`
+}
 
 const MAX_DETAIL_IMAGE_COUNT = 2
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
@@ -117,6 +135,17 @@ function validateDetailImages(files) {
 
 const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
 const MINUTES = ['00', '10', '20', '30', '40', '50']
+
+//등록 폼을 처음 열 때 일정을 비워두면 매번 날짜부터 골라야 해서 번거롭다는 피드백 — 내일 날짜에
+//운영시간(9~18시)과 맞춘 기본값을 미리 채워두고, 호스트는 필요할 때만 바꾸면 되게 한다.
+function defaultDateTime(hour) {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const y = tomorrow.getFullYear()
+  const m = String(tomorrow.getMonth() + 1).padStart(2, '0')
+  const d = String(tomorrow.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}T${hour}:00`
+}
 
 //브라우저 기본 datetime-local의 시간 스피너가 끝없이 돌고 위/아래 스크롤 속도가 달라 쓰기 불편하다는 QA 피드백.
 //날짜는 기본 달력, 시·분은 10분 단위 select로 받아 form에는 기존과 같은 'YYYY-MM-DDTHH:mm' 문자열로 넣는다.
@@ -318,15 +347,17 @@ function HostFestivalNew() {
   const [form, setForm] = useState(() => ({
     name: '',
     description: '',
-    startAt: '',
-    endAt: '',
+    startAt: defaultDateTime('09'),
+    endAt: defaultDateTime('18'),
     region: '',
     locationDetail: '',
+    latitude: null,
+    longitude: null,
     festivalCategory: 'MUSIC',
     stageLayout: 'FRONT_STAGE',
     entryStartTime: '',
-    operatingStartTime: '',
-    operatingEndTime: '',
+    operatingStartTime: '09:00',
+    operatingEndTime: '18:00',
     ticketTypes: [createEmptyTicketType(0)],
   }))
   const [errors, setErrors] = useState({})
@@ -336,6 +367,37 @@ function HostFestivalNew() {
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(null)
+  const [showAiDraftModal, setShowAiDraftModal] = useState(false)
+
+  //AI 초안 적용 — 소개글은 있으면 덮어쓰고, 티켓 종류 제안이 있으면 기존 입력을 통째로 대체한다(비어있으면
+  //기존 입력을 그대로 둔다). 가격·수량·판매기간처럼 AI가 안 준 값은 기본값으로 채우고, 전부 이후 폼에서
+  //자유롭게 수정할 수 있다.
+  function handleApplyAiDraft(draft) {
+    setForm((prev) => {
+      const suggestions = draft.ticketTypeSuggestions ?? []
+      const ticketTypes = suggestions.length === 0
+        ? prev.ticketTypes
+        : suggestions.map((suggestion) => ({
+            ...createEmptyTicketType(ticketKeySeq.current++),
+            name: suggestion.name || '입장권',
+            description: suggestion.description || '',
+            price: suggestion.price != null ? String(suggestion.price) : AI_DRAFT_DEFAULT_PRICE,
+            quantity: AI_DRAFT_DEFAULT_QUANTITY,
+            ticketMode: suggestion.ticketMode === 'SEATED' ? 'SEATED' : 'STANDING',
+            saleStartAt: nowDateTime(),
+            saleEndAt: prev.startAt || defaultDateTime('09'),
+          }))
+
+      return {
+        ...prev,
+        description: draft.description || prev.description,
+        ticketTypes,
+      }
+    })
+    setErrors((prev) => ({ ...prev, description: undefined, ticketTypes: undefined }))
+    setTicketErrors({})
+    setShowAiDraftModal(false)
+  }
 
   //선택할 때마다 이전 선택을 교체한다 (1장만 허용)
   function handleThumbnailSelect(event) {
@@ -378,6 +440,20 @@ function HostFestivalNew() {
       setErrors((prev) => ({ ...prev, [field]: undefined }))
       setSubmitError('')
     }
+  }
+
+  //카카오맵 클릭 선택 — 좌표는 그대로 저장하고, 매핑된 행정구역/상세주소가 있으면 같이 채운다(매핑 실패
+  //시 region은 null로 와서 드롭다운을 건드리지 않는다 — 호스트가 직접 고르면 됨).
+  function handleMapPick({ latitude, longitude, region, locationDetail }) {
+    setForm((prev) => ({
+      ...prev,
+      latitude,
+      longitude,
+      region: region ?? prev.region,
+      locationDetail: locationDetail || prev.locationDetail,
+    }))
+    setErrors((prev) => ({ ...prev, region: undefined, locationDetail: undefined }))
+    setSubmitError('')
   }
 
   function handleCategorySelect(value) {
@@ -588,6 +664,8 @@ function HostFestivalNew() {
         endAt: form.endAt,
         region: form.region,
         locationDetail: form.locationDetail.trim(),
+        latitude: form.latitude,
+        longitude: form.longitude,
         festivalCategory: form.festivalCategory,
         stageLayout: form.stageLayout,
         entryStartTime: form.entryStartTime || null,
@@ -708,6 +786,19 @@ function HostFestivalNew() {
           등록 후 운영자 승인이 완료되어야 목록에 공개됩니다.
         </p>
 
+        <button
+          type="button"
+          onClick={() => setShowAiDraftModal(true)}
+          className="mb-4 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
+          style={{ width: '100%' }}
+        >
+          <SparklesIcon size={16} aria-hidden="true" />
+          AI로 초안 채우기
+        </button>
+        {showAiDraftModal && (
+          <AiDraftModal onClose={() => setShowAiDraftModal(false)} onApply={handleApplyAiDraft} />
+        )}
+
         {submitError && (
           <p className={styles.submitError} role="alert">
             <CircleAlertIcon size={16} aria-hidden="true" />
@@ -762,6 +853,13 @@ function HostFestivalNew() {
               <DateTimeFields id="endAt" value={form.endAt} onChange={handleDateTimeChange('endAt')} invalid={Boolean(errors.endAt)} />
               {errors.endAt && <p className={styles.errorText}>{errors.endAt}</p>}
             </div>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label}>
+              위치 <span className={styles.optional}>(선택, 지도를 클릭하면 아래 지역·상세주소가 자동으로 채워져요)</span>
+            </label>
+            <KakaoMap mode="pick" latitude={form.latitude} longitude={form.longitude} onPick={handleMapPick} />
           </div>
 
           <div className={styles.row}>

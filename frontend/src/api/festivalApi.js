@@ -63,10 +63,18 @@ export function formatLocation(festival) {
   return [regionLabel, detail].filter(Boolean).join(' ')
 }
 
-//방문자에게 노출되는 상태(PUBLISHED/CLOSED)의 배지 라벨. PENDING/REJECTED는 방문자 화면에 나타나지 않는다.
+//방문자에게 노출되는 상태의 배지 라벨. PENDING/REJECTED는 방문자 화면에 나타나지 않는다.
+//취소 진행중·취소됨은 목록에는 없고 상세·내 예매에서만 보인다(결제한 참가자에게 환불 안내를 하기 위해).
 export const FESTIVAL_VISIBLE_STATUS_LABELS = {
   PUBLISHED: '진행중',
   CLOSED: '종료됨',
+  CANCELLATION_PENDING: '취소 진행중',
+  CANCELLED: '취소됨',
+}
+
+//주최자 취소 요청 이후의 상태 — 참가자 화면에서 예매·본인 환불을 막고 전액 환불 안내를 보여준다.
+export function isFestivalCancelling(festivalStatus) {
+  return festivalStatus === 'CANCELLATION_PENDING' || festivalStatus === 'CANCELLED'
 }
 
 //공개된 행사라도 시작 전에는 진행중으로 오해하지 않도록 날짜를 함께 확인한다.

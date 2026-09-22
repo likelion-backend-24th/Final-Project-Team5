@@ -3,7 +3,8 @@ import { CircleAlertIcon, TriangleAlertIcon } from 'lucide-react'
 import { requestFestivalCancellation } from '../api/hostFestivalApi'
 
 const CANCELLATION_ERROR_MESSAGES = {
-  FESTIVAL_NOT_CANCELLABLE: '공개 또는 종료 상태의 페스티벌만 취소할 수 있어요.',
+  FESTIVAL_NOT_CANCELLABLE: '공개 상태의 페스티벌만 취소할 수 있어요.',
+  FESTIVAL_ALREADY_STARTED: '이미 시작된 페스티벌은 취소를 요청할 수 없어요.',
   CANCEL_REASON_REQUIRED: '취소 사유를 입력해주세요.',
   FORBIDDEN_HOST_ROLE: '주최자만 행사 취소를 요청할 수 있어요.',
   FESTIVAL_NOT_FOUND: '존재하지 않는 페스티벌이에요.',
@@ -56,7 +57,7 @@ function HostFestivalCancellation({ festivalId, festivalStatus, onRequested }) {
         주최자 귀책 행사 취소
       </h2>
       <p className="mt-1 text-sm text-amber-800">
-        운영자 승인 후 입장 여부와 무관하게 남은 티켓을 위약금 없이 전액 환불해요. 요청 즉시 신규 예매가 중단되며 되돌릴 수 없어요.
+        행사 시작 전까지만 요청할 수 있어요. 운영자 승인 후 모든 티켓을 위약금 없이 전액 환불하며, 요청 즉시 신규 예매가 중단돼요.
       </p>
 
       {notice && (

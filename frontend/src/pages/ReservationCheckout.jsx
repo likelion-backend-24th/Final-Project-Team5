@@ -387,6 +387,10 @@ function ReservationCheckout() {
               안내된 계좌로 입금하면 자동으로 결제가 확인돼요. 입금 전까지는 예매가 확정되지 않으니
               발급 화면에 표시된 입금 기한을 확인해주세요.
             </p>
+            {/* 테스트 채널만 쓰는 데모 사이트라 실제 입금이 없어도 payment-service 배치가 30분 뒤 입금 처리한다. */}
+            <p className={styles.infoDescription}>
+              지금은 데모 환경이라 실제로 입금하지 않아도 계좌 발급 약 30분 뒤에 결제가 자동으로 확인돼요.
+            </p>
             <Link to="/reservations" className={styles.infoButton}>
               내 예약 보러가기
               <ArrowRightIcon size={16} aria-hidden="true" />

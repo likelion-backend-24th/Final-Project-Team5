@@ -50,8 +50,12 @@ public class FestivalCancellationService {
         if (status == FestivalStatus.CANCELLATION_PENDING || status == FestivalStatus.CANCELLED) {
             return status;
         }
-        if (status != FestivalStatus.PUBLISHED && status != FestivalStatus.CLOSED) {
+        if (status != FestivalStatus.PUBLISHED) {
             throw new ApiException(FestivalErrorCode.FESTIVAL_NOT_CANCELLABLE);
+        }
+        //이미 시작된 행사는 입장한 참가자까지 전액 환불하게 되므로 시작 전까지만 요청을 받는다(2026-09-22 팀 결정).
+        if (!festival.getStartAt().isAfter(LocalDateTime.now(ZoneId.of(appTimezone)))) {
+            throw new ApiException(FestivalErrorCode.FESTIVAL_ALREADY_STARTED);
         }
         if (reason == null || reason.isBlank() || reason.length() > 500) {
             throw new ApiException(FestivalErrorCode.CANCEL_REASON_REQUIRED);
@@ -73,6 +77,23 @@ public class FestivalCancellationService {
         if (festival.getCancellationApprovedAt() == null) {
             festival.approveCancellation(adminUserId);
         }
+        return festival.getFestivalStatus();
+    }
+
+    //운영자가 취소 요청을 반려한다. 승인 뒤에는 환불 배치가 이미 돈을 돌려주고 있으므로 되돌릴 수 없다.
+    @Transactional
+    public FestivalStatus rejectCancellation(Long id, String role) {
+        if (!ADMIN_ROLE.equals(role)) {
+            throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
+        }
+        Festival festival = getFestival(id);
+        if (festival.getFestivalStatus() != FestivalStatus.CANCELLATION_PENDING) {
+            throw new ApiException(FestivalErrorCode.CANCELLATION_NOT_REQUESTED);
+        }
+        if (festival.getCancellationApprovedAt() != null) {
+            throw new ApiException(FestivalErrorCode.CANCELLATION_ALREADY_APPROVED);
+        }
+        festival.rejectCancellation();
         return festival.getFestivalStatus();
     }
 

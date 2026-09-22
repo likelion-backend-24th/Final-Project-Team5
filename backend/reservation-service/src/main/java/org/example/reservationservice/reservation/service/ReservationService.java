@@ -227,7 +227,8 @@ public class ReservationService {
     //참가자 본인의 확정된 예매에 대해 입장용 QR을 발급(조회)한다
     public ReservationQrResponseDto getQrForReservation(Long id, Long userId) {
         Reservation reservation = getOwnedReservation(id, userId);
-        if (reservation.getReservationStatus() != ReservationStatus.CONFIRMED) {
+        //부분 환불 뒤에도 남은 티켓은 입장할 수 있으므로 같은 기준으로 QR을 제공한다.
+        if (!reservation.isAdmittable() || reservation.remainingQuantity() <= 0) {
             throw new ApiException(ReservationErrorCode.RESERVATION_NOT_CONFIRMED);
         }
         String qrImageUrl = qrImageBaseUrl + "?size=200x200&data="
@@ -299,8 +300,13 @@ public class ReservationService {
             throw new ApiException(ReservationErrorCode.ALREADY_CHECKED_IN);
         }
 
-        reservation.checkIn();
-        return ReservationVerifyResponseDto.from(reservation);
+        //조회 이후 다른 스캐너가 입장 처리했을 수 있으므로 DB에서 한 번만 갱신한다.
+        Instant checkedInAt = Instant.now();
+        if (reservationRepository.checkInIfNotCheckedIn(reservation.getId(), checkedInAt) == 0) {
+            throw new ApiException(ReservationErrorCode.ALREADY_CHECKED_IN);
+        }
+        return new ReservationVerifyResponseDto(reservation.getId(), reservation.getTicketTypeId(),
+                reservation.remainingQuantity(), checkedInAt);
     }
 
     //검증자가 이 페스티벌을 다룰 권한이 있는지 확인한다(내부 메서드).
@@ -342,7 +348,8 @@ public class ReservationService {
     //Payment-Service → Reservation-Service 내부 호출: 결제 성공 확정
     @Transactional
     public void confirmReservation(Long id, ReservationConfirmRequestDto request) {
-        Reservation reservation = reservationRepository.findById(id)
+        //만료 배치와 같은 잠금을 잡아 확정·취소 중 먼저 끝난 상태를 기준으로 판단한다.
+        Reservation reservation = reservationRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ApiException(ReservationErrorCode.RESERVATION_NOT_FOUND));
 
         if (reservation.getReservationStatus() == ReservationStatus.CONFIRMED) {

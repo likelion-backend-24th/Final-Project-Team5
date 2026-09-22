@@ -41,10 +41,17 @@ public class ReservationExpiryScheduler {
     @Scheduled(fixedDelay = 60_000)
     @Transactional
     public void expireStaleReservations() {
-        List<Reservation> staleReservations =
-                reservationRepository.findByReservationStatusAndExpiresAtBefore(ReservationStatus.PENDING, Instant.now());
+        Instant now = Instant.now();
+        List<Long> staleReservationIds =
+                reservationRepository.findIdsByReservationStatusAndExpiresAtBefore(ReservationStatus.PENDING, now);
 
-        for (Reservation reservation : staleReservations) {
+        for (Long reservationId : staleReservationIds) {
+            //후보를 찾은 뒤 결제 확정이나 홀드 연장이 끝났을 수 있으므로 잠금 안에서 다시 확인한다.
+            Reservation reservation = reservationRepository.findByIdForUpdate(reservationId).orElse(null);
+            if (reservation == null || reservation.getReservationStatus() != ReservationStatus.PENDING
+                    || reservation.getExpiresAt() == null || !reservation.getExpiresAt().isBefore(now)) {
+                continue;
+            }
             reservation.cancel(CancelReason.EXPIRED);
 
             List<ReservationSeat> reservationSeats = reservationSeatRepository.findByReservationId(reservation.getId());

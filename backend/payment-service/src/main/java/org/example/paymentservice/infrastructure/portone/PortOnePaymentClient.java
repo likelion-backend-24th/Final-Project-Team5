@@ -1,6 +1,8 @@
 package org.example.paymentservice.infrastructure.portone;
 
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.example.paymentservice.domain.payment.DemoDepositRemote;
 import org.example.paymentservice.infrastructure.portone.dto.PortOneCancelRequest;
 import org.example.paymentservice.infrastructure.portone.dto.PortOneCancelResponse;
 import org.example.paymentservice.infrastructure.portone.dto.PortOnePaymentResponse;
@@ -11,6 +13,9 @@ import org.springframework.web.client.RestClient;
 /**
  * PortOne V2 결제 조회 REST API 호출만 담당한다. 응답을 내부 도메인 상태로 매핑하고
  * 검증하는 책임은 여기가 아니라 상위 결제 검증·동기화 서비스(Task 7-4)에 있다.
+ *
+ * 예외 하나: 데모 자동 입금된 가상계좌 결제는 PortOne에 미입금으로 남아 있으므로,
+ * 조회·취소 모두 실제 API 대신 DemoDepositRemote가 만든 응답을 쓴다(호출자는 구분할 필요가 없다).
  */
 @Component
 @RequiredArgsConstructor
@@ -19,6 +24,7 @@ public class PortOnePaymentClient {
     private static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
 
     private final RestClient portOneRestClient;
+    private final DemoDepositRemote demoDepositRemote;
 
     @Value("${portone.store-id}")
     private String storeId;
@@ -27,6 +33,10 @@ public class PortOnePaymentClient {
     // storeId 쿼리 파라미터가 없으면 PortOne이 결제를 찾지 못해 PAYMENT_NOT_FOUND(404)를 반환한다
     // (실제 테스트 결제로 확인함 — 이 API Secret이 여러 팀의 store를 포괄하는 계정이라서 그렇다).
     public PortOnePaymentResponse getPayment(String paymentId) {
+        Optional<PortOnePaymentResponse> demo = demoDepositRemote.remoteView(paymentId);
+        if (demo.isPresent()) {
+            return demo.get();
+        }
         return portOneRestClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/payments/{paymentId}")
@@ -43,6 +53,10 @@ public class PortOnePaymentClient {
      * (가이드 5.4 — 다른 금액·사유의 요청에는 새 키를 써야 한다).
      */
     public PortOneCancelResponse cancelPayment(String paymentId, Long amount, String reason, String idempotencyKey) {
+        Optional<PortOneCancelResponse> demo = demoDepositRemote.cancel(paymentId, amount, idempotencyKey);
+        if (demo.isPresent()) {
+            return demo.get();
+        }
         return portOneRestClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/payments/{paymentId}/cancel")

@@ -282,6 +282,50 @@ class PaymentServiceTest {
     }
 
     @Test
+    void 가상계좌_재조회가_같은_상태를_돌려줘도_전이_예외_없이_발급_시각만_유지한다() {
+        Instant expiredAt = Instant.parse("2026-09-08T07:32:37Z");
+        Payment payment = payment(10L, PaymentStatus.VIRTUAL_ACCOUNT_ISSUED);
+        payment.markVirtualAccountIssued();
+        Instant issuedAt = payment.getVirtualAccountIssuedAt();
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(virtualAccountIssuedResponse(expiredAt));
+
+        PaymentCompleteResponse response = paymentService.complete(10L, PAYMENT_ID);
+
+        assertThat(response.status()).isEqualTo("VIRTUAL_ACCOUNT_ISSUED");
+        assertThat(payment.getVirtualAccountIssuedAt()).isEqualTo(issuedAt);
+    }
+
+    // ===== demoDeposit =====
+
+    @Test
+    void 데모_자동_입금은_입금_기록을_남기고_평소_동기화_경로로_예매를_확정한다() {
+        Payment payment = payment(10L, PaymentStatus.VIRTUAL_ACCOUNT_ISSUED);
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        //DemoDepositRemote가 입금 기록을 보고 PAID 응답으로 바꿔 주는 상황을 클라이언트 mock으로 재현한다.
+        when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(new PortOnePaymentResponse(PAYMENT_ID, "PAID", null,
+                "store-test", channel(), new PortOnePaymentResponse.Method("VIRTUAL_ACCOUNT", null, null, null, null, null, null),
+                amount(10_000L), "KRW", null, null, null, null, Instant.now(), null, null, null, null));
+
+        paymentService.demoDeposit(PAYMENT_ID);
+
+        assertThat(payment.isDemoDeposited()).isTrue();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
+        assertThat(payment.getPayMethodCategory()).isEqualTo(PaymentMethodCategory.VIRTUAL_ACCOUNT);
+        verify(reservationServiceClient).confirmReservation(eq(1L), any(ConfirmReservationRequest.class));
+    }
+
+    @Test
+    void 가상계좌_발급_상태가_아니면_데모_자동_입금을_하지_않는다() {
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment(10L, PaymentStatus.PAID)));
+
+        paymentService.demoDeposit(PAYMENT_ID);
+
+        verify(portOnePaymentClient, never()).getPayment(any());
+        verify(reservationServiceClient, never()).confirmReservation(anyLong(), any());
+    }
+
+    @Test
     void 이미_만료된_예매의_확정_실패는_409로_변환된다() {
         when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment(10L, PaymentStatus.READY)));
         when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(paidResponse(10_000L));

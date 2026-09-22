@@ -20,6 +20,12 @@ spring:
 # paymentId 팀 접두사 — PortOne 요청·조회에 쓰는 결제 ID를 팀별로 구분한다.
 payment:
   id-prefix: ${PAYMENT_ID_PREFIX:BE24-T05-}
+  # 가상계좌 데모 자동 입금 — 테스트 채널만 쓰는 데모 사이트라 계좌 발급 후 delay-minutes가 지나면 입금된 것으로 처리한다.
+  # 실결제로 전환하면 enabled=false로 꺼야 한다(실제 입금 없이 예매가 확정된다).
+  demo-deposit:
+    enabled: ${PAYMENT_DEMO_DEPOSIT_ENABLED:true}
+    delay-minutes: ${PAYMENT_DEMO_DEPOSIT_DELAY_MINUTES:30}
+    poll-ms: 60000
 
 # PortOne V2 REST API 연동 설정. API Secret·Webhook Secret은 반드시 환경변수로만 주입한다.
 portone:

@@ -52,11 +52,15 @@ function KakaoMap({ mode = 'view', latitude, longitude, onPick, height = 280 }) 
               if (geocodeStatus !== kakao.maps.services.Status.OK || cancelled) return
               const address = result[0]?.address
               const roadAddress = result[0]?.road_address
+              const fullAddress = roadAddress?.address_name || address?.address_name || ''
               onPick?.({
                 latitude: latlng.getLat(),
                 longitude: latlng.getLng(),
                 region: mapKakaoRegionToFestivalRegion(address?.region_1depth_name),
-                locationDetail: roadAddress?.address_name || address?.address_name || '',
+                //카카오 주소는 항상 "시/도 시/군/구 …" 순이라, 지역 드롭다운과 겹치는 맨 앞 시/도
+                //토큰만 잘라낸다("경기 용인시 처인구…" → "용인시 처인구…"). 문자열 매칭 대신 토큰
+                //제거라 전체/축약 명칭(강원도/강원특별자치도 등)이 섞여도 안전하다.
+                locationDetail: fullAddress.split(' ').slice(1).join(' ') || fullAddress,
               })
             })
           })

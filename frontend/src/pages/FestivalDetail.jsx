@@ -78,6 +78,22 @@ function formatTime(value) {
   return value ? value.slice(0, 5) : ''
 }
 
+//"09.20 ~ 09.24"처럼 짧게 — 티켓 카드에 넣을 판매 기간이라 연도·요일 없이 월.일만 보여준다.
+function formatMonthDay(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${m}.${d}`
+}
+
+function formatSalePeriod(saleStartAt, saleEndAt) {
+  const start = formatMonthDay(saleStartAt)
+  const end = formatMonthDay(saleEndAt)
+  if (!start || !end) return ''
+  return `판매기간 ${start} ~ ${end}`
+}
+
 //가장 저렴한 티켓 기준 가격 범위. 정확한 결제 금액은 티켓 종류를 선택해야 알 수 있어 참고용이다.
 function formatPriceRange(ticketTypes) {
   if (!ticketTypes || ticketTypes.length === 0) return '가격 정보 없음'
@@ -391,9 +407,32 @@ function FestivalDetail() {
         <section className={styles.ticketSection}>
           <h2 className={styles.sectionTitle}>
             <TicketIcon size={18} aria-hidden="true" />
-            예매
+            티켓 종류
           </h2>
-          <p className={styles.ticketStock}>가격 {formatPriceRange(festival.ticketTypes)}</p>
+          {festival.ticketTypes?.length > 0 ? (
+            <ul className={styles.ticketList}>
+              {festival.ticketTypes.map((ticketType) => (
+                <li className={styles.ticketItem} key={ticketType.id}>
+                  <div className={styles.ticketItemHeader}>
+                    <span className={styles.ticketItemName}>{ticketType.name}</span>
+                    <span className={styles.ticketItemPrice}>
+                      {ticketType.price <= 0 ? '무료' : `${ticketType.price.toLocaleString()}원`}
+                    </span>
+                  </div>
+                  {ticketType.description && (
+                    <p className={styles.ticketItemDesc}>{ticketType.description}</p>
+                  )}
+                  {formatSalePeriod(ticketType.saleStartAt, ticketType.saleEndAt) && (
+                    <p className={styles.ticketItemPeriod}>
+                      {formatSalePeriod(ticketType.saleStartAt, ticketType.saleEndAt)}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className={styles.ticketStock}>가격 {formatPriceRange(festival.ticketTypes)}</p>
+          )}
           <button
             type="button"
             className={styles.reserveButtonLarge}

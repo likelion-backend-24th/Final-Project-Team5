@@ -103,4 +103,30 @@ describe('FestivalDetail', () => {
     renderPage()
     expect(await screen.findByText(/페스티벌 정보를 불러오지 못했어요/)).toBeTruthy()
   })
+
+  it('lists ticket types with name, description and price', async () => {
+    fetchFestivalDetail.mockResolvedValue({
+      data: {
+        data: {
+          ...detail,
+          ticketTypes: [
+            {
+              id: 1,
+              name: '1일권',
+              description: '하루 자유 입장',
+              price: 30000,
+              saleStartAt: '2030-09-01T00:00:00',
+              saleEndAt: '2030-09-30T23:59:59',
+            },
+          ],
+        },
+      },
+    })
+    renderPage()
+
+    expect(await screen.findByText('1일권')).toBeTruthy()
+    expect(screen.getByText('하루 자유 입장')).toBeTruthy()
+    expect(screen.getByText('30,000원')).toBeTruthy()
+    expect(screen.getByText(/판매기간 09.01 ~ 09.30/)).toBeTruthy()
+  })
 })

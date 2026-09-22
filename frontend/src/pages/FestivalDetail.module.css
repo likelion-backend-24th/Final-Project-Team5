@@ -200,6 +200,59 @@
   color: var(--fgColor-muted);
 }
 
+.ticketList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ticketItem {
+  padding: 12px 14px;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  border-radius: var(--borderRadius-medium);
+  background-color: var(--bgColor-default);
+}
+
+.ticketItemHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ticketItemName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fgColor-default);
+}
+
+.ticketItemPrice {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fgColor-accent);
+}
+
+.ticketItemDesc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--fgColor-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticketItemPeriod {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--fgColor-muted);
+}
+
 .reserveButtonLarge {
   margin-top: 16px;
   width: 100%;

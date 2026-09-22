@@ -11,13 +11,30 @@ import {
   LockIcon,
   PanelTopIcon,
   PlusIcon,
+  SparklesIcon,
   Trash2Icon,
 } from 'lucide-react'
 import { FESTIVAL_CATEGORIES as CATEGORY_OPTIONS, FESTIVAL_REGIONS as REGION_OPTIONS } from '../api/festivalApi'
 import { createFestival, uploadFestivalImages } from '../api/hostFestivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import KakaoMap from '../components/KakaoMap'
+import AiDraftModal from '../components/AiDraftModal'
 import styles from './HostFestivalNew.module.css'
+
+//AI 초안이 값을 안 주는 항목(가격·수량·판매기간)에 쓸 기본값 — Gemini가 근거 없이 숫자를 지어내지 않게
+//하고, 대신 여기서 예측 가능한 값으로 채운다. 호스트가 생성 후 그대로 두든 고치든 자유롭게 조정한다.
+const AI_DRAFT_DEFAULT_PRICE = '10000'
+const AI_DRAFT_DEFAULT_QUANTITY = '50'
+
+function nowDateTime() {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(Math.floor(now.getMinutes() / 10) * 10).padStart(2, '0')
+  return `${y}-${m}-${d}T${hh}:${mm}`
+}
 
 const MAX_DETAIL_IMAGE_COUNT = 2
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
@@ -350,6 +367,37 @@ function HostFestivalNew() {
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(null)
+  const [showAiDraftModal, setShowAiDraftModal] = useState(false)
+
+  //AI 초안 적용 — 소개글은 있으면 덮어쓰고, 티켓 종류 제안이 있으면 기존 입력을 통째로 대체한다(비어있으면
+  //기존 입력을 그대로 둔다). 가격·수량·판매기간처럼 AI가 안 준 값은 기본값으로 채우고, 전부 이후 폼에서
+  //자유롭게 수정할 수 있다.
+  function handleApplyAiDraft(draft) {
+    setForm((prev) => {
+      const suggestions = draft.ticketTypeSuggestions ?? []
+      const ticketTypes = suggestions.length === 0
+        ? prev.ticketTypes
+        : suggestions.map((suggestion) => ({
+            ...createEmptyTicketType(ticketKeySeq.current++),
+            name: suggestion.name || '입장권',
+            description: suggestion.description || '',
+            price: suggestion.price != null ? String(suggestion.price) : AI_DRAFT_DEFAULT_PRICE,
+            quantity: AI_DRAFT_DEFAULT_QUANTITY,
+            ticketMode: suggestion.ticketMode === 'SEATED' ? 'SEATED' : 'STANDING',
+            saleStartAt: nowDateTime(),
+            saleEndAt: prev.startAt || defaultDateTime('09'),
+          }))
+
+      return {
+        ...prev,
+        description: draft.description || prev.description,
+        ticketTypes,
+      }
+    })
+    setErrors((prev) => ({ ...prev, description: undefined, ticketTypes: undefined }))
+    setTicketErrors({})
+    setShowAiDraftModal(false)
+  }
 
   //선택할 때마다 이전 선택을 교체한다 (1장만 허용)
   function handleThumbnailSelect(event) {
@@ -737,6 +785,19 @@ function HostFestivalNew() {
           <InfoIcon size={16} aria-hidden="true" />
           등록 후 운영자 승인이 완료되어야 목록에 공개됩니다.
         </p>
+
+        <button
+          type="button"
+          onClick={() => setShowAiDraftModal(true)}
+          className="mb-4 flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 py-2.5 text-sm font-bold text-blue-700 transition hover:bg-blue-100"
+          style={{ width: '100%' }}
+        >
+          <SparklesIcon size={16} aria-hidden="true" />
+          AI로 초안 채우기
+        </button>
+        {showAiDraftModal && (
+          <AiDraftModal onClose={() => setShowAiDraftModal(false)} onApply={handleApplyAiDraft} />
+        )}
 
         {submitError && (
           <p className={styles.submitError} role="alert">

@@ -50,8 +50,12 @@ public class FestivalCancellationService {
         if (status == FestivalStatus.CANCELLATION_PENDING || status == FestivalStatus.CANCELLED) {
             return status;
         }
-        if (status != FestivalStatus.PUBLISHED && status != FestivalStatus.CLOSED) {
+        if (status != FestivalStatus.PUBLISHED) {
             throw new ApiException(FestivalErrorCode.FESTIVAL_NOT_CANCELLABLE);
+        }
+        //이미 시작된 행사는 입장한 참가자까지 전액 환불하게 되므로 시작 전까지만 요청을 받는다(2026-09-22 팀 결정).
+        if (!festival.getStartAt().isAfter(LocalDateTime.now(ZoneId.of(appTimezone)))) {
+            throw new ApiException(FestivalErrorCode.FESTIVAL_ALREADY_STARTED);
         }
         if (reason == null || reason.isBlank() || reason.length() > 500) {
             throw new ApiException(FestivalErrorCode.CANCEL_REASON_REQUIRED);

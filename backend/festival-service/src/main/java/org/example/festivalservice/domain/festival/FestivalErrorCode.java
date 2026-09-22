@@ -8,7 +8,8 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum FestivalErrorCode implements ErrorCode {
-    FESTIVAL_NOT_CANCELLABLE(HttpStatus.CONFLICT, "공개 또는 종료 상태의 페스티벌만 취소할 수 있습니다."),
+    FESTIVAL_NOT_CANCELLABLE(HttpStatus.CONFLICT, "공개 상태의 페스티벌만 취소할 수 있습니다."),
+    FESTIVAL_ALREADY_STARTED(HttpStatus.CONFLICT, "이미 시작된 페스티벌은 취소를 요청할 수 없습니다."),
     CANCELLATION_NOT_REQUESTED(HttpStatus.CONFLICT, "취소 요청이 없는 페스티벌입니다."),
     CANCELLATION_NOT_APPROVED(HttpStatus.CONFLICT, "운영자 승인 전에는 취소를 완료할 수 없습니다."),
     CANCELLATION_ALREADY_APPROVED(HttpStatus.CONFLICT, "이미 승인돼 환불이 진행 중인 취소 요청은 반려할 수 없습니다."),

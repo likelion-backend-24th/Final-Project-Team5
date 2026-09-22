@@ -15,8 +15,8 @@ class FestivalCancellationAcceptanceTest {
     @Autowired FestivalRepository repository;
     @Autowired MockMvc mvc;
     @Test void ownerRequestsAdminApprovesAndInternalWorkerCompletes() throws Exception {
-        var f = repository.save(Festival.builder().hostUserId(10L).name("cancel festival").startAt(LocalDateTime.now().minusDays(4))
-                .endAt(LocalDateTime.now().minusDays(2)).festivalStatus(FestivalStatus.CLOSED).build());
+        var f = repository.save(Festival.builder().hostUserId(10L).name("cancel festival").startAt(LocalDateTime.now().plusDays(2))
+                .endAt(LocalDateTime.now().plusDays(4)).festivalStatus(FestivalStatus.PUBLISHED).build());
         String path = "/api/host/festivals/" + f.getId() + "/cancellation-request";
         mvc.perform(post(path).header("X-User-Id", 20).header("X-User-Role", "HOST")
                 .contentType("application/json").content("{\"reason\":\"행사 취소\"}")).andExpect(status().isNotFound());
@@ -32,6 +32,20 @@ class FestivalCancellationAcceptanceTest {
                 .andExpect(status().isOk());
         mvc.perform(get("/internal/v1/festivals/" + f.getId() + "/settlement-context").header("Authorization", "Bearer settlement-test"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    //시작된 행사(진행 중·종료)는 입장한 참가자까지 전액 환불하게 되므로 요청 자체를 받지 않는다
+    @Test void startedOrClosedFestivalCannotRequestCancellation() throws Exception {
+        var started = repository.save(Festival.builder().hostUserId(10L).name("started festival").startAt(LocalDateTime.now().minusHours(1))
+                .endAt(LocalDateTime.now().plusDays(1)).festivalStatus(FestivalStatus.PUBLISHED).build());
+        var closed = repository.save(Festival.builder().hostUserId(10L).name("closed festival").startAt(LocalDateTime.now().minusDays(4))
+                .endAt(LocalDateTime.now().minusDays(2)).festivalStatus(FestivalStatus.CLOSED).build());
+        mvc.perform(post("/api/host/festivals/" + started.getId() + "/cancellation-request").header("X-User-Id", 10).header("X-User-Role", "HOST")
+                .contentType("application/json").content("{\"reason\":\"행사 취소\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.errorCode").value("FESTIVAL_ALREADY_STARTED"));
+        mvc.perform(post("/api/host/festivals/" + closed.getId() + "/cancellation-request").header("X-User-Id", 10).header("X-User-Role", "HOST")
+                .contentType("application/json").content("{\"reason\":\"행사 취소\"}"))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.errorCode").value("FESTIVAL_NOT_CANCELLABLE"));
     }
 
     @Test void adminRejectsBeforeApprovalAndFestivalReturnsToPreviousStatus() throws Exception {

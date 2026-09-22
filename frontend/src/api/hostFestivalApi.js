@@ -15,6 +15,11 @@ export function uploadFestivalImages({ thumbnail, detailImages }) {
   })
 }
 
+//등록 폼 "AI로 초안 채우기" — 자유 텍스트 프롬프트로 소개글·티켓 종류 제안을 받는다.
+export function generateFestivalAiDraft(prompt) {
+  return apiClient.post('/api/host/festivals/ai-draft', { prompt })
+}
+
 // 신규 예매를 중단하고 운영자에게 행사 취소 승인을 요청한다.
 export function requestFestivalCancellation(festivalId, reason) {
   return apiClient.post(`/api/host/festivals/${festivalId}/cancellation-request`, { reason })

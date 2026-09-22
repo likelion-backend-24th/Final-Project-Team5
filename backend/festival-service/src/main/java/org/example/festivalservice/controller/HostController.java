@@ -3,6 +3,9 @@ package org.example.festivalservice.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.dto.ApiResponse;
+import org.example.festivalservice.domain.festival.FestivalAiDraftRequestDto;
+import org.example.festivalservice.domain.festival.FestivalAiDraftResponseDto;
+import org.example.festivalservice.domain.festival.FestivalAiDraftService;
 import org.example.festivalservice.domain.festival.FestivalCancellationRequestDto;
 import org.example.festivalservice.domain.festival.FestivalCancellationService;
 import org.example.festivalservice.domain.festival.FestivalImageUploadResponseDto;
@@ -25,6 +28,7 @@ public class HostController {
     private final FestivalService festivalService;
     private final FestivalImageUploadService festivalImageUploadService;
     private final FestivalCancellationService festivalCancellationService;
+    private final FestivalAiDraftService festivalAiDraftService;
 
     //승인된 주최자가 페스티벌 등록 전 이미지를 먼저 업로드하고 URL을 받는다.
     //대표 이미지(썸네일, 0~1장)와 본문 이미지(0~2장)를 한 번에 받는다 — 장당 10MB.
@@ -66,6 +70,16 @@ public class HostController {
             @RequestHeader("X-User-Role") String role
     ){
         return ResponseEntity.ok(ApiResponse.success("본인이 등록한 페스티벌 상세 정보 조회",festivalService.getMyFestivalDetail(id,userId,role)));
+    }
+
+    //등록 폼 "AI로 초안 채우기" — 호스트가 쓴 짧은 설명을 소개글·티켓 종류 제안으로 부풀린다(등록 전, 페스티벌 없이 호출).
+    @PostMapping("/ai-draft")
+    public ResponseEntity<ApiResponse<FestivalAiDraftResponseDto>> generateAiDraft(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @Valid @RequestBody FestivalAiDraftRequestDto request
+    ){
+        return ResponseEntity.ok(ApiResponse.success("AI 초안 생성", festivalAiDraftService.generateDraft(role, request)));
     }
 
     //주최자가 본인 페스티벌의 취소를 요청한다 — 즉시 신규 예매를 막고 운영자 승인 후 전액 환불이 진행된다

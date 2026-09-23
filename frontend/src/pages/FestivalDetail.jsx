@@ -30,6 +30,7 @@ import BoothListModal from '../components/BoothListModal'
 import BoothCreateModal from '../components/BoothCreateModal'
 import FadeImage from '../components/FadeImage'
 import KakaoMap from '../components/KakaoMap'
+import { DEFAULT_CENTER } from '../lib/kakaoMap'
 import { Skeleton } from '../components/Skeleton'
 import styles from './FestivalDetail.module.css'
 
@@ -308,9 +309,13 @@ function FestivalDetail() {
           </div>
         </div>
 
-        {festival.latitude != null && festival.longitude != null && (
-          <KakaoMap mode="view" latitude={festival.latitude} longitude={festival.longitude} height={220} />
-        )}
+        {/* 좌표가 없는 페스티벌(지도 없이 등록됐거나 이 기능 이전에 등록된 건)은 서울시청 좌표를 기본값으로 보여준다. */}
+        <KakaoMap
+          mode="view"
+          latitude={festival.latitude ?? DEFAULT_CENTER.latitude}
+          longitude={festival.longitude ?? DEFAULT_CENTER.longitude}
+          height={220}
+        />
 
         {isStorehost && (
           <>

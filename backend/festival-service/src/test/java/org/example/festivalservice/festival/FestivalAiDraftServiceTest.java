@@ -99,6 +99,63 @@ class FestivalAiDraftServiceTest {
     }
 
     @Test
+    void 날짜를_유추했으면_startDate_endDate에_그대로_담는다() {
+        when(geminiClient.generateJson(anyString(), anyList(), anyMap())).thenReturn("""
+                {"description":"설명","startDate":"2026-10-10","endDate":"2026-10-11",
+                 "ticketTypeSuggestions":[{"name":"A","ticketMode":"STANDING"}]}
+                """);
+
+        FestivalAiDraftResponseDto response = festivalAiDraftService.generateDraft(
+                "HOST", new FestivalAiDraftRequestDto("2주 뒤 이틀간 여는 축제"));
+
+        assertThat(response.startDate()).isEqualTo("2026-10-10");
+        assertThat(response.endDate()).isEqualTo("2026-10-11");
+    }
+
+    @Test
+    void 날짜_단서가_없으면_startDate_endDate가_null이다() {
+        when(geminiClient.generateJson(anyString(), anyList(), anyMap())).thenReturn("""
+                {"description":"설명","ticketTypeSuggestions":[{"name":"A","ticketMode":"STANDING"}]}
+                """);
+
+        FestivalAiDraftResponseDto response = festivalAiDraftService.generateDraft(
+                "HOST", new FestivalAiDraftRequestDto("아무 축제"));
+
+        assertThat(response.startDate()).isNull();
+        assertThat(response.endDate()).isNull();
+    }
+
+    @Test
+    void 형식이_잘못된_날짜는_null로_되돌린다() {
+        when(geminiClient.generateJson(anyString(), anyList(), anyMap())).thenReturn("""
+                {"description":"설명","startDate":"다음 달 초","endDate":"2026-13-40",
+                 "ticketTypeSuggestions":[{"name":"A","ticketMode":"STANDING"}]}
+                """);
+
+        FestivalAiDraftResponseDto response = festivalAiDraftService.generateDraft(
+                "HOST", new FestivalAiDraftRequestDto("아무 축제"));
+
+        assertThat(response.startDate()).isNull();
+        assertThat(response.endDate()).isNull();
+    }
+
+    @Test
+    void 프롬프트_앞에_오늘_날짜_컨텍스트를_붙여_보낸다() {
+        when(geminiClient.generateJson(anyString(), anyList(), anyMap())).thenReturn("""
+                {"description":"설명","ticketTypeSuggestions":[{"name":"A","ticketMode":"STANDING"}]}
+                """);
+
+        festivalAiDraftService.generateDraft("HOST", new FestivalAiDraftRequestDto("2주 뒤에 열고 싶어요"));
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<java.util.List<GeminiClient.Message>> captor =
+                org.mockito.ArgumentCaptor.forClass(java.util.List.class);
+        org.mockito.Mockito.verify(geminiClient).generateJson(anyString(), captor.capture(), anyMap());
+        String sentText = captor.getValue().get(0).text();
+        assertThat(sentText).contains("현재 시각").contains("2주 뒤에 열고 싶어요");
+    }
+
+    @Test
     void HOST가_아니면_FORBIDDEN_HOST_ROLE() {
         assertThatThrownBy(() -> festivalAiDraftService.generateDraft(
                 "PARTICIPANT", new FestivalAiDraftRequestDto("아무 축제")))

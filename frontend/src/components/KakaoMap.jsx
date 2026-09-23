@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { DEFAULT_CENTER, loadKakaoMaps, mapKakaoRegionToFestivalRegion } from '../lib/kakaoMap'
+import { DEFAULT_CENTER, loadKakaoMaps, mapKakaoRegionToFestivalRegion, stripRegionPrefix } from '../lib/kakaoMap'
 
 /**
  * 카카오맵 표시/클릭-선택 겸용 컴포넌트.
@@ -54,10 +54,7 @@ function KakaoMap({ mode = 'view', latitude, longitude, onPick, height = 280 }) 
                 latitude: latlng.getLat(),
                 longitude: latlng.getLng(),
                 region: mapKakaoRegionToFestivalRegion(address?.region_1depth_name),
-                //카카오 주소는 항상 "시/도 시/군/구 …" 순이라, 지역 드롭다운과 겹치는 맨 앞 시/도
-                //토큰만 잘라낸다("경기 용인시 처인구…" → "용인시 처인구…"). 문자열 매칭 대신 토큰
-                //제거라 전체/축약 명칭(강원도/강원특별자치도 등)이 섞여도 안전하다.
-                locationDetail: fullAddress.split(' ').slice(1).join(' ') || fullAddress,
+                locationDetail: stripRegionPrefix(fullAddress),
               })
             })
           })
@@ -90,7 +87,7 @@ function KakaoMap({ mode = 'view', latitude, longitude, onPick, height = 280 }) 
       )}
       {mode === 'pick' && status === 'ready' && (
         <p style={{ marginTop: 6, fontSize: 12, color: 'var(--fgColor-muted, #6b7280)' }}>
-          지도를 클릭하면 행정구역·상세주소가 자동으로 채워져요. 이후에도 직접 수정할 수 있어요.
+          지도를 클릭하면 위 주소 칸이 자동으로 채워져요. 이후에도 직접 수정할 수 있어요.
         </p>
       )}
     </div>

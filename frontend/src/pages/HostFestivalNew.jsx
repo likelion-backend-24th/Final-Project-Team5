@@ -12,14 +12,16 @@ import {
   LockIcon,
   PanelTopIcon,
   PlusIcon,
+  SearchIcon,
   SparklesIcon,
   Trash2Icon,
 } from 'lucide-react'
-import { FESTIVAL_CATEGORIES as CATEGORY_OPTIONS, FESTIVAL_REGIONS as REGION_OPTIONS } from '../api/festivalApi'
+import { FESTIVAL_CATEGORIES as CATEGORY_OPTIONS } from '../api/festivalApi'
 import { createFestival, uploadFestivalImages } from '../api/hostFestivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import KakaoMap from '../components/KakaoMap'
 import AiDraftModal from '../components/AiDraftModal'
+import { placeToLocationFields, searchPlaces } from '../lib/kakaoMap'
 import styles from './HostFestivalNew.module.css'
 
 //AI 초안이 값을 안 주는 항목(가격·수량·판매기간)에 쓸 기본값 — Gemini가 근거 없이 숫자를 지어내지 않게
@@ -214,6 +216,92 @@ function DateTimeFields({ id, value, onChange, invalid }) {
   )
 }
 
+//주소 입력 + 검색 — 카카오 키워드 장소 검색(클라이언트 JS SDK, 별도 서버 호출 없음)으로 "부산시청"처럼
+//입력해도 후보를 찾아준다. 후보를 고르거나 지도를 클릭하면 부모가 같은 onSelect({latitude, longitude,
+//region, locationDetail})로 처리한다 — 이 컴포넌트는 검색 UI만 맡고 좌표·지역 확정은 부모 state에만 둔다.
+function AddressSearchField({ id, value, onChangeText, onSelect, error }) {
+  const [results, setResults] = useState([])
+  const [searching, setSearching] = useState(false)
+  const [searchError, setSearchError] = useState('')
+
+  async function handleSearch() {
+    const keyword = value.trim()
+    if (!keyword || searching) return
+    setSearching(true)
+    setSearchError('')
+    setResults([])
+    try {
+      const places = await searchPlaces(keyword)
+      setSearching(false)
+      if (places.length > 0) {
+        setResults(places.slice(0, 5))
+      } else {
+        setSearchError('검색 결과가 없어요. 다른 키워드로 시도해보세요.')
+      }
+    } catch (loadError) {
+      setSearching(false)
+      setSearchError(loadError.message)
+    }
+  }
+
+  function handleKeyDown(event) {
+    //form 전체가 하나의 <form>이라 Enter가 기본으로 "다음 단계"를 트리거한다 — 이 입력칸에서는
+    //검색이 먼저이길 바라는 게 자연스러우니 가로챈다.
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      handleSearch()
+    }
+  }
+
+  function handlePick(place) {
+    onSelect(placeToLocationFields(place))
+    setResults([])
+    setSearchError('')
+  }
+
+  return (
+    <div>
+      <div className={styles.addressSearchRow}>
+        <input
+          id={id}
+          type="text"
+          className={styles.input}
+          placeholder="예: 부산시청, 부산광역시 동구 ..."
+          value={value}
+          onChange={(event) => {
+            onChangeText(event.target.value)
+            setResults([])
+          }}
+          onKeyDown={handleKeyDown}
+          aria-invalid={Boolean(error)}
+        />
+        <button
+          type="button"
+          className={styles.addressSearchButton}
+          onClick={handleSearch}
+          disabled={searching || !value.trim()}
+        >
+          <SearchIcon size={16} aria-hidden="true" />
+          {searching ? '검색 중…' : '검색'}
+        </button>
+      </div>
+      {searchError && <p className={styles.errorText}>{searchError}</p>}
+      {results.length > 0 && (
+        <ul className={styles.addressResultList}>
+          {results.map((place) => (
+            <li key={place.id}>
+              <button type="button" className={styles.addressResultItem} onClick={() => handlePick(place)}>
+                <span className={styles.addressResultName}>{place.place_name}</span>
+                <span className={styles.addressResultAddress}>{place.road_address_name || place.address_name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function createEmptyTicketType(key) {
   return {
     key,
@@ -322,10 +410,10 @@ function validate(form, thumbnail, detailImages) {
     fieldErrors.endAt = '종료 일시는 시작 일시 이후여야 해요.'
   }
   if (!form.region) {
-    fieldErrors.region = '지역을 선택해주세요.'
+    fieldErrors.region = '지도를 클릭하거나 주소를 검색해서 위치를 지정해주세요.'
   }
   if (!form.locationDetail.trim()) {
-    fieldErrors.locationDetail = '상세주소를 입력해주세요.'
+    fieldErrors.locationDetail = '주소를 입력해주세요.'
   }
   if (!form.festivalCategory) {
     fieldErrors.festivalCategory = '카테고리를 선택해주세요.'
@@ -407,8 +495,12 @@ function HostFestivalNew() {
   //자유롭게 수정할 수 있다.
   function handleApplyAiDraft(draft) {
     //프롬프트에서 날짜를 못 뽑아냈으면(startDate/endDate가 null) 오늘 날짜를 기본값으로 채운다.
+    //endAt의 기본값은 "오늘"이 아니라 반드시 startAt과 같은 날짜를 기준으로 잡아야 한다 — AI가 시작일만
+    //인식하고 종료일을 못 뽑았을 때 둘 다 독립적으로 "오늘"에 맞추면, 시작일이 미래인데 종료일만 오늘로
+    //남아 "종료 일시는 시작 일시 이후여야 함" 검증에 걸리는 버그가 있었다.
     const startAt = draft.startDate ? `${draft.startDate}T09:00` : todayDateTime('09')
-    const endAt = draft.endDate ? `${draft.endDate}T18:00` : todayDateTime('18')
+    const startDateOnly = startAt.slice(0, 10)
+    const endAt = draft.endDate ? `${draft.endDate}T18:00` : `${startDateOnly}T18:00`
 
     setForm((prev) => {
       const suggestions = draft.ticketTypeSuggestions ?? []
@@ -444,6 +536,25 @@ function HostFestivalNew() {
         ? `AI 초안이 적용됐어요. ${dateNote} 티켓 종류 ${draft.ticketTypeSuggestions.length}개는 4단계(무대·티켓 설정)에서 확인해주세요.`
         : `AI 초안이 적용됐어요. ${dateNote}`,
     )
+
+    //프롬프트에 장소가 언급됐으면("부산시청에서 열리는 페스티벌") 그 검색어로 카카오 장소 검색을 한 번 더
+    //호출해 주소·좌표·지역까지 채운다. Gemini가 좌표를 직접 만들어내지 않고 검색어만 주는 이유이기도 하다
+    //— 실제 지도 데이터로 찾은 값만 신뢰한다. AI 응답과 별개의 비동기 호출이라 여기서 따로 처리한다.
+    if (draft.locationQuery) {
+      searchPlaces(draft.locationQuery)
+        .then((places) => {
+          if (places.length === 0) {
+            setAiDraftNotice((prev) => `${prev} "${draft.locationQuery}" 위치는 찾지 못해 직접 지정해주세요.`)
+            return
+          }
+          const place = places[0]
+          handleMapPick(placeToLocationFields(place))
+          setAiDraftNotice((prev) => `${prev} 위치는 "${place.place_name}"(으)로 채웠어요.`)
+        })
+        .catch(() => {
+          setAiDraftNotice((prev) => `${prev} "${draft.locationQuery}" 위치 검색에 실패해 직접 지정해주세요.`)
+        })
+    }
   }
 
   //선택할 때마다 이전 선택을 교체한다 (1장만 허용)
@@ -489,8 +600,9 @@ function HostFestivalNew() {
     }
   }
 
-  //카카오맵 클릭 선택 — 좌표는 그대로 저장하고, 매핑된 행정구역/상세주소가 있으면 같이 채운다(매핑 실패
-  //시 region은 null로 와서 드롭다운을 건드리지 않는다 — 호스트가 직접 고르면 됨).
+  //지도 클릭 또는 주소 검색 결과 선택 — 좌표는 그대로 저장하고, 매핑된 지역/주소가 있으면 같이 채운다.
+  //지역 드롭다운이 없어졌으므로 region 매핑에 실패하면(드물게 국내 주소가 아니거나 형식이 특이한 경우)
+  //비워진 채로 남고, 제출 시 validate()가 "위치를 지정해주세요" 에러로 안내한다.
   function handleMapPick({ latitude, longitude, region, locationDetail }) {
     setForm((prev) => ({
       ...prev,
@@ -937,72 +1049,45 @@ function HostFestivalNew() {
           )}
 
           {step === 1 && (
-          <div className={styles.row}>
-            <div className={styles.field}>
-              <label htmlFor="startAt-date" className={styles.label}>
-                시작 일시
-              </label>
-              <DateTimeFields id="startAt" value={form.startAt} onChange={handleDateTimeChange('startAt')} invalid={Boolean(errors.startAt)} />
-              {errors.startAt && <p className={styles.errorText}>{errors.startAt}</p>}
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="endAt-date" className={styles.label}>
-                종료 일시
-              </label>
-              <DateTimeFields id="endAt" value={form.endAt} onChange={handleDateTimeChange('endAt')} invalid={Boolean(errors.endAt)} />
-              {errors.endAt && <p className={styles.errorText}>{errors.endAt}</p>}
-            </div>
+          <div className={styles.field}>
+            <label htmlFor="startAt-date" className={styles.label}>
+              시작 일시
+            </label>
+            <DateTimeFields id="startAt" value={form.startAt} onChange={handleDateTimeChange('startAt')} invalid={Boolean(errors.startAt)} />
+            {errors.startAt && <p className={styles.errorText}>{errors.startAt}</p>}
           </div>
           )}
 
           {step === 1 && (
           <div className={styles.field}>
-            <label className={styles.label}>
-              위치 <span className={styles.optional}>(선택, 지도를 클릭하면 아래 지역·상세주소가 자동으로 채워져요)</span>
+            <label htmlFor="endAt-date" className={styles.label}>
+              종료 일시
             </label>
-            <KakaoMap mode="pick" latitude={form.latitude} longitude={form.longitude} onPick={handleMapPick} />
+            <DateTimeFields id="endAt" value={form.endAt} onChange={handleDateTimeChange('endAt')} invalid={Boolean(errors.endAt)} />
+            {errors.endAt && <p className={styles.errorText}>{errors.endAt}</p>}
           </div>
           )}
 
           {step === 1 && (
-          <div className={styles.row}>
-            <div className={styles.field}>
-              <label htmlFor="region" className={styles.label}>
-                지역
-              </label>
-              <select
-                id="region"
-                className={styles.input}
-                value={form.region}
-                onChange={handleChange('region')}
-                aria-invalid={Boolean(errors.region)}
-              >
-                <option value="">선택해주세요</option>
-                {REGION_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {errors.region && <p className={styles.errorText}>{errors.region}</p>}
-            </div>
-
-            <div className={styles.field}>
-              <label htmlFor="locationDetail" className={styles.label}>
-                상세주소
-              </label>
-              <input
-                id="locationDetail"
-                type="text"
-                className={styles.input}
-                placeholder="예: 잠실동 올림픽주경기장"
-                value={form.locationDetail}
-                onChange={handleChange('locationDetail')}
-                aria-invalid={Boolean(errors.locationDetail)}
-              />
-              {errors.locationDetail && <p className={styles.errorText}>{errors.locationDetail}</p>}
-            </div>
+          <div className={styles.field}>
+            <label htmlFor="locationDetail" className={styles.label}>
+              주소
+            </label>
+            <AddressSearchField
+              id="locationDetail"
+              value={form.locationDetail}
+              onChangeText={(text) => {
+                setForm((prev) => ({ ...prev, locationDetail: text }))
+                setErrors((prev) => ({ ...prev, locationDetail: undefined }))
+              }}
+              onSelect={handleMapPick}
+              error={errors.locationDetail}
+            />
+            {errors.region && <p className={styles.errorText}>{errors.region}</p>}
+            <p className={styles.stepLabel} style={{ marginTop: 2 }}>
+              지도를 클릭해서 위치를 직접 지정할 수도 있어요.
+            </p>
+            <KakaoMap mode="pick" latitude={form.latitude} longitude={form.longitude} onPick={handleMapPick} />
           </div>
           )}
 

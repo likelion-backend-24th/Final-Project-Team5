@@ -117,4 +117,51 @@ class FestivalCoordinateBackfillServiceTest {
                 .extracting(e -> ((ApiException) e).getErrorCode())
                 .isEqualTo(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
     }
+
+    @Test
+    void 상세조회_지연백필_좌표가_없으면_검색해서_채우고_저장한다() {
+        Festival festival = festival(1L, FestivalRegion.SEOUL, "서울숲 야외무대");
+        when(kakaoLocalClient.searchKeyword(anyString())).thenReturn(
+                Optional.of(new KakaoLocalClient.KeywordResult("서울 성동구 서울숲길 273", null, 37.5445, 127.0374)));
+
+        service.backfillIfMissing(festival);
+
+        assertThat(festival.getLatitude()).isEqualTo(37.5445);
+        org.mockito.Mockito.verify(festivalRepository).save(festival);
+    }
+
+    @Test
+    void 상세조회_지연백필_이미_좌표가_있으면_검색을_아예_안_한다() {
+        Festival festival = festival(1L, FestivalRegion.SEOUL, "서울숲 야외무대");
+        festival.updateCoordinates(37.5, 127.0);
+
+        service.backfillIfMissing(festival);
+
+        org.mockito.Mockito.verifyNoInteractions(kakaoLocalClient);
+        org.mockito.Mockito.verify(festivalRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void 상세조회_지연백필_카카오_호출이_실패해도_예외를_던지지_않는다() {
+        Festival festival = festival(1L, FestivalRegion.SEOUL, "서울숲 야외무대");
+        when(kakaoLocalClient.searchKeyword(anyString()))
+                .thenThrow(new RuntimeException("boom"));
+
+        service.backfillIfMissing(festival);
+
+        assertThat(festival.getLatitude()).isNull();
+        org.mockito.Mockito.verify(festivalRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void 상세조회_지연백필_지역불일치면_저장하지_않는다() {
+        Festival festival = festival(1L, FestivalRegion.SEOUL, "중앙공원");
+        when(kakaoLocalClient.searchKeyword(anyString())).thenReturn(
+                Optional.of(new KakaoLocalClient.KeywordResult("부산 해운대구 중앙공원", null, 35.16, 129.16)));
+
+        service.backfillIfMissing(festival);
+
+        assertThat(festival.getLatitude()).isNull();
+        org.mockito.Mockito.verify(festivalRepository, org.mockito.Mockito.never()).save(org.mockito.ArgumentMatchers.any());
+    }
 }

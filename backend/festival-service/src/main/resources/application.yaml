@@ -52,3 +52,11 @@ gemini:
   api-key: ${GEMINI_API_KEY:CHANGE_ME_IN_ENV}
   model: ${GEMINI_MODEL:gemini-flash-lite-latest}
   base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+
+# 좌표 백필(운영자 전용, /api/admin/festivals/backfill-coordinates)에 쓰는 카카오 로컬 REST API 키.
+# 지도 JavaScript 키(VITE_KAKAO_MAP_APP_KEY)와는 다른 키다 — 카카오맵 제품이 켜진 앱의 REST API 키를
+# .env의 KAKAO_MAP_REST_API_KEY로만 주입한다(서버 전용, 브라우저에는 노출하지 않는다).
+kakao:
+  local:
+    rest-api-key: ${KAKAO_MAP_REST_API_KEY:CHANGE_ME_IN_ENV}
+    base-url: ${KAKAO_LOCAL_BASE_URL:https://dapi.kakao.com}

@@ -4,8 +4,10 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.dto.ApiResponse;
+import org.example.festivalservice.domain.festival.CoordinateBackfillResultDto;
 import org.example.festivalservice.domain.festival.FestivalCancellationRequestResponseDto;
 import org.example.festivalservice.domain.festival.FestivalCancellationService;
+import org.example.festivalservice.domain.festival.FestivalCoordinateBackfillService;
 import org.example.festivalservice.domain.festival.FestivalResponseDto;
 import org.example.festivalservice.domain.festival.FestivalReviewRequestDto;
 import org.example.festivalservice.domain.festival.FestivalService;
@@ -20,6 +22,7 @@ public class AdminFestivalController {
 
     private final FestivalService festivalService;
     private final FestivalCancellationService festivalCancellationService;
+    private final FestivalCoordinateBackfillService festivalCoordinateBackfillService;
 
     //운영자가 심사 대기 중인 페스티벌 목록을 조회한다
     @GetMapping
@@ -66,5 +69,15 @@ public class AdminFestivalController {
             @RequestHeader("X-User-Role") String role) {
         return ResponseEntity.ok(ApiResponse.success("취소 요청 반려",
                 festivalCancellationService.rejectCancellation(id, role)));
+    }
+
+    //운영자가 좌표 없이 등록된 페스티벌들의 좌표를 카카오 장소 검색으로 일괄 채운다(실행할 때마다 남아있는
+    //null 좌표만 대상으로 하므로 여러 번 실행해도 안전하다).
+    @PostMapping("/backfill-coordinates")
+    public ResponseEntity<ApiResponse<List<CoordinateBackfillResultDto>>> backfillCoordinates(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role) {
+        return ResponseEntity.ok(ApiResponse.success("좌표 백필 실행 결과",
+                festivalCoordinateBackfillService.backfillMissingCoordinates(role)));
     }
 }

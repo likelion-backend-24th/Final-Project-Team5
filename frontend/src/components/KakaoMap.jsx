@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { loadKakaoMaps, mapKakaoRegionToFestivalRegion } from '../lib/kakaoMap'
-
-//지도가 없을 때 보여줄 기본 중심 좌표 — 서울시청.
-const DEFAULT_CENTER = { latitude: 37.5665, longitude: 126.978 }
+import { DEFAULT_CENTER, loadKakaoMaps, mapKakaoRegionToFestivalRegion } from '../lib/kakaoMap'
 
 /**
  * 카카오맵 표시/클릭-선택 겸용 컴포넌트.

@@ -37,6 +37,16 @@ function nowDateTime() {
   return `${y}-${m}-${d}T${hh}:${mm}`
 }
 
+//AI 초안이 프롬프트에서 날짜를 못 뽑아냈을 때(startDate/endDate가 null) 쓰는 기본값 — 오늘 날짜에
+//고정 시각(09:00/18:00)을 붙인다. 폼을 처음 열 때 쓰는 defaultDateTime(내일 기준)과는 의도적으로 다르다.
+function todayDateTime(hour) {
+  const today = new Date()
+  const y = today.getFullYear()
+  const m = String(today.getMonth() + 1).padStart(2, '0')
+  const d = String(today.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}T${hour}:00`
+}
+
 const MAX_DETAIL_IMAGE_COUNT = 2
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 
@@ -396,6 +406,10 @@ function HostFestivalNew() {
   //기존 입력을 그대로 둔다). 가격·수량·판매기간처럼 AI가 안 준 값은 기본값으로 채우고, 전부 이후 폼에서
   //자유롭게 수정할 수 있다.
   function handleApplyAiDraft(draft) {
+    //프롬프트에서 날짜를 못 뽑아냈으면(startDate/endDate가 null) 오늘 날짜를 기본값으로 채운다.
+    const startAt = draft.startDate ? `${draft.startDate}T09:00` : todayDateTime('09')
+    const endAt = draft.endDate ? `${draft.endDate}T18:00` : todayDateTime('18')
+
     setForm((prev) => {
       const suggestions = draft.ticketTypeSuggestions ?? []
       const ticketTypes = suggestions.length === 0
@@ -408,22 +422,27 @@ function HostFestivalNew() {
             quantity: AI_DRAFT_DEFAULT_QUANTITY,
             ticketMode: suggestion.ticketMode === 'SEATED' ? 'SEATED' : 'STANDING',
             saleStartAt: nowDateTime(),
-            saleEndAt: prev.startAt || defaultDateTime('09'),
+            saleEndAt: startAt,
           }))
 
       return {
         ...prev,
         description: draft.description || prev.description,
+        startAt,
+        endAt,
         ticketTypes,
       }
     })
-    setErrors((prev) => ({ ...prev, description: undefined, ticketTypes: undefined }))
+    setErrors((prev) => ({ ...prev, description: undefined, startAt: undefined, endAt: undefined, ticketTypes: undefined }))
     setTicketErrors({})
     setShowAiDraftModal(false)
+    const dateNote = draft.startDate
+      ? `일정은 ${draft.startDate}${draft.endDate && draft.endDate !== draft.startDate ? ` ~ ${draft.endDate}` : ''}로 채웠어요.`
+      : '일정을 특정하지 못해 오늘 날짜로 채웠어요 — 1단계에서 확인해주세요.'
     setAiDraftNotice(
       (draft.ticketTypeSuggestions?.length ?? 0) > 0
-        ? `AI 초안이 적용됐어요. 티켓 종류 ${draft.ticketTypeSuggestions.length}개는 4단계(무대·티켓 설정)에서 확인해주세요.`
-        : 'AI 초안이 소개글에 적용됐어요.',
+        ? `AI 초안이 적용됐어요. ${dateNote} 티켓 종류 ${draft.ticketTypeSuggestions.length}개는 4단계(무대·티켓 설정)에서 확인해주세요.`
+        : `AI 초안이 적용됐어요. ${dateNote}`,
     )
   }
 

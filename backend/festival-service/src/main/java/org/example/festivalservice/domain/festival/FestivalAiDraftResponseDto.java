@@ -8,6 +8,10 @@ import java.util.List;
  */
 public record FestivalAiDraftResponseDto(
         String description,
+        //프롬프트에서 날짜를 유추할 수 있었을 때만 채워진다("yyyy-MM-dd", 시각 없음 — 프론트가 09:00/18:00을 붙인다).
+        //유추할 근거가 없으면 null이고, 그때는 프론트가 오늘 날짜를 기본값으로 채운다.
+        String startDate,
+        String endDate,
         List<TicketTypeSuggestion> ticketTypeSuggestions
 ) {
     public record TicketTypeSuggestion(

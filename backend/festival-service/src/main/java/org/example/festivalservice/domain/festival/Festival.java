@@ -179,5 +179,11 @@ public class Festival {
         this.festivalStatus = FestivalStatus.CLOSED;
     }
 
+    //좌표 없이 등록된 기존 페스티벌에 대한 좌표 백필(운영자 실행) — 카카오 장소 검색으로 찾은 좌표만 채운다.
+    public void updateCoordinates(Double latitude, Double longitude) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
+
 
 }

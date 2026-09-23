@@ -2,6 +2,10 @@
 //불러오고, 다른 페이지에서는 이 스크립트를 아예 요청하지 않는다.
 //autoload=false + kakao.maps.load(cb)로 초기화 시점을 직접 제어한다 — 스크립트 로드 직후 바로 kakao.maps를
 //쓰면 아직 내부 초기화가 안 끝나 있을 수 있어서다(카카오 공식 가이드 권장 패턴).
+//좌표가 없을 때 보여줄 기본 중심 좌표 — 서울시청. pick 모드의 초기 중심으로도, view 모드에서 좌표가
+//없는 페스티벌의 대체 표시 위치로도 같이 쓴다.
+export const DEFAULT_CENTER = { latitude: 37.56672510131013, longitude: 126.97869756327125 }
+
 let loadPromise = null
 
 export function loadKakaoMaps() {

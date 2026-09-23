@@ -52,4 +52,7 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
     //좌석 생성 요청(reservation-service 호출)이 실패해 PUBLISH_PENDING에 머문 페스티벌 — 재시도 배치용
     //(HostApplicationRepository.findByStatusAndUpdatedAtBefore와 같은 패턴)
     List<Festival> findByFestivalStatusAndUpdatedAtBefore(FestivalStatus festivalStatus, LocalDateTime before);
+
+    //좌표 백필 대상 — 카카오맵 기능 이전에 등록됐거나 지도를 안 쓰고 등록해 좌표가 없는 페스티벌
+    List<Festival> findByLatitudeIsNull();
 }

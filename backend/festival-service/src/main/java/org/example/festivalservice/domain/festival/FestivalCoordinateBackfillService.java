@@ -12,9 +12,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 운영자 전용 — 좌표 없이 등록된(카카오맵 기능 이전 등록분 포함) 페스티벌의 locationDetail을 카카오
- * "키워드로 장소 검색"에 넣어 좌표를 채운다. 검색 결과의 지역이 DB의 region과 다르면(동명 장소 오매칭 방지)
- * 적용하지 않고 건너뛴다 — 잘못된 좌표를 채우는 것보다 비워 두는 쪽이 안전하다.
+ * 좌표 없이 등록된(카카오맵 기능 이전 등록분 포함) 페스티벌의 locationDetail을 카카오 "키워드로 장소 검색"에
+ * 넣어 좌표를 채운다. 검색 결과의 지역이 DB의 region과 다르면(동명 장소 오매칭 방지) 적용하지 않고 건너뛴다
+ * — 잘못된 좌표를 채우는 것보다 비워 두는 쪽이 안전하다.
+ *
+ * 두 가지 진입점이 있다:
+ *  - {@link #backfillIfMissing}: 방문자가 상세 페이지를 볼 때(FestivalService.getFestivalDetail) 좌표가
+ *    없으면 그 자리에서 한 번 채우는 지연 백필. 실패해도 절대 예외를 던지지 않는다 — 상세 조회가 이 부가
+ *    기능 때문에 실패하면 안 되기 때문이다. 한 번 채워지면 다음부터는 latitude가 있으니 다시 호출 안 된다.
+ *  - {@link #backfillMissingCoordinates}: 운영자가 남아있는 미채움 건을 한 번에 훑어보고 싶을 때 쓰는 수동
+ *    실행 API. 지연 백필이 결국 방문 있는 페스티벌은 다 채우므로 평소엔 없어도 되지만, 방문이 뜸한 건을
+ *    바로 확인하고 싶을 때 쓴다.
  */
 @Service
 @RequiredArgsConstructor
@@ -25,6 +33,23 @@ public class FestivalCoordinateBackfillService {
 
     private final FestivalRepository festivalRepository;
     private final KakaoLocalClient kakaoLocalClient;
+
+    //상세 조회 경로에서 호출 — 좌표가 이미 있으면 아무 것도 안 하고, 실패해도 상세 조회 자체는 절대
+    //막지 않는다(카카오 API 장애·검색 실패·DB 저장 실패 전부 로그만 남기고 삼킨다).
+    @Transactional
+    public void backfillIfMissing(Festival festival) {
+        if (festival.getLatitude() != null || festival.getLongitude() != null) {
+            return;
+        }
+        try {
+            CoordinateBackfillResultDto result = backfillOne(festival);
+            if (result.applied()) {
+                festivalRepository.save(festival);
+            }
+        } catch (RuntimeException e) {
+            log.warn("상세 조회 중 좌표 지연 백필 실패(무시하고 계속 진행). festivalId={}", festival.getId(), e);
+        }
+    }
 
     @Transactional
     public List<CoordinateBackfillResultDto> backfillMissingCoordinates(String role) {

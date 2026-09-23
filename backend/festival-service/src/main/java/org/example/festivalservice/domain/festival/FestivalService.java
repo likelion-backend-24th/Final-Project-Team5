@@ -39,6 +39,7 @@ public class FestivalService {
     private final FestivalImageRepository festivalImageRepository;
     private final UserLookupClient userLookupClient;
     private final ReservationServiceClient reservationServiceClient;
+    private final FestivalCoordinateBackfillService festivalCoordinateBackfillService;
 
     //승인된 주최자가 새 페스티벌(및 티켓 종류·이미지)을 등록한다
     @Transactional
@@ -222,6 +223,8 @@ public class FestivalService {
     public FestivalResponseDto getFestivalDetail(Long id) {
         Festival festival = festivalRepository.findByIdAndFestivalStatusIn(id, VISIBLE_STATUSES)
                 .orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND));
+        //좌표 없이 등록된 페스티벌이면 처음 조회되는 이 시점에 한 번 채워본다(실패해도 상세 조회는 그대로 성공).
+        festivalCoordinateBackfillService.backfillIfMissing(festival);
         return toResponseDto(festival);
     }
 

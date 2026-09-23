@@ -12,6 +12,9 @@ public record FestivalAiDraftResponseDto(
         //유추할 근거가 없으면 null이고, 그때는 프론트가 오늘 날짜를 기본값으로 채운다.
         String startDate,
         String endDate,
+        //프롬프트에 장소/주소가 언급됐을 때만 채워지는 검색어("부산시청", "여의도한강공원" 등). 좌표·정확한
+        //주소는 이 문자열로 프론트가 카카오 장소 검색을 호출해 직접 찾는다 — AI가 좌표를 지어내지 않는다.
+        String locationQuery,
         List<TicketTypeSuggestion> ticketTypeSuggestions
 ) {
     public record TicketTypeSuggestion(

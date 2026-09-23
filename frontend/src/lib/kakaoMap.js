@@ -101,3 +101,29 @@ export function stripRegionPrefix(addressName) {
   const rest = addressName.trim().split(/\s+/).slice(1).join(' ')
   return rest || addressName
 }
+
+//카카오 키워드 장소 검색(REST가 아니라 이미 로드된 JS SDK의 services.Places) — 주소 검색 입력창과
+//AI 초안의 locationQuery 둘 다 여기서 재사용한다. 실패·결과없음이면 빈 배열을 돌려준다(호출부가 각자
+//사용자에게 어떻게 안내할지 결정).
+export function searchPlaces(keyword) {
+  return loadKakaoMaps().then(
+    (kakao) =>
+      new Promise((resolve) => {
+        const places = new kakao.maps.services.Places()
+        places.keywordSearch(keyword, (data, status) => {
+          resolve(status === kakao.maps.services.Status.OK ? data : [])
+        })
+      }),
+  )
+}
+
+//카카오 장소 검색 결과 1건을 폼에 바로 넣을 수 있는 {latitude, longitude, region, locationDetail} 모양으로 바꾼다.
+export function placeToLocationFields(place) {
+  const fullAddress = place.road_address_name || place.address_name
+  return {
+    latitude: Number(place.y),
+    longitude: Number(place.x),
+    region: regionFromAddressName(fullAddress),
+    locationDetail: stripRegionPrefix(fullAddress),
+  }
+}

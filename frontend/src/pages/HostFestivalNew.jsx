@@ -21,7 +21,7 @@ import { createFestival, uploadFestivalImages } from '../api/hostFestivalApi'
 import { useAuth } from '../context/AuthContext.jsx'
 import KakaoMap from '../components/KakaoMap'
 import AiDraftModal from '../components/AiDraftModal'
-import { loadKakaoMaps, regionFromAddressName, stripRegionPrefix } from '../lib/kakaoMap'
+import { placeToLocationFields, searchPlaces } from '../lib/kakaoMap'
 import styles from './HostFestivalNew.module.css'
 
 //AI 초안이 값을 안 주는 항목(가격·수량·판매기간)에 쓸 기본값 — Gemini가 근거 없이 숫자를 지어내지 않게
@@ -231,16 +231,13 @@ function AddressSearchField({ id, value, onChangeText, onSelect, error }) {
     setSearchError('')
     setResults([])
     try {
-      const kakao = await loadKakaoMaps()
-      const places = new kakao.maps.services.Places()
-      places.keywordSearch(keyword, (data, status) => {
-        setSearching(false)
-        if (status === kakao.maps.services.Status.OK && data.length > 0) {
-          setResults(data.slice(0, 5))
-        } else {
-          setSearchError('검색 결과가 없어요. 다른 키워드로 시도해보세요.')
-        }
-      })
+      const places = await searchPlaces(keyword)
+      setSearching(false)
+      if (places.length > 0) {
+        setResults(places.slice(0, 5))
+      } else {
+        setSearchError('검색 결과가 없어요. 다른 키워드로 시도해보세요.')
+      }
     } catch (loadError) {
       setSearching(false)
       setSearchError(loadError.message)
@@ -257,13 +254,7 @@ function AddressSearchField({ id, value, onChangeText, onSelect, error }) {
   }
 
   function handlePick(place) {
-    const fullAddress = place.road_address_name || place.address_name
-    onSelect({
-      latitude: Number(place.y),
-      longitude: Number(place.x),
-      region: regionFromAddressName(fullAddress),
-      locationDetail: stripRegionPrefix(fullAddress),
-    })
+    onSelect(placeToLocationFields(place))
     setResults([])
     setSearchError('')
   }
@@ -545,6 +536,25 @@ function HostFestivalNew() {
         ? `AI 초안이 적용됐어요. ${dateNote} 티켓 종류 ${draft.ticketTypeSuggestions.length}개는 4단계(무대·티켓 설정)에서 확인해주세요.`
         : `AI 초안이 적용됐어요. ${dateNote}`,
     )
+
+    //프롬프트에 장소가 언급됐으면("부산시청에서 열리는 페스티벌") 그 검색어로 카카오 장소 검색을 한 번 더
+    //호출해 주소·좌표·지역까지 채운다. Gemini가 좌표를 직접 만들어내지 않고 검색어만 주는 이유이기도 하다
+    //— 실제 지도 데이터로 찾은 값만 신뢰한다. AI 응답과 별개의 비동기 호출이라 여기서 따로 처리한다.
+    if (draft.locationQuery) {
+      searchPlaces(draft.locationQuery)
+        .then((places) => {
+          if (places.length === 0) {
+            setAiDraftNotice((prev) => `${prev} "${draft.locationQuery}" 위치는 찾지 못해 직접 지정해주세요.`)
+            return
+          }
+          const place = places[0]
+          handleMapPick(placeToLocationFields(place))
+          setAiDraftNotice((prev) => `${prev} 위치는 "${place.place_name}"(으)로 채웠어요.`)
+        })
+        .catch(() => {
+          setAiDraftNotice((prev) => `${prev} "${draft.locationQuery}" 위치 검색에 실패해 직접 지정해주세요.`)
+        })
+    }
   }
 
   //선택할 때마다 이전 선택을 교체한다 (1장만 허용)

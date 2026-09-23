@@ -43,6 +43,9 @@ public class FestivalAiDraftService {
             - startDate/endDate는 입력에서 날짜를 유추할 수 있을 때만 "yyyy-MM-dd" 형식으로 채웁니다(시각은 넣지 않습니다).
               하루짜리 행사면 startDate와 endDate를 같은 날짜로 둡니다. 날짜에 대한 단서가 전혀 없으면 둘 다 null로 둡니다
               (임의로 지어내지 않습니다 — 프론트가 대신 기본값을 채웁니다).
+            - locationQuery는 입력에 장소·주소가 언급됐을 때만 채웁니다(예: "부산시청에서 열리는 페스티벌"이면
+              "부산시청"). 지도 검색에 쓸 짧은 검색어만 뽑으면 되고, 정확한 주소나 좌표를 스스로 만들어내지
+              않습니다. 장소 언급이 전혀 없으면 null로 둡니다.
             - ticketTypeSuggestions는 최대 %d개입니다. 입력에서 티켓 종류를 유추할 수 없으면 일반적인 "입장권" 하나만 제안합니다.
             - 각 제안의 name은 10자 이내로 짧게, description은 있다면 20자 이내 한 줄 설명입니다.
             - price는 입력에 가격 단서가 있을 때만 채우고, 전혀 근거가 없으면 null로 둡니다(임의로 지어내지 않습니다).
@@ -55,6 +58,7 @@ public class FestivalAiDraftService {
                     "description", Map.of("type", "STRING"),
                     "startDate", Map.of("type", "STRING", "nullable", true),
                     "endDate", Map.of("type", "STRING", "nullable", true),
+                    "locationQuery", Map.of("type", "STRING", "nullable", true),
                     "ticketTypeSuggestions", Map.of(
                             "type", "ARRAY",
                             "items", Map.of(
@@ -69,7 +73,8 @@ public class FestivalAiDraftService {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     private record GeminiPayload(
-            String description, String startDate, String endDate, List<GeminiTicketTypeSuggestion> ticketTypeSuggestions) {
+            String description, String startDate, String endDate, String locationQuery,
+            List<GeminiTicketTypeSuggestion> ticketTypeSuggestions) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -101,8 +106,11 @@ public class FestivalAiDraftService {
                                 item.name(), item.description(), item.price(), normalizeTicketMode(item.ticketMode())))
                         .toList();
 
+        String locationQuery = payload.locationQuery() != null && !payload.locationQuery().isBlank()
+                ? payload.locationQuery().trim() : null;
         return new FestivalAiDraftResponseDto(
-                payload.description(), parseDateOrNull(payload.startDate()), parseDateOrNull(payload.endDate()), suggestions);
+                payload.description(), parseDateOrNull(payload.startDate()), parseDateOrNull(payload.endDate()),
+                locationQuery, suggestions);
     }
 
     //모델이 형식을 어긴 날짜 문자열을 보내면(드물지만) 그대로 프론트에 흘려보내지 않고 null로 되돌린다

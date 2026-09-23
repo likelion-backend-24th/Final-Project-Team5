@@ -126,6 +126,31 @@ class FestivalAiDraftServiceTest {
     }
 
     @Test
+    void 장소가_언급됐으면_locationQuery로_담는다() {
+        when(geminiClient.generateJson(anyString(), anyList(), anyMap())).thenReturn("""
+                {"description":"설명","locationQuery":"부산시청",
+                 "ticketTypeSuggestions":[{"name":"A","ticketMode":"STANDING"}]}
+                """);
+
+        FestivalAiDraftResponseDto response = festivalAiDraftService.generateDraft(
+                "HOST", new FestivalAiDraftRequestDto("부산시청에서 열리는 페스티벌"));
+
+        assertThat(response.locationQuery()).isEqualTo("부산시청");
+    }
+
+    @Test
+    void 장소_언급이_없으면_locationQuery가_null이다() {
+        when(geminiClient.generateJson(anyString(), anyList(), anyMap())).thenReturn("""
+                {"description":"설명","ticketTypeSuggestions":[{"name":"A","ticketMode":"STANDING"}]}
+                """);
+
+        FestivalAiDraftResponseDto response = festivalAiDraftService.generateDraft(
+                "HOST", new FestivalAiDraftRequestDto("아무 축제"));
+
+        assertThat(response.locationQuery()).isNull();
+    }
+
+    @Test
     void 형식이_잘못된_날짜는_null로_되돌린다() {
         when(geminiClient.generateJson(anyString(), anyList(), anyMap())).thenReturn("""
                 {"description":"설명","startDate":"다음 달 초","endDate":"2026-13-40",

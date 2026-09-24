@@ -568,6 +568,12 @@ public class ReservationService {
             //결제가 확정되지 않았거나 이미 전액 환불·취소된 예매
             return RefundQuote.rejected(ReservationErrorCode.RESERVATION_NOT_REFUNDABLE.name(), quantity);
         }
+        FestivalDetailResponseDto festival = getFestivalOrThrow(reservation.getFestivalId());
+        //주최자 귀책으로 행사 취소가 진행 중이거나 끝났으면 운영자 승인 후 위약금 없이 전액 환불된다(주최자 귀책 환불).
+        //화면에서 버튼만 숨기면 API 직접 호출로 위약금을 떼고 먼저 환불받을 수 있어, 본인 환불은 여기서 막는다.
+        if (List.of("CANCELLATION_PENDING", "CANCELLED").contains(festival.festivalStatus())) {
+            return RefundQuote.rejected(ReservationErrorCode.FESTIVAL_CANCELLATION_REFUND_PENDING.name(), quantity);
+        }
         if (reservation.getCheckedInAt() != null) {
             return RefundQuote.rejected(ReservationErrorCode.ALREADY_CHECKED_IN_NOT_REFUNDABLE.name(), quantity);
         }
@@ -577,8 +583,7 @@ public class ReservationService {
 
         //공연 시작 시각은 타임존 없는 벽시계라, checkIn()과 같은 기준 타임존으로 현재 시각을 뽑아 비교한다.
         LocalDateTime now = LocalDateTime.now(ZoneId.of(appTimezone));
-        LocalDateTime startAt = getFestivalOrThrow(reservation.getFestivalId()).startAt();
-        return refundPolicy.quote(startAt, now, quantity, reservation.getPrice());
+        return refundPolicy.quote(festival.startAt(), now, quantity, reservation.getPrice());
     }
 
     //참가자 본인이 결제대기 중인 예매를 직접 취소한다

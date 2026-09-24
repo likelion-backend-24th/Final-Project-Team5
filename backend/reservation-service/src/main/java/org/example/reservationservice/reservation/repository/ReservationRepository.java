@@ -51,6 +51,14 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findByUserIdAndFestivalIdAndReservationStatusIn(
             Long userId, Long festivalId, List<ReservationStatus> statuses);
 
+    //1인당 구매 제한 합산을 잠금 조회로 한다 — 트랜잭션 앞부분에서 다른 조회를 했어도(MySQL 기본 격리 수준의 스냅숏)
+    //잠금 조회는 최신 커밋을 읽으므로, 먼저 끝난 같은 사용자의 예매가 합산에서 빠지지 않는다.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Reservation r WHERE r.userId = :userId AND r.festivalId = :festivalId AND r.reservationStatus IN :statuses")
+    List<Reservation> findForUpdateByUserIdAndFestivalIdAndReservationStatusIn(
+            @Param("userId") Long userId, @Param("festivalId") Long festivalId,
+            @Param("statuses") List<ReservationStatus> statuses);
+
     List<Reservation> findByUserIdAndTicketTypeIdAndReservationStatusIn(
             Long userId, Long ticketTypeId, List<ReservationStatus> statuses);
 

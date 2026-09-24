@@ -9,8 +9,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.exception.ApiException;
 import org.example.reservationservice.reservation.entity.CheckInCodeGenerator;
@@ -492,10 +495,16 @@ public class ReservationService {
             throw new ApiException(ReservationErrorCode.REFUND_QUANTITY_EXCEEDED);
         }
 
-        boolean isSeated = request.seatIds() != null && !request.seatIds().isEmpty();
+        List<Long> seatIds = request.seatIds();
+        //Payment-Service는 장수만 보낸다(환불 견적도 장수 단위) — 좌석 예매인데 좌석 id가 없으면 여기서 반환할 좌석을 고른다.
+        //좌석 id 없이 재고 대기열로 보내면 잔여 수량만 늘고 좌석은 SOLD로 남아 다시 팔 수 없다.
+        if (seatIds == null || seatIds.isEmpty()) {
+            seatIds = pickSeatsToRelease(reservation, request.quantity());
+        }
+        boolean isSeated = !seatIds.isEmpty();
         if (isSeated) {
-            validateSeatIdsBelongToReservation(reservation, request.seatIds());
-            if (request.seatIds().size() != request.quantity()) {
+            validateSeatIdsBelongToReservation(reservation, seatIds);
+            if (seatIds.size() != request.quantity()) {
                 throw new ApiException(ReservationErrorCode.INVALID_SEAT_REQUEST);
             }
         }
@@ -505,18 +514,41 @@ public class ReservationService {
         Instant releaseAt = stockReleaseScheduler.nextReleaseInstant(Instant.now());
 
         if (isSeated) {
-            for (Long seatId : request.seatIds()) {
+            for (Long seatId : seatIds) {
                 seatReleaseQueueRepository.save(new SeatReleaseQueue(
                         reservation.getId(), seatId, releaseAt));
             }
             log.info("환불 확정(좌석): reservation={}, seatIds={}, qty={}, 반환 예정={}",
-                    reservation.getId(), request.seatIds(), request.quantity(), releaseAt);
+                    reservation.getId(), seatIds, request.quantity(), releaseAt);
         } else {
             stockReleaseQueueRepository.save(new StockReleaseQueue(
                     reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt));
             log.info("환불 확정: reservation={}, ticketType={}, qty={}, 반환 예정={}",
                     reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt);
         }
+    }
+
+    //환불할 좌석 선택(내부 메서드) — 이 예매에 연결된 좌석 중 아직 반환 대기열에 넣지 않은 좌석을 연결된 순서대로 장수만큼 고른다.
+    //STANDING 예매는 연결된 좌석이 없어 빈 목록을 돌려주고, 호출한 쪽이 기존처럼 재고 대기열로 반환한다.
+    private List<Long> pickSeatsToRelease(Reservation reservation, int quantity) {
+        Set<Long> queuedSeatIds = seatReleaseQueueRepository.findByReservationId(reservation.getId()).stream()
+                .map(SeatReleaseQueue::getSeatId)
+                .collect(Collectors.toSet());
+        List<Long> releasableSeatIds = reservationSeatRepository.findByReservationId(reservation.getId()).stream()
+                .sorted(Comparator.comparing(ReservationSeat::getId))
+                .map(rs -> rs.getSeat().getId())
+                .filter(seatId -> !queuedSeatIds.contains(seatId))
+                .toList();
+        if (releasableSeatIds.isEmpty()) {
+            return List.of();
+        }
+        if (releasableSeatIds.size() < quantity) {
+            //PG 환불은 이미 끝났으므로 반영을 막지 않는다 — 좌석 정보가 맞지 않는 예전 데이터는 재고 대기열로 되돌리고 로그로 남긴다.
+            log.warn("환불할 좌석이 부족해 재고로만 반환: reservation={}, 반환 가능 좌석={}, qty={}",
+                    reservation.getId(), releasableSeatIds, quantity);
+            return List.of();
+        }
+        return releasableSeatIds.subList(0, quantity);
     }
 
     //요청받은 seatIds가 실제로 이 예매에 속한 좌석인지 확인한다(내부 메서드) — 다른 예매의 좌석 id를

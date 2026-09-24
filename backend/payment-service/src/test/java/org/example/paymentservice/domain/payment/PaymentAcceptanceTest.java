@@ -1,5 +1,8 @@
 package org.example.paymentservice.domain.payment;
 
+import org.example.paymentservice.domain.webhook.WebhookEventRepository;
+import org.example.paymentservice.domain.webhook.WebhookEventService;
+import org.example.paymentservice.domain.webhook.WebhookEventStatus;
 import org.example.paymentservice.infrastructure.portone.PortOnePaymentClient;
 import org.example.paymentservice.infrastructure.portone.dto.PortOnePaymentResponse;
 import org.example.paymentservice.infrastructure.reservation.ReservationServiceClient;
@@ -15,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.ResourceAccessException;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -56,6 +60,12 @@ class PaymentAcceptanceTest {
     @Autowired
     private PaymentTransactionRepository paymentTransactionRepository;
 
+    @Autowired
+    private WebhookEventRepository webhookEventRepository;
+
+    @Autowired
+    private WebhookEventService webhookEventService;
+
     @MockitoBean
     private ReservationServiceClient reservationServiceClient;
 
@@ -64,6 +74,7 @@ class PaymentAcceptanceTest {
 
     @BeforeEach
     void setUp() {
+        webhookEventRepository.deleteAll();
         paymentTransactionRepository.deleteAll();
         paymentRepository.deleteAll();
         reset(reservationServiceClient, portOnePaymentClient);
@@ -200,6 +211,49 @@ class PaymentAcceptanceTest {
         mockMvc.perform(post("/api/payments/" + paymentId + "/complete").header("X-User-Id", USER_ID))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errorCode").value("RESERVATION_ALREADY_FINALIZED"));
+    }
+
+    @Test
+    void 일시_장애로_처리하지_못한_웹훅은_재전송_때_다시_처리된다() throws Exception {
+        String paymentId = preparePayment();
+        // 첫 전달 때만 PortOne 조회가 타임아웃 — 예전에는 이 웹훅이 이미 저장돼 재전송이 중복으로 버려졌다.
+        when(portOnePaymentClient.getPayment(paymentId))
+                .thenThrow(new ResourceAccessException("PortOne timeout"))
+                .thenReturn(paidResponse(paymentId, "TX-1", 10_000L));
+
+        String body = paidWebhookBody(paymentId, "TX-1");
+        postWebhook("webhook-transient", body);
+        assertPaymentStatus(paymentId, PaymentStatus.READY);
+        assertWebhookStatus("webhook-transient", WebhookEventStatus.FAILED);
+
+        postWebhook("webhook-transient", body); // PortOne 재전송
+
+        verify(reservationServiceClient, org.mockito.Mockito.times(1))
+                .confirmReservation(org.mockito.ArgumentMatchers.eq(RESERVATION_ID), any(ConfirmReservationRequest.class));
+        assertPaymentStatus(paymentId, PaymentStatus.PAID);
+        assertWebhookStatus("webhook-transient", WebhookEventStatus.PROCESSED);
+    }
+
+    @Test
+    void 재전송이_오지_않아도_재시도_배치가_실패한_웹훅을_처리한다() throws Exception {
+        String paymentId = preparePayment();
+        when(portOnePaymentClient.getPayment(paymentId))
+                .thenThrow(new ResourceAccessException("PortOne timeout"))
+                .thenReturn(paidResponse(paymentId, "TX-1", 10_000L));
+
+        postWebhook("webhook-batch", paidWebhookBody(paymentId, "TX-1"));
+        assertWebhookStatus("webhook-batch", WebhookEventStatus.FAILED);
+
+        webhookEventService.retryPending(); // WebhookRetryScheduler가 1분마다 호출하는 재시도
+
+        verify(reservationServiceClient).confirmReservation(org.mockito.ArgumentMatchers.eq(RESERVATION_ID), any(ConfirmReservationRequest.class));
+        assertPaymentStatus(paymentId, PaymentStatus.PAID);
+        assertWebhookStatus("webhook-batch", WebhookEventStatus.PROCESSED);
+    }
+
+    private void assertWebhookStatus(String webhookId, WebhookEventStatus expected) {
+        org.assertj.core.api.Assertions.assertThat(webhookEventRepository.findByWebhookId(webhookId).orElseThrow().getStatus())
+                .isEqualTo(expected);
     }
 
     private void assertPaymentStatus(String paymentId, PaymentStatus expected) {

@@ -3,6 +3,7 @@ package org.example.paymentservice.domain.payment;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.paymentservice.common.exception.ApiException;
+import org.example.paymentservice.domain.cancellation.PaymentCancellationService;
 import org.example.paymentservice.domain.payment.dto.PaymentCompleteResponse;
 import org.example.paymentservice.domain.payment.dto.PaymentPrepareRequest;
 import org.example.paymentservice.domain.payment.dto.PaymentPrepareResponse;
@@ -38,6 +39,7 @@ public class PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final ReservationServiceClient reservationServiceClient;
     private final PortOnePaymentClient portOnePaymentClient;
+    private final PaymentCancellationService paymentCancellationService;
 
     @Value("${payment.id-prefix}")
     private String paymentIdPrefix;
@@ -101,11 +103,13 @@ public class PaymentService {
 
     private PaymentCompleteResponse syncPayment(Payment payment) {
         if (isFinalized(payment.getStatus())) {
+            // 예매 확정이 거절돼 자동 환불(보상) 대상이 된 결제는 환불이 끝나 CANCELLED가 돼도 성공으로 알려주면 안 된다.
+            if (payment.isReservationRejected()) {
+                throw new ApiException(PaymentErrorCode.RESERVATION_ALREADY_FINALIZED);
+            }
             if (payment.getStatus() == PaymentStatus.PAID && payment.getPaidAt() != null && payment.getReservationConfirmedAt() == null) {
-                reservationServiceClient.confirmReservation(payment.getReservationId(), new ConfirmReservationRequest(
+                confirmReservationOrCompensate(payment, new ConfirmReservationRequest(
                         payment.getPaymentId(), payment.totalAmount(), payment.getPayMethod(), payment.getPaidAt()));
-                payment.markReservationConfirmed();
-                paymentRepository.save(payment);
             }
             // 완료 API가 반복 호출돼도 오류 대신 현재 성공 상태를 그대로 반환한다(멱등).
             return toCompleteResponse(payment);
@@ -142,15 +146,29 @@ public class PaymentService {
         String payMethod = remote.method() != null ? remote.method().type() : null;
         ConfirmReservationRequest request = new ConfirmReservationRequest(
                 payment.getPaymentId(), remote.amount().total(), payMethod, remote.paidAt());
+        confirmReservationOrCompensate(payment, request);
+    }
+
+    // 예매 확정을 요청하고, 예매 쪽이 거절하면(409) 이 결제를 자동 전액 환불(보상)한다.
+    // 거절되는 경우: 같은 예매를 두 탭에서 결제해 다른 결제가 먼저 확정했거나, 결제 도중 예매가 만료·취소됐다.
+    // 실전 가이드 7.4·11.4 — 두 번째 성공 결제는 상품 제공에서 제외하고 환불 대상으로 보낸다.
+    // 여기서 환불이 실패해도 결제에 거절 표시가 남아 PaymentCompensationScheduler가 같은 멱등키로 다시 시도한다.
+    private void confirmReservationOrCompensate(Payment payment, ConfirmReservationRequest request) {
         try {
             reservationServiceClient.confirmReservation(payment.getReservationId(), request);
             payment.markReservationConfirmed();
             paymentRepository.save(payment);
         } catch (HttpClientErrorException.Conflict e) {
-            // 결제는 확정됐지만 예매가 배치로 이미 만료·취소된 엣지 케이스. 자동 환불(PortOne 취소 API)은
-            // Story9 범위라 아직 구현 전이므로, 지금은 예외로 드러내고 정합성 배치(추후 구현)가 발견하도록 남긴다.
-            log.warn("결제는 확정됐지만 예매 확정 실패(이미 종료된 예매로 추정). paymentId={}, reservationId={}",
+            log.warn("결제는 승인됐지만 예매 확정이 거절됨 — 자동 환불한다. paymentId={}, reservationId={}",
                     payment.getPaymentId(), payment.getReservationId(), e);
+            payment.markReservationRejected();
+            Payment rejected = paymentRepository.save(payment);
+            try {
+                paymentCancellationService.compensate(rejected);
+            } catch (RuntimeException compensationFailure) {
+                log.warn("확정 거절 결제의 자동 환불 실패(재시도 예정). paymentId={}",
+                        payment.getPaymentId(), compensationFailure);
+            }
             throw new ApiException(PaymentErrorCode.RESERVATION_ALREADY_FINALIZED);
         }
     }

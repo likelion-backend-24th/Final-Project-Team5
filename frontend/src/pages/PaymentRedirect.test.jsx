@@ -77,3 +77,16 @@ it('lets the user retry a temporary completion failure', async () => {
   await screen.findByText('입금 계좌가 발급되었어요')
   await waitFor(() => expect(completePayment).toHaveBeenCalledTimes(2))
 })
+
+it('explains the automatic refund when the reservation was already finalized', async () => {
+  savePendingPaymentRedirect({ paymentId: 'payment-1', reservationId: 7 })
+  completePayment.mockRejectedValue({ response: { data: { errorCode: 'RESERVATION_ALREADY_FINALIZED' } } })
+
+  render(
+    <MemoryRouter initialEntries={['/payments/redirect?paymentId=payment-1']}>
+      <PaymentRedirect />
+    </MemoryRouter>,
+  )
+
+  await screen.findByText(/자동으로 취소돼 환불돼요/)
+})

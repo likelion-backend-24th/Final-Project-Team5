@@ -33,6 +33,9 @@ import org.springframework.web.client.RestClientException;
 @RequiredArgsConstructor
 public class PaymentCancellationService {
 
+    private static final String COMPENSATION_KEY_PREFIX = "COMPENSATE-";
+    private static final String COMPENSATION_REASON = "예매 확정 불가 결제 자동 환불";
+
     private final PaymentRepository paymentRepository;
     private final CancellationRepository cancellationRepository;
     private final PortOnePaymentClient portOnePaymentClient;
@@ -140,6 +143,65 @@ public class PaymentCancellationService {
 
     public void reconcileByPaymentId(String paymentId) {
         paymentRepository.findByPaymentId(paymentId).ifPresent(this::reconcile);
+    }
+
+    /**
+     * 예매 확정이 거절된 결제를 전액 환불한다(보상). 가이드 7.4·11.4 "이미 결제된 주문의 두 번째 성공 결제는
+     * 상품 제공에서 제외하고 환불 대상으로" — 같은 예매를 두 탭에서 결제했거나, 결제 도중 예매가 만료·취소된 경우다.
+     *
+     * 예매에 반영된 적 없는 결제라 환불 장수는 0으로 남겨 대사(reconcile)가 예매 서비스에 환불을 알리지 않게 한다.
+     * 멱등키를 결제별로 고정해, 요청 스레드와 보상 배치가 다시 시도해도 PortOne 취소는 한 번만 일어난다.
+     * (결제당 보상 취소는 이 멱등키 한 건뿐이라 진행 중 취소 제약(activePaymentId)은 쓰지 않는다 — 장수 0인 취소는
+     * 예매 반영 표시로 비워지지 않아, 걸어 두면 끝난 뒤에도 남는다.)
+     *
+     * @return PortOne 취소가 성공으로 확정됐으면 true. 실패·진행 중이면 false(보상 배치가 다시 시도한다).
+     */
+    public boolean compensate(Payment payment) {
+        String idempotencyKey = COMPENSATION_KEY_PREFIX + payment.getPaymentId();
+        Cancellation cancellation = cancellationRepository.findByIdempotencyKey(idempotencyKey)
+                .orElseGet(() -> cancellationRepository.save(Cancellation.builder()
+                        .payment(payment)
+                        .idempotencyKey(idempotencyKey)
+                        .status(CancellationStatus.REQUESTED)
+                        .source(CancellationSource.API_REQUEST)
+                        .amount(payment.totalAmount())
+                        .quantity(0)
+                        .reason(COMPENSATION_REASON)
+                        .grossAmount(payment.getTicketAmount())
+                        .penaltyRatePercent(0)
+                        .penaltyAmount(0L)
+                        .businessReason(CancellationBusinessReason.RESERVATION_NOT_CONFIRMED)
+                        .requestedByRole("SYSTEM")
+                        .build()));
+
+        if (cancellation.getStatus() == CancellationStatus.FAILED) {
+            //같은 멱등키로 다시 보내면 PortOne은 같은 실패를 돌려준다 — 사람이 PortOne 콘솔에서 확인해야 한다.
+            log.error("확정 거절 결제의 자동 환불이 PortOne에서 실패했다 — 수동 확인 필요. paymentId={}, cancellationId={}",
+                    payment.getPaymentId(), cancellation.getCancellationId());
+            return false;
+        }
+        if (cancellation.getCancellationId() == null) {
+            try {
+                PortOneCancelResponse cancelled = portOnePaymentClient.cancelPayment(
+                        payment.getPaymentId(), payment.totalAmount(), COMPENSATION_REASON, idempotencyKey);
+                if (cancelled != null && cancelled.cancellation() != null) {
+                    cancellation.syncFrom(cancelled.cancellation().id(),
+                            toCancellationStatus(cancelled.cancellation().status()),
+                            cancelled.cancellation().cancelledAt());
+                    cancellationRepository.save(cancellation);
+                }
+            } catch (RestClientException e) {
+                // 네트워크 오류는 PG 실패를 증명하지 못하므로 REQUESTED로 두고, 보상 배치가 같은 멱등키로 다시 요청한다.
+                log.warn("확정 거절 결제의 자동 환불 요청 실패(재시도 예정). paymentId={}", payment.getPaymentId(), e);
+                return false;
+            }
+        }
+
+        //응답 하나만 믿지 않고 재조회로 취소 목록과 결제 상태(CANCELLED)를 맞춘다(가이드 9.1).
+        reconcile(payment);
+        return cancellationRepository.findByIdempotencyKey(idempotencyKey)
+                .map(c -> c.getStatus() == CancellationStatus.SUCCEEDED)
+                .orElse(false);
     }
 
     public boolean organizerRefund(String paymentId, String key, Long actor, String reason) {

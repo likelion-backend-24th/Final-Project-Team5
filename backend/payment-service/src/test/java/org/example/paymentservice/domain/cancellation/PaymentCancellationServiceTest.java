@@ -240,4 +240,88 @@ class PaymentCancellationServiceTest {
 
         assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELLED);
     }
+
+    // ===== compensate: 예매 확정이 거절된 결제의 자동 전액 환불 =====
+
+    private static final String COMPENSATION_KEY = "COMPENSATE-" + PAYMENT_ID;
+
+    @Test
+    @DisplayName("확정 거절 결제는 결제별 고정 멱등키로 전액 취소하고, 예매에는 환불을 통보하지 않는다")
+    void 보상_환불은_전액_취소하고_예매에_통보하지_않는다() {
+        Payment payment = paidPayment();
+        java.util.List<Cancellation> ledger = new java.util.ArrayList<>();
+        when(cancellationRepository.save(any(Cancellation.class))).thenAnswer(i -> {
+            Cancellation c = i.getArgument(0); if (!ledger.contains(c)) ledger.add(c); return c;
+        });
+        when(cancellationRepository.findByPayment(payment)).thenAnswer(i -> ledger);
+        when(cancellationRepository.findByIdempotencyKey(COMPENSATION_KEY)).thenAnswer(i -> ledger.stream().findFirst());
+        when(cancellationRepository.findByCancellationId(anyString())).thenAnswer(i -> ledger.stream()
+                .filter(c -> i.getArgument(0).equals(c.getCancellationId())).findFirst());
+        when(portOnePaymentClient.cancelPayment(eq(PAYMENT_ID), eq(30_000L), any(), eq(COMPENSATION_KEY)))
+                .thenReturn(new PortOneCancelResponse(new PortOnePaymentResponse.Cancellation(
+                        "cancel-comp", "SUCCEEDED", null, 30_000L, Instant.now(), Instant.now())));
+        when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(remotePayment(30_000L, List.of(
+                new PortOnePaymentResponse.Cancellation("cancel-comp", "SUCCEEDED", null, 30_000L, Instant.now(), Instant.now()))));
+
+        boolean refunded = service.compensate(payment);
+
+        assertThat(refunded).isTrue();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELLED);
+        assertThat(ledger).singleElement().satisfies(c -> {
+            assertThat(c.getQuantity()).isZero();
+            assertThat(c.getAmount()).isEqualTo(30_000L);
+            assertThat(c.getBusinessReason()).isEqualTo(CancellationBusinessReason.RESERVATION_NOT_CONFIRMED);
+            assertThat(c.getStatus()).isEqualTo(CancellationStatus.SUCCEEDED);
+        });
+        verify(reservationServiceClient, never()).refundReservation(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("보상 환불 요청이 네트워크 오류면 REQUESTED로 남기고 false를 돌려준다(보상 배치가 다시 시도)")
+    void 보상_환불_네트워크_오류는_재시도_대상으로_남긴다() {
+        Payment payment = paidPayment();
+        when(portOnePaymentClient.cancelPayment(eq(PAYMENT_ID), eq(30_000L), any(), eq(COMPENSATION_KEY)))
+                .thenThrow(new ResourceAccessException("timeout"));
+
+        boolean refunded = service.compensate(payment);
+
+        assertThat(refunded).isFalse();
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PAID);
+        verify(cancellationRepository).save(org.mockito.ArgumentMatchers.argThat(c ->
+                c.getStatus() == CancellationStatus.REQUESTED && COMPENSATION_KEY.equals(c.getIdempotencyKey())));
+    }
+
+    @Test
+    @DisplayName("이미 PortOne 취소 ID를 받은 보상 환불은 다시 취소를 요청하지 않고 재조회로만 맞춘다")
+    void 보상_환불_재시도는_중복_취소하지_않는다() {
+        Payment payment = paidPayment();
+        Cancellation requested = Cancellation.builder().payment(payment).idempotencyKey(COMPENSATION_KEY)
+                .cancellationId("cancel-comp").status(CancellationStatus.PENDING).source(CancellationSource.API_REQUEST)
+                .amount(30_000L).quantity(0).build();
+        when(cancellationRepository.findByIdempotencyKey(COMPENSATION_KEY)).thenReturn(Optional.of(requested));
+        when(cancellationRepository.findByCancellationId("cancel-comp")).thenReturn(Optional.of(requested));
+        when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(remotePayment(30_000L, List.of(
+                new PortOnePaymentResponse.Cancellation("cancel-comp", "SUCCEEDED", null, 30_000L, Instant.now(), Instant.now()))));
+
+        boolean refunded = service.compensate(payment);
+
+        assertThat(refunded).isTrue();
+        verify(portOnePaymentClient, never()).cancelPayment(anyString(), anyLong(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("PortOne이 보상 환불을 실패로 확정했으면 같은 멱등키로 다시 보내지 않는다(수동 확인 대상)")
+    void 보상_환불_실패_확정은_다시_보내지_않는다() {
+        Payment payment = paidPayment();
+        Cancellation failed = Cancellation.builder().payment(payment).idempotencyKey(COMPENSATION_KEY)
+                .cancellationId("cancel-comp").status(CancellationStatus.FAILED).source(CancellationSource.API_REQUEST)
+                .amount(30_000L).quantity(0).build();
+        when(cancellationRepository.findByIdempotencyKey(COMPENSATION_KEY)).thenReturn(Optional.of(failed));
+
+        boolean refunded = service.compensate(payment);
+
+        assertThat(refunded).isFalse();
+        verify(portOnePaymentClient, never()).cancelPayment(anyString(), anyLong(), any(), anyString());
+        verify(portOnePaymentClient, never()).getPayment(anyString());
+    }
 }

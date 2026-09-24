@@ -14,6 +14,8 @@ const PAYMENT_REDIRECT_ERROR_MESSAGES = {
   PAYMENT_NOT_FOUND: '결제 정보를 찾을 수 없어요.',
   PAYMENT_NOT_YET_PROCESSED: '결제 처리가 아직 끝나지 않았어요. 잠시 후 다시 확인해주세요.',
   PAYMENT_VERIFICATION_FAILED: '결제 정보가 일치하지 않아 확인하지 못했어요.',
+  // 같은 예매를 다른 탭에서 먼저 결제했거나 결제 중 예매가 만료된 경우 — 서버가 이 결제를 자동으로 전액 환불한다.
+  RESERVATION_ALREADY_FINALIZED: '이 예매는 이미 결제가 끝났거나 만료됐어요. 방금 결제는 자동으로 취소돼 환불돼요.',
 }
 
 function toErrorMessage(error) {

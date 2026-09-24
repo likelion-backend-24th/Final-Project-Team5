@@ -9,8 +9,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.example.reservationservice.common.exception.ApiException;
 import org.example.reservationservice.reservation.entity.CheckInCodeGenerator;
@@ -27,6 +30,7 @@ import org.example.reservationservice.reservation.entity.Reservation;
 import org.example.reservationservice.reservation.entity.RefundReceipt;
 import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.example.reservationservice.reservation.exception.ReservationErrorCode;
+import org.example.reservationservice.reservation.repository.PurchaseLimitLockRepository;
 import org.example.reservationservice.reservation.repository.ReservationRepository;
 import org.example.reservationservice.seat.entity.ReservationSeat;
 import org.example.reservationservice.seat.entity.Seat;
@@ -78,6 +82,7 @@ public class ReservationService {
     private final ReservationSeatRepository reservationSeatRepository;
     private final SeatReleaseQueueRepository seatReleaseQueueRepository;
     private final SeatBroadcastService seatBroadcastService;
+    private final PurchaseLimitLockRepository purchaseLimitLockRepository;
 
 
     //사이트 전체 기본 1인당 구매 제한(계정 기준, 페스티벌당 — 티켓 종류를 나눠 사도 합산). 티켓 종류당으로 세던 시절엔
@@ -492,10 +497,16 @@ public class ReservationService {
             throw new ApiException(ReservationErrorCode.REFUND_QUANTITY_EXCEEDED);
         }
 
-        boolean isSeated = request.seatIds() != null && !request.seatIds().isEmpty();
+        List<Long> seatIds = request.seatIds();
+        //Payment-Service는 장수만 보낸다(환불 견적도 장수 단위) — 좌석 예매인데 좌석 id가 없으면 여기서 반환할 좌석을 고른다.
+        //좌석 id 없이 재고 대기열로 보내면 잔여 수량만 늘고 좌석은 SOLD로 남아 다시 팔 수 없다.
+        if (seatIds == null || seatIds.isEmpty()) {
+            seatIds = pickSeatsToRelease(reservation, request.quantity());
+        }
+        boolean isSeated = !seatIds.isEmpty();
         if (isSeated) {
-            validateSeatIdsBelongToReservation(reservation, request.seatIds());
-            if (request.seatIds().size() != request.quantity()) {
+            validateSeatIdsBelongToReservation(reservation, seatIds);
+            if (seatIds.size() != request.quantity()) {
                 throw new ApiException(ReservationErrorCode.INVALID_SEAT_REQUEST);
             }
         }
@@ -505,18 +516,41 @@ public class ReservationService {
         Instant releaseAt = stockReleaseScheduler.nextReleaseInstant(Instant.now());
 
         if (isSeated) {
-            for (Long seatId : request.seatIds()) {
+            for (Long seatId : seatIds) {
                 seatReleaseQueueRepository.save(new SeatReleaseQueue(
                         reservation.getId(), seatId, releaseAt));
             }
             log.info("환불 확정(좌석): reservation={}, seatIds={}, qty={}, 반환 예정={}",
-                    reservation.getId(), request.seatIds(), request.quantity(), releaseAt);
+                    reservation.getId(), seatIds, request.quantity(), releaseAt);
         } else {
             stockReleaseQueueRepository.save(new StockReleaseQueue(
                     reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt));
             log.info("환불 확정: reservation={}, ticketType={}, qty={}, 반환 예정={}",
                     reservation.getId(), reservation.getTicketTypeId(), request.quantity(), releaseAt);
         }
+    }
+
+    //환불할 좌석 선택(내부 메서드) — 이 예매에 연결된 좌석 중 아직 반환 대기열에 넣지 않은 좌석을 연결된 순서대로 장수만큼 고른다.
+    //STANDING 예매는 연결된 좌석이 없어 빈 목록을 돌려주고, 호출한 쪽이 기존처럼 재고 대기열로 반환한다.
+    private List<Long> pickSeatsToRelease(Reservation reservation, int quantity) {
+        Set<Long> queuedSeatIds = seatReleaseQueueRepository.findByReservationId(reservation.getId()).stream()
+                .map(SeatReleaseQueue::getSeatId)
+                .collect(Collectors.toSet());
+        List<Long> releasableSeatIds = reservationSeatRepository.findByReservationId(reservation.getId()).stream()
+                .sorted(Comparator.comparing(ReservationSeat::getId))
+                .map(rs -> rs.getSeat().getId())
+                .filter(seatId -> !queuedSeatIds.contains(seatId))
+                .toList();
+        if (releasableSeatIds.isEmpty()) {
+            return List.of();
+        }
+        if (releasableSeatIds.size() < quantity) {
+            //PG 환불은 이미 끝났으므로 반영을 막지 않는다 — 좌석 정보가 맞지 않는 예전 데이터는 재고 대기열로 되돌리고 로그로 남긴다.
+            log.warn("환불할 좌석이 부족해 재고로만 반환: reservation={}, 반환 가능 좌석={}, qty={}",
+                    reservation.getId(), releasableSeatIds, quantity);
+            return List.of();
+        }
+        return releasableSeatIds.subList(0, quantity);
     }
 
     //요청받은 seatIds가 실제로 이 예매에 속한 좌석인지 확인한다(내부 메서드) — 다른 예매의 좌석 id를
@@ -536,6 +570,12 @@ public class ReservationService {
             //결제가 확정되지 않았거나 이미 전액 환불·취소된 예매
             return RefundQuote.rejected(ReservationErrorCode.RESERVATION_NOT_REFUNDABLE.name(), quantity);
         }
+        FestivalDetailResponseDto festival = getFestivalOrThrow(reservation.getFestivalId());
+        //주최자 귀책으로 행사 취소가 진행 중이거나 끝났으면 운영자 승인 후 위약금 없이 전액 환불된다(주최자 귀책 환불).
+        //화면에서 버튼만 숨기면 API 직접 호출로 위약금을 떼고 먼저 환불받을 수 있어, 본인 환불은 여기서 막는다.
+        if (List.of("CANCELLATION_PENDING", "CANCELLED").contains(festival.festivalStatus())) {
+            return RefundQuote.rejected(ReservationErrorCode.FESTIVAL_CANCELLATION_REFUND_PENDING.name(), quantity);
+        }
         if (reservation.getCheckedInAt() != null) {
             return RefundQuote.rejected(ReservationErrorCode.ALREADY_CHECKED_IN_NOT_REFUNDABLE.name(), quantity);
         }
@@ -545,8 +585,7 @@ public class ReservationService {
 
         //공연 시작 시각은 타임존 없는 벽시계라, checkIn()과 같은 기준 타임존으로 현재 시각을 뽑아 비교한다.
         LocalDateTime now = LocalDateTime.now(ZoneId.of(appTimezone));
-        LocalDateTime startAt = getFestivalOrThrow(reservation.getFestivalId()).startAt();
-        return refundPolicy.quote(startAt, now, quantity, reservation.getPrice());
+        return refundPolicy.quote(festival.startAt(), now, quantity, reservation.getPrice());
     }
 
     //참가자 본인이 결제대기 중인 예매를 직접 취소한다
@@ -634,13 +673,23 @@ public class ReservationService {
     //1인당 구매 제한 검증(내부 메서드) — 계정 기준, 같은 페스티벌의 모든 티켓 종류에 대해 PENDING·CONFIRMED로 이미 들고 있는
     //수량(환불된 장수는 제외) + 이번 요청 수량이 한도를 넘으면 거부
     private void checkPurchaseLimitOrThrow(Long userId, Long festivalId, int quantity) {
+        //같은 사용자가 동시에 예매를 보내도 둘 다 합산 전 수량으로 통과하지 않도록, (사용자, 페스티벌)별 잠금 행을 잡은 뒤 센다.
+        //잠금은 이 예매 트랜잭션이 끝날 때 풀리므로 뒤 요청은 앞 요청의 예매까지 합산해 검사한다.
+        lockPurchaseLimit(userId, festivalId);
         int alreadyHeld = reservationRepository
-                .findByUserIdAndFestivalIdAndReservationStatusIn(userId, festivalId, PURCHASE_LIMIT_STATUSES).stream()
+                .findForUpdateByUserIdAndFestivalIdAndReservationStatusIn(userId, festivalId, PURCHASE_LIMIT_STATUSES).stream()
                 .mapToInt(Reservation::remainingQuantity)
                 .sum();
         if (alreadyHeld + quantity > maxQuantityPerFestival) {
             throw new ApiException(ReservationErrorCode.PURCHASE_LIMIT_EXCEEDED);
         }
+    }
+
+    //구매 제한 잠금 행 잡기(내부 메서드) — 첫 예매라 행이 없으면 먼저 만들고(부스 대기 카운터처럼 최초 1회) 잠근다.
+    private void lockPurchaseLimit(Long userId, Long festivalId) {
+        purchaseLimitLockRepository.insertIfAbsent(userId, festivalId);
+        purchaseLimitLockRepository.findForUpdate(userId, festivalId)
+                .orElseThrow(() -> new IllegalStateException("구매 제한 잠금 행을 찾을 수 없습니다: user=" + userId + ", festival=" + festivalId));
     }
 
     //재고 차감(내부 메서드)

@@ -8,6 +8,7 @@ const REFUND_ERROR_MESSAGES = {
   REFUND_WINDOW_CLOSED: '공연 시작 24시간 이내에는 환불할 수 없어요.',
   ALREADY_CHECKED_IN_NOT_REFUNDABLE: '이미 입장한 예매는 환불할 수 없어요.',
   REFUND_QUANTITY_EXCEEDED: '환불 가능한 수량을 초과했어요.',
+  FESTIVAL_CANCELLATION_REFUND_PENDING: '행사 취소가 진행 중이에요. 운영자 승인 후 위약금 없이 전액 환불돼요.',
   RESERVATION_NOT_REFUNDABLE: '환불할 수 없는 예매 상태예요.',
   REFUND_NOT_ALLOWED: '환불할 수 없는 예매예요.',
   PAYMENT_NOT_CANCELLABLE: '이미 취소된 결제예요.',

@@ -96,6 +96,26 @@ class SettlementAcceptanceTest {
         assertThat(repository.findByActiveFestivalId(42L)).isEmpty();
     }
 
+    @Test void compensatedDuplicatePaymentIsExcludedFromSettlement() {
+        //같은 예매의 두 번째 결제는 확정이 거절돼 자동 전액 환불됐다 — 티켓을 준 매출이 아니므로 정산을 막지 않고 빠져야 한다.
+        payments.save(Payment.builder().paymentId("rejected-" + UUID.randomUUID()).reservationId(999L).userId(30L)
+                .ticketAmount(100000).platformFee(0).currency("KRW").status(PaymentStatus.CANCELLED).reservationRejectedAt(approved).build());
+        Long id = calculate();
+        var settlement = repository.findById(id).orElseThrow();
+        assertThat(settlement.getHoldReason()).isNull();
+        assertThat(settlement.getGrossPaymentAmount()).isEqualTo(100000L);
+        assertThat(queries.detail(admin, false, id).payoutAmount()).isEqualTo(92500L);
+    }
+
+    @Test void duplicatePaymentAwaitingCompensationHoldsSettlement() {
+        payments.save(Payment.builder().paymentId("rejected-" + UUID.randomUUID()).reservationId(999L).userId(30L)
+                .ticketAmount(100000).platformFee(0).currency("KRW").status(PaymentStatus.PAID).reservationRejectedAt(approved).build());
+        calculate();
+        var settlement = repository.findByActiveFestivalId(42L).orElseThrow();
+        assertThat(settlement.getStatus()).isEqualTo(SettlementStatus.HELD);
+        assertThat(settlement.getHoldReason()).isEqualTo("COMPENSATION_REFUND_PENDING");
+    }
+
     private void missingPaymentEvidence() {
         Payment p = payments.save(Payment.builder().paymentId("missing-payment").reservationId(999L)
                 .userId(30L).ticketAmount(100000).currency("KRW").status(PaymentStatus.PAID).build());

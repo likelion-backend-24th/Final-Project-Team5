@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeftIcon,
@@ -214,6 +214,28 @@ function DateTimeFields({ id, value, onChange, invalid }) {
       </select>
     </div>
   )
+}
+
+//선택된 File 하나의 로컬 미리보기 URL을 만든다. 서버 업로드 없이 브라우저 안에서만 보여주는 용도라
+//createObjectURL을 쓰고, 렌더 중에 useMemo로 만들어 바로 쓸 수 있게 하되, 파일이 바뀌거나 언마운트될 때는
+//effect에서 반드시 revokeObjectURL로 정리해 메모리 누수를 막는다.
+function useObjectUrl(file) {
+  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
+  useEffect(() => {
+    return () => {
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [url])
+  return url
+}
+
+//위와 같은 이유로, 여러 장(File[])을 한 번에 미리보기할 때 쓴다.
+function useObjectUrls(files) {
+  const urls = useMemo(() => files.map((file) => URL.createObjectURL(file)), [files])
+  useEffect(() => {
+    return () => urls.forEach((url) => URL.revokeObjectURL(url))
+  }, [urls])
+  return urls
 }
 
 //주소 입력 + 검색 — 카카오 키워드 장소 검색(클라이언트 JS SDK, 별도 서버 호출 없음)으로 "부산시청"처럼
@@ -483,6 +505,8 @@ function HostFestivalNew() {
   const [ticketErrors, setTicketErrors] = useState({})
   const [thumbnail, setThumbnail] = useState(null)
   const [detailImages, setDetailImages] = useState([])
+  const thumbnailPreviewUrl = useObjectUrl(thumbnail)
+  const detailImagePreviewUrls = useObjectUrls(detailImages)
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(null)
@@ -1185,9 +1209,14 @@ function HostFestivalNew() {
             {thumbnail && (
               <div className={styles.ticketList}>
                 <div className={styles.ticketRowHeader}>
-                  <span className={styles.ticketRowTitle}>
-                    {thumbnail.name} ({(thumbnail.size / (1024 * 1024)).toFixed(1)}MB)
-                  </span>
+                  <div className={styles.imagePreviewInfo}>
+                    {thumbnailPreviewUrl && (
+                      <img src={thumbnailPreviewUrl} alt="대표 이미지 미리보기" className={styles.imagePreviewThumb} />
+                    )}
+                    <span className={styles.ticketRowTitle}>
+                      {thumbnail.name} ({(thumbnail.size / (1024 * 1024)).toFixed(1)}MB)
+                    </span>
+                  </div>
                   <button type="button" className={styles.ticketRemove} onClick={handleRemoveThumbnail}>
                     <Trash2Icon size={14} aria-hidden="true" />
                     제거
@@ -1224,9 +1253,18 @@ function HostFestivalNew() {
               <div className={styles.ticketList}>
                 {detailImages.map((file, index) => (
                   <div className={styles.ticketRowHeader} key={`${file.name}-${index}`}>
-                    <span className={styles.ticketRowTitle}>
-                      {file.name} ({(file.size / (1024 * 1024)).toFixed(1)}MB)
-                    </span>
+                    <div className={styles.imagePreviewInfo}>
+                      {detailImagePreviewUrls[index] && (
+                        <img
+                          src={detailImagePreviewUrls[index]}
+                          alt={`본문 이미지 미리보기 ${index + 1}`}
+                          className={styles.imagePreviewThumb}
+                        />
+                      )}
+                      <span className={styles.ticketRowTitle}>
+                        {file.name} ({(file.size / (1024 * 1024)).toFixed(1)}MB)
+                      </span>
+                    </div>
                     <button
                       type="button"
                       className={styles.ticketRemove}

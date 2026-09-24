@@ -16,6 +16,7 @@ import org.hibernate.annotations.CreationTimestamp;
  * 환불로 돌아온 재고를 바로 풀지 않고 모아 두었다가 정해진 시각(기본 매일 19:00)에 일괄로 되돌리기 위한 대기열.
  * 환불→즉시 재판매를 노리는 리셀을 막기 위한 팀 정책이다. 재고 복구 호출이 실패하면 releasedAt이 비어 있어
  * 다음 회차에 다시 시도된다(재고 유실 방지).
+ * 만료 배치가 festival-service 장애로 복구하지 못한 재고도 반환 시각을 즉시로 해서 이 대기열로 재시도한다.
  */
 @Entity
 @Table(name = "stock_release_queue")

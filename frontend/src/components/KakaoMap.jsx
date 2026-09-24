@@ -72,9 +72,25 @@ function KakaoMap({ mode = 'view', latitude, longitude, onPick, height = 280 }) 
       cancelled = true
     }
     //지도는 한 번만 만든다 — latitude/longitude/onPick을 의도적으로 deps에서 뺐다. view 모드는 상세 데이터가
-    //로딩된 뒤 조건부 렌더링으로만 좌표를 넘기므로 마운트 시점 값 그대로 충분하고, pick 모드는 클릭마다
-    //onPick을 다시 호출할 뿐 좌표 prop 자체가 바뀌지 않는다.
+    //로딩된 뒤 조건부 렌더링으로만 좌표를 넘기므로 마운트 시점 값 그대로 충분하다.
   }, [mode])
+
+  //pick 모드에서는 지도 클릭 외에도(주소 검색 결과 선택 등) 좌표가 바뀔 수 있다 — 그럴 때 지도가 따라
+  //움직이도록 별도로 감지한다. 클릭으로 인한 변경도 같은 값으로 다시 세팅될 뿐이라 문제 없다.
+  useEffect(() => {
+    const map = mapObjRef.current
+    if (!map || status !== 'ready' || latitude == null || longitude == null) return
+
+    const kakao = window.kakao
+    const position = new kakao.maps.LatLng(latitude, longitude)
+    map.setCenter(position)
+    map.setLevel(4)
+    if (markerRef.current) {
+      markerRef.current.setPosition(position)
+    } else {
+      markerRef.current = new kakao.maps.Marker({ position, map })
+    }
+  }, [latitude, longitude, status])
 
   return (
     <div>

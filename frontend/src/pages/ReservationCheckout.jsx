@@ -73,6 +73,8 @@ const CREATE_RESERVATION_ERROR_MESSAGES = {
   SEAT_ALREADY_TAKEN: '이미 선택된 좌석이에요. 좌석을 다시 선택해주세요.',
   SEAT_NOT_FOUND: '존재하지 않는 좌석이에요.',
   INVALID_SEAT_REQUEST: '좌석 선택 정보가 올바르지 않아요.',
+  // 결제 완료 확인 단계: 같은 예매를 다른 탭에서 먼저 결제했거나 결제 중 예매가 만료되면 서버가 이 결제를 자동으로 전액 환불한다.
+  RESERVATION_ALREADY_FINALIZED: '이 예매는 이미 결제가 끝났거나 만료됐어요. 방금 결제는 자동으로 취소돼 환불돼요.',
 }
 
 //예매 보유(hold) 남은 시간을 "MM:SS"로 표시한다.

@@ -24,4 +24,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // 데모 자동 입금 대상 — 가상계좌가 발급된 지 일정 시간이 지났는데 아직 입금 확인이 안 된 결제
     List<Payment> findByStatusAndVirtualAccountIssuedAtBefore(PaymentStatus status, Instant before);
+
+    // 보상 환불 재시도 대상 — 예매 확정이 거절된 지 일정 시간이 지났는데 아직 전액 취소되지 않은 결제
+    List<Payment> findByStatusInAndReservationRejectedAtBefore(Collection<PaymentStatus> statuses, Instant before);
 }

@@ -50,6 +50,10 @@ public class FestivalRefundScheduler {
             if (!REFUNDABLE_STATUSES.contains(p.getStatus())) {
                 continue;
             }
+            //예매 확정이 거절된 결제는 예매에 반영된 적이 없어 PaymentCompensationScheduler가 따로 전액 환불한다.
+            if (p.isReservationRejected()) {
+                continue;
+            }
             if (previous.stream().noneMatch(i -> i.getPaymentId().equals(p.getPaymentId()))) {
                 items.save(
                         new FestivalRefundItem(batch.getId(), p.getPaymentId(), p.getReservationId())

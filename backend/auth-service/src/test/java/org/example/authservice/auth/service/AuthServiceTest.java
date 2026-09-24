@@ -663,12 +663,12 @@ class AuthServiceTest {
         given(passwordEncoder.encode("newpassword1234")).willReturn("encoded-new-password");
 
         // when
-        authService.resetPassword("test@naver.com", "newpassword1234");
+        authService.resetPassword("test@naver.com", "reset-token", "newpassword1234");
 
         // then
         assertThat(user.getPassword()).isEqualTo("encoded-new-password");
         verify(userRepository, times(1)).save(user);
-        verify(emailVerificationService, times(1)).checkVerified("test@naver.com");
+        verify(emailVerificationService, times(1)).checkVerifiedForReset("test@naver.com", "reset-token");
         verify(refreshTokenRevocationService, times(1)).revokeAllTokens(user);
     }
 
@@ -677,10 +677,10 @@ class AuthServiceTest {
     void resetPassword_fail_emailNotVerified() {
         // given
         doThrow(new ApiException(EmailVerificationErrorCode.EMAIL_NOT_VERIFIED))
-                .when(emailVerificationService).checkVerified("notverified@naver.com");
+                .when(emailVerificationService).checkVerifiedForReset("notverified@naver.com", "reset-token");
 
         // when & then
-        assertThatThrownBy(() -> authService.resetPassword("notverified@naver.com", "newpassword1234"))
+        assertThatThrownBy(() -> authService.resetPassword("notverified@naver.com", "reset-token", "newpassword1234"))
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(EmailVerificationErrorCode.EMAIL_NOT_VERIFIED));
@@ -697,7 +697,7 @@ class AuthServiceTest {
         given(userRepository.findByUsername("notexist@naver.com")).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> authService.resetPassword("notexist@naver.com", "newpassword1234"))
+        assertThatThrownBy(() -> authService.resetPassword("notexist@naver.com", "reset-token", "newpassword1234"))
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(AuthErrorCode.USER_NOT_FOUND));

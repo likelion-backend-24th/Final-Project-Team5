@@ -12,6 +12,8 @@ import org.example.reservationservice.seat.entity.SeatStatus;
 import org.example.reservationservice.reservation.entity.CancelReason;
 import org.example.reservationservice.reservation.entity.Reservation;
 import org.example.reservationservice.reservation.entity.ReservationStatus;
+import org.example.reservationservice.reservation.entity.refund.StockReleaseQueue;
+import org.example.reservationservice.reservation.entity.refund.StockReleaseQueueRepository;
 import org.example.reservationservice.reservation.infrastructure.festival.FestivalServiceClient;
 import org.example.reservationservice.reservation.repository.ReservationRepository;
 import org.slf4j.Logger;
@@ -37,6 +39,7 @@ public class ReservationExpiryScheduler {
     private final ReservationSeatRepository reservationSeatRepository;
     private final SeatRepository seatRepository;
     private final SeatBroadcastService seatBroadcastService;
+    private final StockReleaseQueueRepository stockReleaseQueueRepository;
 
     @Scheduled(fixedDelay = 60_000)
     @Transactional
@@ -81,14 +84,15 @@ public class ReservationExpiryScheduler {
         }
     }
 
-    //STANDING과 같은 실패 정책: festival-service 복구가 실패해도 만료 처리 자체는 유지하고 로그만 남긴다
-    //(TODO: festival-service 장애 시 재시도할 방법은 restoreStandingStock과 마찬가지로 별도 설계 필요).
+    //STANDING과 같은 실패 정책: festival-service 복구가 실패해도 만료 처리 자체는 유지하고,
+    //복구하지 못한 수량은 재고 반환 대기열에 넣어 재시도한다(restoreStandingStock과 같음).
     private void restoreSeatStock(Reservation reservation, int releasedCount) {
         try {
             festivalServiceClient.restoreStock(reservation.getTicketTypeId(), releasedCount);
         } catch (RuntimeException e) {
-            log.error("만료 처리된 좌석 예매 {}의 잔여 수량 복구 실패 (ticketTypeId={}, qty={})",
+            log.error("만료 처리된 좌석 예매 {}의 잔여 수량 복구 실패, 재시도 대기열에 등록 (ticketTypeId={}, qty={})",
                     reservation.getId(), reservation.getTicketTypeId(), releasedCount, e);
+            queueStockRestoreRetry(reservation, releasedCount);
         }
     }
 
@@ -97,10 +101,19 @@ public class ReservationExpiryScheduler {
         try {
             festivalServiceClient.restoreStock(reservation.getTicketTypeId(), reservation.getQuantity());
         } catch (RuntimeException e) {
-            //재고 복구가 실패해도 예매는 만료 처리된 채로 둔다 — 다음 회차에 재시도할 근거가 없으므로 일단 로그로 남긴다.
-            //TODO: festival-service 장애 시 재시도할 방법(재시도 큐 등)은 별도로 설계 필요.
-            log.error("만료 처리된 예매 {}의 재고 복구 실패 (ticketTypeId={}, quantity={})",
+            //재고 복구가 실패해도 예매는 만료 처리된 채로 둔다 — 만료된 예매는 다음 회차 후보에 다시 잡히지 않으므로,
+            //복구하지 못한 수량은 재고 반환 대기열에 넣어 재시도 근거를 남긴다.
+            log.error("만료 처리된 예매 {}의 재고 복구 실패, 재시도 대기열에 등록 (ticketTypeId={}, quantity={})",
                     reservation.getId(), reservation.getTicketTypeId(), reservation.getQuantity(), e);
+            queueStockRestoreRetry(reservation, reservation.getQuantity());
         }
+    }
+
+    //festival-service 장애로 복구하지 못한 재고를 반환 시각 "지금"으로 재고 반환 대기열에 넣는다.
+    //StockReleaseScheduler가 1분마다 반환 시각이 지난 항목을 복구하고, 실패하면 다음 회차에 다시 시도한다.
+    //(환불 재고와 달리 만료 재고는 리셀 방지 대상이 아니라 19시까지 기다리지 않는다.)
+    private void queueStockRestoreRetry(Reservation reservation, int quantity) {
+        stockReleaseQueueRepository.save(new StockReleaseQueue(
+                reservation.getId(), reservation.getTicketTypeId(), quantity, Instant.now()));
     }
 }

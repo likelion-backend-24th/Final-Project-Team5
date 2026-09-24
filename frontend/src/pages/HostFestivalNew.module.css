@@ -294,6 +294,22 @@
   color: var(--fgColor-danger);
 }
 
+.imagePreviewThumb {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--borderRadius-medium);
+  object-fit: cover;
+  border: var(--borderWidth-thin) solid var(--borderColor-default);
+  flex-shrink: 0;
+}
+
+.imagePreviewInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
 .ticketFields {
   display: grid;
   grid-template-columns: 1.4fr 1fr 1fr;

@@ -27,6 +27,7 @@ import org.example.reservationservice.reservation.entity.Reservation;
 import org.example.reservationservice.reservation.entity.RefundReceipt;
 import org.example.reservationservice.reservation.entity.ReservationStatus;
 import org.example.reservationservice.reservation.exception.ReservationErrorCode;
+import org.example.reservationservice.reservation.repository.PurchaseLimitLockRepository;
 import org.example.reservationservice.reservation.repository.ReservationRepository;
 import org.example.reservationservice.seat.entity.ReservationSeat;
 import org.example.reservationservice.seat.entity.Seat;
@@ -78,6 +79,7 @@ public class ReservationService {
     private final ReservationSeatRepository reservationSeatRepository;
     private final SeatReleaseQueueRepository seatReleaseQueueRepository;
     private final SeatBroadcastService seatBroadcastService;
+    private final PurchaseLimitLockRepository purchaseLimitLockRepository;
 
 
     //사이트 전체 기본 1인당 구매 제한(계정 기준, 페스티벌당 — 티켓 종류를 나눠 사도 합산). 티켓 종류당으로 세던 시절엔
@@ -634,13 +636,23 @@ public class ReservationService {
     //1인당 구매 제한 검증(내부 메서드) — 계정 기준, 같은 페스티벌의 모든 티켓 종류에 대해 PENDING·CONFIRMED로 이미 들고 있는
     //수량(환불된 장수는 제외) + 이번 요청 수량이 한도를 넘으면 거부
     private void checkPurchaseLimitOrThrow(Long userId, Long festivalId, int quantity) {
+        //같은 사용자가 동시에 예매를 보내도 둘 다 합산 전 수량으로 통과하지 않도록, (사용자, 페스티벌)별 잠금 행을 잡은 뒤 센다.
+        //잠금은 이 예매 트랜잭션이 끝날 때 풀리므로 뒤 요청은 앞 요청의 예매까지 합산해 검사한다.
+        lockPurchaseLimit(userId, festivalId);
         int alreadyHeld = reservationRepository
-                .findByUserIdAndFestivalIdAndReservationStatusIn(userId, festivalId, PURCHASE_LIMIT_STATUSES).stream()
+                .findForUpdateByUserIdAndFestivalIdAndReservationStatusIn(userId, festivalId, PURCHASE_LIMIT_STATUSES).stream()
                 .mapToInt(Reservation::remainingQuantity)
                 .sum();
         if (alreadyHeld + quantity > maxQuantityPerFestival) {
             throw new ApiException(ReservationErrorCode.PURCHASE_LIMIT_EXCEEDED);
         }
+    }
+
+    //구매 제한 잠금 행 잡기(내부 메서드) — 첫 예매라 행이 없으면 먼저 만들고(부스 대기 카운터처럼 최초 1회) 잠근다.
+    private void lockPurchaseLimit(Long userId, Long festivalId) {
+        purchaseLimitLockRepository.insertIfAbsent(userId, festivalId);
+        purchaseLimitLockRepository.findForUpdate(userId, festivalId)
+                .orElseThrow(() -> new IllegalStateException("구매 제한 잠금 행을 찾을 수 없습니다: user=" + userId + ", festival=" + festivalId));
     }
 
     //재고 차감(내부 메서드)

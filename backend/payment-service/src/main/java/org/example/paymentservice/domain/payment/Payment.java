@@ -77,9 +77,22 @@ public class Payment {
     private Instant virtualAccountIssuedAt;
     // 데모 자동 입금이 처리된 시각. null이 아니면 PortOne 실제 상태 대신 로컬 입금 기록을 원격 상태로 간주한다.
     private Instant demoDepositedAt;
+    // 결제는 승인됐는데 예매 확정이 거절된 시각(예매가 이미 다른 결제로 확정됐거나 만료·취소됨). 이 결제로는 티켓을 줄 수 없어
+    // 자동 전액 환불(보상) 대상이고, 예매에 반영된 매출이 아니므로 정산·행사 취소 환불에서 제외한다(실전 가이드 7.4·11.4).
+    private Instant reservationRejectedAt;
 
     public void markReservationConfirmed() {
         reservationConfirmedAt = Instant.now();
+    }
+
+    public void markReservationRejected() {
+        if (reservationRejectedAt == null) {
+            reservationRejectedAt = Instant.now();
+        }
+    }
+
+    public boolean isReservationRejected() {
+        return reservationRejectedAt != null;
     }
 
     public void markVirtualAccountIssued() {

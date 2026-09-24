@@ -28,6 +28,8 @@ payment:
   id-prefix: BE24-T05-
   demo-deposit:
     enabled: false
+payment-compensation:
+  scheduling-enabled: false
 
 settlement:
   scheduling-enabled: false

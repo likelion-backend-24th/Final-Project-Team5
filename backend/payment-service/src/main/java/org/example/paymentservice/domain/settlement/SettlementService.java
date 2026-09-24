@@ -125,6 +125,13 @@ public class SettlementService {
                 if (!APPROVED_PAYMENT_STATUSES.contains(payment.getStatus())) {
                     continue;
                 }
+                //예매 확정이 거절돼 자동 전액 환불(보상)되는 결제는 티켓을 준 매출이 아니다 — 환불이 끝났으면 빼고, 아직이면 보류한다.
+                if (payment.isReservationRejected()) {
+                    if (payment.getStatus() != PaymentStatus.CANCELLED) {
+                        throw new IllegalArgumentException("COMPENSATION_REFUND_PENDING");
+                    }
+                    continue;
+                }
                 var reservation = byId.get(payment.getReservationId());
                 var remote = portone.getPayment(payment.getPaymentId());
                 //채널 출처가 확인되지 않은 결제를 승인 거래로 가정하지 않는다.

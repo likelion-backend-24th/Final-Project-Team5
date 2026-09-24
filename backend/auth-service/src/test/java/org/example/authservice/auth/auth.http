@@ -57,7 +57,7 @@ Content-Type: application/json
   "email": "test@naver.com"
 }
 
-### 2. 인증코드 검증 (1번 응답 메일에서 받은 실제 코드로 교체)
+### 2. 인증코드 검증 (1번 응답 메일에서 받은 실제 코드로 교체, 응답의 data.verificationToken을 3번에 사용)
 POST http://localhost:8081/api/auth/email/verify
 Content-Type: application/json
 
@@ -72,6 +72,7 @@ Content-Type: application/json
 
 {
   "username": "test@naver.com",
+  "verificationToken": "2번응답의verificationToken입력",
   "newPassword": "newpassword1234"
 }
 
@@ -99,6 +100,7 @@ Content-Type: application/json
 
 {
   "username": "인증안한이메일@naver.com",
+  "verificationToken": "아무값",
   "newPassword": "newpassword1234"
 }
 
@@ -109,6 +111,7 @@ Content-Type: application/json
 
 {
   "username": "가입안한이메일@naver.com",
+  "verificationToken": "2번응답의verificationToken입력",
   "newPassword": "newpassword1234"
 }
 
@@ -118,6 +121,7 @@ Content-Type: application/json
 
 {
   "username": "test@naver.com",
+  "verificationToken": "2번응답의verificationToken입력",
   "newPassword": "short"
 }
 

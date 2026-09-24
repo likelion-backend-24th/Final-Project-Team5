@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.authservice.auth.dto.emailverification.EmailVerificationCheckRequest;
 import org.example.authservice.auth.dto.emailverification.EmailVerificationRequest;
+import org.example.authservice.auth.dto.emailverification.EmailVerificationTokenResponse;
 import org.example.authservice.auth.service.EmailVerificationService;
 import org.example.authservice.common.dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
@@ -33,12 +34,12 @@ public class EmailVerificationController {
     }
 
     //인증코드 검증
-    @Operation(summary = "인증코드 검증", description = "받은 인증코드를 일치하는지 확인하여 검증합니다.")
+    @Operation(summary = "인증코드 검증", description = "받은 인증코드를 일치하는지 확인하여 검증합니다. 5회 틀리면 인증코드를 다시 받아야 하며, 성공하면 비밀번호 재설정에 쓸 인증 토큰을 돌려줍니다.")
     @PostMapping("/verify")
-    public ResponseEntity<ApiResponse<Void>> verifyCode(
+    public ResponseEntity<ApiResponse<EmailVerificationTokenResponse>> verifyCode(
             @Valid @RequestBody EmailVerificationCheckRequest request){
-        emailVerificationService.verifyCode(request.getEmail(),request.getCode());
-        return ResponseEntity.ok(ApiResponse.success("이메일 인증이 완료되었습니다.",null));
+        String verificationToken = emailVerificationService.verifyCode(request.getEmail(),request.getCode());
+        return ResponseEntity.ok(ApiResponse.success("이메일 인증이 완료되었습니다.",new EmailVerificationTokenResponse(verificationToken)));
     }
 
 }

@@ -60,11 +60,11 @@ public class AuthController {
     }
 
     //비밀번호 재설정
-    @Operation(summary = "비밀번호 재설정", description = "이메일 인증 완료 후 비밀번호를 재설정합니다. (로그인 없이 이메일 인증만으로 진행)")
+    @Operation(summary = "비밀번호 재설정", description = "이메일 인증 완료 후 비밀번호를 재설정합니다. (로그인 없이 이메일 인증만으로 진행, 인증코드 검증 때 받은 인증 토큰 필요)")
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<Void>> resetPassword(
             @Valid @RequestBody ResetPasswordRequest request) {
-        authService.resetPassword(request.getUsername(), request.getNewPassword());
+        authService.resetPassword(request.getUsername(), request.getVerificationToken(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success("비밀번호가 재설정되었습니다.", null));
     }
 

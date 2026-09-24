@@ -62,6 +62,15 @@ class PaymentAcceptanceTest {
     @MockitoBean
     private PortOnePaymentClient portOnePaymentClient;
 
+    @Autowired
+    private org.example.paymentservice.domain.cancellation.CancellationRepository cancellationRepository;
+
+    // 확정이 거절된 결제는 자동 환불 기록(취소)을 남긴다 — 다음 테스트가 결제를 지울 때 외래키에 걸리지 않게 먼저 정리한다.
+    @org.junit.jupiter.api.AfterEach
+    void deleteCancellations() {
+        cancellationRepository.deleteAll();
+    }
+
     @BeforeEach
     void setUp() {
         paymentTransactionRepository.deleteAll();

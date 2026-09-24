@@ -1,6 +1,7 @@
 package org.example.paymentservice.domain.payment;
 
 import org.example.paymentservice.common.exception.ApiException;
+import org.example.paymentservice.domain.cancellation.PaymentCancellationService;
 import org.example.paymentservice.domain.payment.dto.PaymentCompleteResponse;
 import org.example.paymentservice.domain.payment.dto.PaymentPrepareRequest;
 import org.example.paymentservice.domain.payment.dto.PaymentPrepareResponse;
@@ -48,6 +49,9 @@ class PaymentServiceTest {
     @Mock
     private PortOnePaymentClient portOnePaymentClient;
 
+    @Mock
+    private PaymentCancellationService paymentCancellationService;
+
     private PaymentService paymentService;
 
     private static final PaymentPrepareRequest PREPARE_REQUEST = new PaymentPrepareRequest(1L);
@@ -56,7 +60,8 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         lenient().when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
-        paymentService = new PaymentService(paymentRepository, paymentTransactionRepository, reservationServiceClient, portOnePaymentClient);
+        paymentService = new PaymentService(paymentRepository, paymentTransactionRepository, reservationServiceClient, portOnePaymentClient,
+                paymentCancellationService);
         ReflectionTestUtils.setField(paymentService, "paymentIdPrefix", "BE24-T05-");
         ReflectionTestUtils.setField(paymentService, "storeId", "store-test");
         ReflectionTestUtils.setField(paymentService, "channelKeyPayment", "channel-key-test");
@@ -336,6 +341,67 @@ class PaymentServiceTest {
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(PaymentErrorCode.RESERVATION_ALREADY_FINALIZED));
+    }
+
+    @Test
+    void 확정이_거절되면_결제에_거절_표시를_남기고_자동_환불한다() {
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment(10L, PaymentStatus.READY)));
+        when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(paidResponse(10_000L));
+        org.mockito.Mockito.doThrow(HttpClientErrorException.Conflict.create(HttpStatus.CONFLICT, "Conflict", null, null, null))
+                .when(reservationServiceClient).confirmReservation(anyLong(), any());
+
+        assertThatThrownBy(() -> paymentService.complete(10L, PAYMENT_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(PaymentErrorCode.RESERVATION_ALREADY_FINALIZED));
+
+        verify(paymentCancellationService).compensate(org.mockito.ArgumentMatchers.argThat(p ->
+                PAYMENT_ID.equals(p.getPaymentId()) && p.isReservationRejected() && p.getStatus() == PaymentStatus.PAID));
+    }
+
+    @Test
+    void 자동_환불이_실패해도_같은_409를_돌려주고_거절_표시는_남는다() {
+        Payment payment = payment(10L, PaymentStatus.READY);
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(portOnePaymentClient.getPayment(PAYMENT_ID)).thenReturn(paidResponse(10_000L));
+        org.mockito.Mockito.doThrow(HttpClientErrorException.Conflict.create(HttpStatus.CONFLICT, "Conflict", null, null, null))
+                .when(reservationServiceClient).confirmReservation(anyLong(), any());
+        when(paymentCancellationService.compensate(any())).thenThrow(new IllegalStateException("PortOne down"));
+
+        assertThatThrownBy(() -> paymentService.complete(10L, PAYMENT_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(PaymentErrorCode.RESERVATION_ALREADY_FINALIZED));
+        assertThat(payment.isReservationRejected()).isTrue();
+    }
+
+    @Test
+    void 확정이_거절된_결제는_환불_뒤_다시_확인해도_성공으로_알리지_않는다() {
+        Payment rejected = payment(10L, PaymentStatus.CANCELLED);
+        rejected.markReservationRejected();
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(rejected));
+
+        assertThatThrownBy(() -> paymentService.complete(10L, PAYMENT_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(PaymentErrorCode.RESERVATION_ALREADY_FINALIZED));
+        verify(reservationServiceClient, never()).confirmReservation(anyLong(), any());
+        verify(portOnePaymentClient, never()).getPayment(any());
+    }
+
+    @Test
+    void 이전에_확정하지_못한_PAID_결제를_다시_확정하다_거절되면_자동_환불한다() {
+        Payment paid = payment(10L, PaymentStatus.PAID);
+        ReflectionTestUtils.setField(paid, "paidAt", Instant.now());
+        when(paymentRepository.findByPaymentId(PAYMENT_ID)).thenReturn(Optional.of(paid));
+        org.mockito.Mockito.doThrow(HttpClientErrorException.Conflict.create(HttpStatus.CONFLICT, "Conflict", null, null, null))
+                .when(reservationServiceClient).confirmReservation(anyLong(), any());
+
+        assertThatThrownBy(() -> paymentService.complete(10L, PAYMENT_ID))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(PaymentErrorCode.RESERVATION_ALREADY_FINALIZED));
+        verify(paymentCancellationService).compensate(paid);
     }
 
     @Test

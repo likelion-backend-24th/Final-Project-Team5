@@ -21,6 +21,10 @@ public class ResetPasswordRequest {
     @Email(message = "이메일 형식이 올바르지 않습니다.")
     private String username;
 
+    @Schema(description = "인증코드 검증 성공 시 받은 인증 토큰 (인증한 본인의 요청인지 확인)", example = "q3Zx9Lk2...")
+    @NotBlank(message = "인증 토큰은 필수입니다.")
+    private String verificationToken;
+
     @Schema(description = "새 비밀번호 (최소 8자)", example = "newpw1234")
     @NotBlank(message = "새 비밀번호는 필수입니다.")
     @Size(min = PasswordPolicy.MIN_LENGTH, message = "비밀번호는 최소 8자 이상이어야합니다.")

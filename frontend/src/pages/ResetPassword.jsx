@@ -30,6 +30,8 @@ function ResetPassword() {
   const [sendingCode, setSendingCode] = useState(false)
 
   const [emailCode, setEmailCode] = useState('')
+  // 인증코드 확인 성공 때 받은 토큰. 비밀번호 변경 요청에 함께 보내야 서버가 인증한 본인의 요청으로 받아준다.
+  const [verificationToken, setVerificationToken] = useState('')
   const [verifyingCode, setVerifyingCode] = useState(false)
   const [verifyCodeError, setVerifyCodeError] = useState('')
   const [sendCodeError, setSendCodeError] = useState('')
@@ -74,6 +76,7 @@ function ResetPassword() {
     try {
       await sendEmailVerificationCode(trimmedEmail)
       setEmailCode('')
+      setVerificationToken('')
       setVerifyCodeError('')
       setResendCooldown(RESEND_COOLDOWN_SECONDS)
       setStep('code')
@@ -105,7 +108,8 @@ function ResetPassword() {
     setVerifyCodeError('')
 
     try {
-      await verifyEmailVerificationCode({ email: email.trim(), code })
+      const response = await verifyEmailVerificationCode({ email: email.trim(), code })
+      setVerificationToken(response.data.data.verificationToken)
       setStep('password')
     } catch (error) {
       const { message } = extractError(error, '인증코드가 올바르지 않아요.')
@@ -123,7 +127,7 @@ function ResetPassword() {
     setPasswordError('')
 
     try {
-      await resetPassword({ username: email.trim(), newPassword })
+      await resetPassword({ username: email.trim(), verificationToken, newPassword })
       setStep('done')
     } catch (error) {
       const { errorCode, message } = extractError(

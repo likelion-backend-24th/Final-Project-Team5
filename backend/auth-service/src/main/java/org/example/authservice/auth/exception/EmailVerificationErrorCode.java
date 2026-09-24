@@ -14,7 +14,8 @@ public enum EmailVerificationErrorCode implements ErrorCode {
     EMAIL_NOT_VERIFIED(HttpStatus.BAD_REQUEST, "이메일 인증이 완료되지 않았습니다."),
     ALREADY_REGISTERED_EMAIL(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
     TOO_MANY_REQUESTS_COOLDOWN(HttpStatus.TOO_MANY_REQUESTS, "잠시 후 다시 시도해주세요. (30초 대기)"),
-    TOO_MANY_REQUESTS_LIMIT(HttpStatus.TOO_MANY_REQUESTS, "인증코드 요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요.");
+    TOO_MANY_REQUESTS_LIMIT(HttpStatus.TOO_MANY_REQUESTS, "인증코드 요청 횟수를 초과했습니다. 잠시 후 다시 시도해주세요."),
+    TOO_MANY_VERIFY_ATTEMPTS(HttpStatus.TOO_MANY_REQUESTS, "인증코드를 5회 잘못 입력했습니다. 인증코드를 다시 요청해주세요.");
 
 
     private final HttpStatus httpStatus;

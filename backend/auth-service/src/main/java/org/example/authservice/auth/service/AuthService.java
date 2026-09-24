@@ -241,9 +241,9 @@ public class AuthService {
 
     // 비밀번호 재설정 (이메일 인증 완료 -> 새 비밀번호 설정)
     @Transactional
-    public void resetPassword(String username,String newPassword){
-        //이메일 인증 완료 확인
-        emailVerificationService.checkVerified(username);
+    public void resetPassword(String username,String verificationToken,String newPassword){
+        //이메일 인증 완료 확인 (인증한 본인이 받은 토큰까지 확인)
+        emailVerificationService.checkVerifiedForReset(username, verificationToken);
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ApiException(AuthErrorCode.USER_NOT_FOUND));

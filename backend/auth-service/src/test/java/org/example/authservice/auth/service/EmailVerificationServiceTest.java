@@ -1,5 +1,6 @@
 package org.example.authservice.auth.service;
 
+import jakarta.persistence.EntityManager;
 import org.example.authservice.auth.entity.EmailVerification;
 import org.example.authservice.auth.exception.EmailVerificationErrorCode;
 import org.example.authservice.auth.repository.EmailVerificationRepository;
@@ -35,6 +36,9 @@ class EmailVerificationServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private EntityManager entityManager;
 
     @InjectMocks
     private EmailVerificationService emailVerificationService;
@@ -123,6 +127,142 @@ class EmailVerificationServiceTest {
                 .isInstanceOf(ApiException.class)
                 .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
                         .isEqualTo(EmailVerificationErrorCode.INVALID_VERIFICATION_CODE));
+    }
+
+    @Test
+    @DisplayName("인증에 성공하면 인증 토큰을 돌려주고, DB에는 토큰 원문 대신 해시와 인증 시각만 저장한다")
+    void verifyCode_success_issuesVerificationToken() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification verification = createVerification(email, "123456", LocalDateTime.now().plusMinutes(5));
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(verification));
+
+        // when
+        String verificationToken = emailVerificationService.verifyCode(email, "123456");
+
+        // then
+        assertThat(verificationToken).isNotBlank();
+        assertThat(verification.getVerificationTokenHash()).isEqualTo(TokenSessionService.hashToken(verificationToken));
+        assertThat(verification.getVerificationTokenHash()).isNotEqualTo(verificationToken);
+        assertThat(verification.getVerifiedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("코드가 틀리면 실패 횟수가 1 늘어난 채로 저장된다")
+    void verifyCode_fail_mismatch_increasesFailedAttempts() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification verification = createVerification(email, "123456", LocalDateTime.now().plusMinutes(5));
+        verification.setFailedAttempts(2);
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(verification));
+
+        // when & then
+        assertThatThrownBy(() -> emailVerificationService.verifyCode(email, "000000"))
+                .isInstanceOf(ApiException.class);
+
+        assertThat(verification.getFailedAttempts()).isEqualTo(3);
+        assertThat(verification.isVerified()).isFalse();
+        verify(emailVerificationRepository, times(1)).save(verification);
+    }
+
+    @Test
+    @DisplayName("이미 5번 틀린 코드는 정답을 넣어도 TOO_MANY_VERIFY_ATTEMPTS 예외가 발생하고 인증되지 않는다")
+    void verifyCode_fail_tooManyAttempts() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification verification = createVerification(email, "123456", LocalDateTime.now().plusMinutes(5));
+        verification.setFailedAttempts(5);
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(verification));
+
+        // when & then
+        assertThatThrownBy(() -> emailVerificationService.verifyCode(email, "123456"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(EmailVerificationErrorCode.TOO_MANY_VERIFY_ATTEMPTS));
+
+        assertThat(verification.isVerified()).isFalse();
+        verify(emailVerificationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("인증 때 받은 토큰이 맞고 10분 안이면 재설정 인증 확인이 통과하고 레코드를 삭제한다")
+    void checkVerifiedForReset_success_deletesRecord() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification verification = createVerifiedForReset(email, "reset-token", LocalDateTime.now().minusMinutes(1));
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(verification));
+
+        // when
+        emailVerificationService.checkVerifiedForReset(email, "reset-token");
+
+        // then
+        verify(emailVerificationRepository, times(1)).delete(verification);
+    }
+
+    @Test
+    @DisplayName("인증은 됐어도 토큰이 다르면(이메일만 아는 다른 사람의 요청) EMAIL_NOT_VERIFIED 예외가 발생한다")
+    void checkVerifiedForReset_fail_tokenMismatch() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification verification = createVerifiedForReset(email, "reset-token", LocalDateTime.now().minusMinutes(1));
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(verification));
+
+        // when & then
+        assertThatThrownBy(() -> emailVerificationService.checkVerifiedForReset(email, "other-token"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(EmailVerificationErrorCode.EMAIL_NOT_VERIFIED));
+
+        verify(emailVerificationRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("인증 후 10분이 지났으면 토큰이 맞아도 EMAIL_NOT_VERIFIED 예외가 발생한다")
+    void checkVerifiedForReset_fail_resetWindowPassed() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification verification = createVerifiedForReset(email, "reset-token", LocalDateTime.now().minusMinutes(11));
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(verification));
+
+        // when & then
+        assertThatThrownBy(() -> emailVerificationService.checkVerifiedForReset(email, "reset-token"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(EmailVerificationErrorCode.EMAIL_NOT_VERIFIED));
+
+        verify(emailVerificationRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("인증이 완료되지 않은 기록이면 재설정 인증 확인에서 EMAIL_NOT_VERIFIED 예외가 발생한다")
+    void checkVerifiedForReset_fail_notVerified() {
+        // given
+        String email = "test@naver.com";
+        EmailVerification verification = createVerification(email, "123456", LocalDateTime.now().plusMinutes(5));
+        given(emailVerificationRepository.findTopByEmailOrderByCreatedAtDesc(email))
+                .willReturn(Optional.of(verification));
+
+        // when & then
+        assertThatThrownBy(() -> emailVerificationService.checkVerifiedForReset(email, "reset-token"))
+                .isInstanceOf(ApiException.class)
+                .satisfies(e -> assertThat(((ApiException) e).getErrorCode())
+                        .isEqualTo(EmailVerificationErrorCode.EMAIL_NOT_VERIFIED));
+
+        verify(emailVerificationRepository, never()).delete(any());
+    }
+
+    private EmailVerification createVerifiedForReset(String email, String verificationToken, LocalDateTime verifiedAt) {
+        EmailVerification verification = createVerification(email, "123456", LocalDateTime.now().plusMinutes(5));
+        verification.setVerified(true);
+        verification.setVerifiedAt(verifiedAt);
+        verification.setVerificationTokenHash(TokenSessionService.hashToken(verificationToken));
+        return verification;
     }
 
     @Test

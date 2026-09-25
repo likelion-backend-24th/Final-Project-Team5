@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Search, X, CalendarDays } from 'lucide-react'
+import { Search, CalendarDays } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { fetchAdminUsers, unsuspendUser } from '../../api/adminApi'
 import { ACCOUNT_STATUS_META, ROLE_BADGE_META, PROVIDER_LABELS, formatDate } from '../../data/admin'
 import Pagination from '../Pagination'
 import SuspendUserModal from './SuspendUserModal'
+import DetailModal from './DetailModal'
 
 const PAGE_SIZE = 10
 
@@ -46,36 +47,6 @@ function ProviderBadges({ providers }) {
           {PROVIDER_LABELS[p] ?? p}
         </span>
       ))}
-    </div>
-  )
-}
-
-/** 정지 사유 상세 패널. OrganizerManagement의 SlideOver와 동일한 구조/클래스를 이 파일 안에 복제했다. */
-function SlideOver({ open, onClose, title, children }) {
-  return (
-    <div className={'fixed inset-0 z-50 ' + (open ? '' : 'pointer-events-none')} aria-hidden={!open}>
-      <div onClick={onClose} className={'absolute inset-0 bg-black/30 transition-opacity ' + (open ? 'opacity-100' : 'opacity-0')} />
-      <aside
-        className={
-          'absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-xl transition-transform duration-300 ' +
-          (open ? 'translate-x-0' : 'translate-x-full')
-        }
-        role="dialog"
-        aria-label={title}
-      >
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h3 className="text-lg font-extrabold text-gray-900">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100"
-            aria-label="닫기"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
-      </aside>
     </div>
   )
 }
@@ -375,7 +346,7 @@ function UserManagement() {
         </>
       )}
 
-      <SlideOver open={!!suspendDetail} onClose={() => setSuspendDetail(null)} title="정지 사유">
+      <DetailModal open={!!suspendDetail} onClose={() => setSuspendDetail(null)} title="정지 사유">
         {suspendDetail && (
           <div className="space-y-5">
             <StatusBadge status={suspendDetail.status} />
@@ -391,7 +362,7 @@ function UserManagement() {
             </div>
           </div>
         )}
-      </SlideOver>
+      </DetailModal>
 
       {suspendTarget && (
         <SuspendUserModal

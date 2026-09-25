@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Search, ArrowUpDown, X, Mail, Phone, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, ArrowUpDown, Mail, Phone, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   REVIEW_STATUS_META,
   ACCOUNT_STATUS_META,
@@ -12,6 +12,7 @@ import {
   fetchOrganizers,
 } from '../../data/admin'
 import CancellationRequests from './CancellationRequests'
+import DetailModal from './DetailModal'
 
 const STATUS_FILTERS = [
   { key: 'ALL', label: '전체' },
@@ -349,7 +350,7 @@ function OrganizerApprovals() {
 
       <Pagination page={list.page} pages={list.pages} setPage={list.setPage} />
 
-      <SlideOver open={!!detail} onClose={() => setDetail(null)} title="주최자 신청 상세">
+      <DetailModal open={!!detail} onClose={() => setDetail(null)} title="주최자 신청 상세">
         {detail && (
           <div className="space-y-5">
             <StatusBadge status={detail.status} />
@@ -376,7 +377,7 @@ function OrganizerApprovals() {
             </div>
           </div>
         )}
-      </SlideOver>
+      </DetailModal>
     </div>
   )
 }
@@ -389,7 +390,7 @@ function FestivalApprovals({ initialQuery = '' }) {
     (it, q) => it.name.toLowerCase().includes(q) || it.host.toLowerCase().includes(q),
     initialQuery,
   )
-  const [expanded, setExpanded] = useState({})
+  const [descriptionDetail, setDescriptionDetail] = useState(null)
   const [actionError, setActionError] = useState({})
   const [pendingId, setPendingId] = useState(null)
   const [rejectDraftId, setRejectDraftId] = useState(null)
@@ -443,7 +444,6 @@ function FestivalApprovals({ initialQuery = '' }) {
       {!list.loading && !list.loadError && (
         <ul className="mt-5 space-y-4">
           {list.paged.map((f) => {
-            const open = expanded[f.id]
             return (
               <li key={f.id} className="flex flex-col gap-4 rounded-2xl border border-gray-200 p-5 sm:flex-row">
                 <img
@@ -463,13 +463,13 @@ function FestivalApprovals({ initialQuery = '' }) {
                   <p className="text-sm text-gray-500">
                     {f.host} · {f.date} · {f.location}
                   </p>
-                  <p className={'mt-2 text-sm leading-relaxed text-gray-600 ' + (open ? '' : 'line-clamp-2')}>{f.description}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600 line-clamp-2">{f.description}</p>
                   <button
                     type="button"
-                    onClick={() => setExpanded((prev) => ({ ...prev, [f.id]: !prev[f.id] }))}
+                    onClick={() => setDescriptionDetail(f)}
                     className="mt-1 text-sm font-bold text-blue-600 hover:underline"
                   >
-                    {open ? '접기' : '더보기'}
+                    더보기
                   </button>
 
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -540,6 +540,10 @@ function FestivalApprovals({ initialQuery = '' }) {
       )}
 
       <Pagination page={list.page} pages={list.pages} setPage={list.setPage} />
+
+      <DetailModal open={!!descriptionDetail} onClose={() => setDescriptionDetail(null)} title={descriptionDetail?.name}>
+        <p className="text-sm leading-relaxed text-gray-600">{descriptionDetail?.description}</p>
+      </DetailModal>
     </div>
   )
 }
@@ -711,37 +715,6 @@ function OrganizerList({ onViewFestivals }) {
 function AccountBadge({ status }) {
   const meta = ACCOUNT_STATUS_META[status]
   return <span className={'rounded-full px-2.5 py-1 text-xs font-bold ' + meta.cls}>{meta.label}</span>
-}
-
-/* ---------- 슬라이드 오버 패널 ---------- */
-
-function SlideOver({ open, onClose, title, children }) {
-  return (
-    <div className={'fixed inset-0 z-50 ' + (open ? '' : 'pointer-events-none')} aria-hidden={!open}>
-      <div onClick={onClose} className={'absolute inset-0 bg-black/30 transition-opacity ' + (open ? 'opacity-100' : 'opacity-0')} />
-      <aside
-        className={
-          'absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-white shadow-xl transition-transform duration-300 ' +
-          (open ? 'translate-x-0' : 'translate-x-full')
-        }
-        role="dialog"
-        aria-label={title}
-      >
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h3 className="text-lg font-extrabold text-gray-900">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100"
-            aria-label="닫기"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
-      </aside>
-    </div>
-  )
 }
 
 /* ---------- 행사 취소 승인 ---------- */

@@ -31,7 +31,7 @@ export const CATEGORY_BADGE = {
 }
 export const DEFAULT_CATEGORY_BADGE_CLS = 'bg-gray-100 text-gray-600'
 
-function formatDate(value) {
+export function formatDate(value) {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
@@ -200,4 +200,19 @@ export async function fetchOrganizers() {
         '주최자 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
     )
   }
+}
+
+/* ---------- 회원 관리 ---------- */
+
+export const ROLE_BADGE_META = {
+  USER: { label: 'USER', cls: 'bg-gray-100 text-gray-600' },
+  HOST: { label: 'HOST', cls: 'bg-blue-50 text-blue-600' },
+  HELPER: { label: 'HELPER', cls: 'bg-teal-50 text-teal-600' },
+  STOREHOST: { label: 'STOREHOST', cls: 'bg-orange-50 text-orange-600' },
+  ADMIN: { label: 'ADMIN', cls: 'bg-purple-50 text-purple-600' },
+}
+
+export const PROVIDER_LABELS = {
+  KAKAO: '카카오',
+  GOOGLE: '구글',
 }

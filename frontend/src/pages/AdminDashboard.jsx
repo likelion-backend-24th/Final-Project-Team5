@@ -1,19 +1,46 @@
 import { useState } from 'react'
-import { Users, Wallet, CircleAlertIcon } from 'lucide-react'
+import { LayoutDashboard, Users, Megaphone, CalendarDays, Wallet, CircleAlertIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import OrganizerManagement from '../components/admin/OrganizerManagement'
 import SettlementDashboard from '../components/admin/SettlementDashboard'
+import UserManagement from '../components/admin/UserManagement'
 
 const TABS = [
-  { key: 'organizer', label: '주최자 관리', icon: Users },
+  { key: 'dashboard', label: '대시보드', icon: LayoutDashboard },
+  { key: 'member', label: '회원 관리', icon: Users },
+  { key: 'organizer', label: '주최자 관리', icon: Megaphone },
+  { key: 'festival', label: '페스티벌 관리', icon: CalendarDays },
   { key: 'settlement', label: '정산 대시보드', icon: Wallet },
 ]
 
-/** 어드민 대시보드 — 주최자 관리(신청/페스티벌 승인, 목록)와 정산 대시보드를 한 화면에서 다룬다. */
+const TAB_META = {
+  dashboard: { title: '대시보드', description: '플랫폼 운영 현황을 한눈에 확인합니다.' },
+  member: { title: '회원 관리', description: '전체 회원을 조회하고 계정 정지·해제를 처리합니다.' },
+  organizer: { title: '주최자 관리', description: '주최자 신청과 페스티벌 등록을 심사하고 승인·반려를 처리합니다.' },
+  festival: { title: '페스티벌 관리', description: '등록된 페스티벌의 운영 현황을 확인합니다.' },
+  settlement: { title: '정산 대시보드', description: '플랫폼 거래·수수료 현황과 페스티벌별 정산 상태를 확인합니다.' },
+}
+
+function ComingSoon() {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
+      <p className="py-12 text-center text-sm font-semibold text-gray-400">준비 중인 기능입니다.</p>
+    </div>
+  )
+}
+
+function renderTab(tab) {
+  if (tab === 'member') return <UserManagement />
+  if (tab === 'organizer') return <OrganizerManagement />
+  if (tab === 'settlement') return <SettlementDashboard />
+  return <ComingSoon />
+}
+
+/** 어드민 패널 — 대시보드/회원 관리/주최자 관리/페스티벌 관리/정산 대시보드를 한 화면에서 다룬다. */
 function AdminDashboard() {
   const { user, isLoading: authLoading } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
-  const [tab, setTab] = useState('organizer')
+  const [tab, setTab] = useState('dashboard')
 
   if (authLoading) {
     return (
@@ -37,6 +64,10 @@ function AdminDashboard() {
     <div className="min-h-screen bg-gray-50">
       {/* 관리자 전용 상단 네비게이션 */}
       <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-6">
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">어드민 패널</h1>
+          <p className="mt-1 text-sm text-gray-500">FevalGo 운영 관리 콘솔</p>
+        </div>
         <div className="mx-auto flex max-w-6xl items-center gap-1 px-4">
           {TABS.map((t) => {
             const Icon = t.icon
@@ -61,14 +92,12 @@ function AdminDashboard() {
 
       <div className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">{tab === 'organizer' ? '주최자 관리' : '정산 대시보드'}</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {tab === 'organizer' ? '주최자 신청과 페스티벌 등록을 심사하고 승인·반려를 처리합니다.' : '플랫폼 거래·수수료 현황과 페스티벌별 정산 상태를 확인합니다.'}
-          </p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">{TAB_META[tab].title}</h1>
+          <p className="mt-1 text-sm text-gray-500">{TAB_META[tab].description}</p>
         </div>
 
         <div key={tab} className="animate-in fade-in duration-300">
-          {tab === 'organizer' ? <OrganizerManagement /> : <SettlementDashboard />}
+          {renderTab(tab)}
         </div>
       </div>
     </div>

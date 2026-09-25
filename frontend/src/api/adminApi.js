@@ -35,3 +35,18 @@ export function approveFestivalCancellation(festivalId) {
 export function rejectFestivalCancellation(festivalId) {
   return apiClient.post(`/api/admin/festivals/${festivalId}/reject-cancellation`)
 }
+
+//전체 회원 목록(검색·필터·페이지네이션)
+export function fetchAdminUsers(params, signal) {
+  return apiClient.get('/api/admin/users', { params, signal })
+}
+
+//회원 계정 정지 — reason 필수
+export function suspendUser(userId, reason) {
+  return apiClient.patch(`/api/admin/users/${userId}/suspend`, { reason })
+}
+
+//정지 해제
+export function unsuspendUser(userId) {
+  return apiClient.patch(`/api/admin/users/${userId}/unsuspend`)
+}

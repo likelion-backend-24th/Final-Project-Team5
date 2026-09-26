@@ -45,6 +45,9 @@ services:
       FESTIVAL_DB_HOST: core-db
       FESTIVAL_DB_PORT: 3306
       AUTH_SERVICE_URL: http://auth-service:8081
+      # 행사 취소 승인 화면의 예상 환불 금액 조회(GET /internal/v1/payments/refund-preview) 대상.
+      # .env의 PAYMENT_SERVICE_URL이 빈 값이라 여기서 덮어쓰지 않으면 호출이 항상 실패한다.
+      PAYMENT_SERVICE_URL: http://payment-service:8084
       # 페스티벌 승인(PUBLISHED) 시 SEATED 티켓타입 좌석 생성을 요청하는 내부 호출 대상.
       # 이 값이 빠지면 코드 기본값(http://localhost:8083)으로 폴백돼 festival-service 컨테이너
       # 자기 자신을 가리키게 되고, 좌석 생성 호출이 항상 ConnectException으로 실패해

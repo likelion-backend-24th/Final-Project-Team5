@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Search, Mail, Phone, CalendarDays } from 'lucide-react'
 import { ACCOUNT_STATUS_META, fetchOrganizerApplications, reviewOrganizerApplication, formatDate } from '../../data/admin'
-import { fetchAdminHosts, fetchPendingFestivals } from '../../api/adminApi'
+import { fetchAdminHosts, fetchFestivalHostCounts } from '../../api/adminApi'
 import { Pagination, StatusBadge, Toolbar, approveBtn, confirmApprove, matchesStatus, rejectBtn, useReviewList } from './ReviewListShared'
 import SharedPagination from '../Pagination'
 import DetailModal from './DetailModal'
@@ -234,26 +234,27 @@ function OrganizerList({ onViewFestivals }) {
 
   const [suspendDetail, setSuspendDetail] = useState(null)
   const [festivalCounts, setFestivalCounts] = useState(() => new Map())
+  const [festivalCountsReady, setFestivalCountsReady] = useState(false)
 
-  //등록 페스티벌 개수는 화면 진입 시 한 번만 불러와 재사용한다(페이지·검색 변경마다 다시 부르지 않음).
+  //등록 페스티벌 개수는 현재 페이지의 주최자 id로만 조회한다(페이지가 바뀔 때마다 다시 부른다).
   useEffect(() => {
+    setFestivalCountsReady(false)
+    if (items.length === 0) return
     let cancelled = false
-    fetchPendingFestivals()
+    fetchFestivalHostCounts(items.map((o) => o.id))
       .then((response) => {
         if (cancelled) return
-        const counts = (response.data.data ?? []).reduce((map, festival) => {
-          map.set(festival.hostUserId, (map.get(festival.hostUserId) ?? 0) + 1)
-          return map
-        }, new Map())
+        const counts = new Map(Object.entries(response.data.data).map(([id, count]) => [Number(id), count]))
         setFestivalCounts(counts)
+        setFestivalCountsReady(true)
       })
       .catch(() => {
-        //페스티벌 개수 집계 실패는 주최자 목록 자체를 막지 않는다 — 0개로 남겨둔다.
+        //조회 실패 시 목록 자체는 그대로 보여주고, 개수만 '—'로 남겨둔다.
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [items])
 
   //입력이 멈추고 300ms 뒤에만 검색어를 반영한다. 서버 사이드 검색이라 매 타이핑마다 요청하면 낭비다.
   useEffect(() => {
@@ -360,7 +361,7 @@ function OrganizerList({ onViewFestivals }) {
                         onClick={() => onViewFestivals(o.nickname)}
                         className="rounded-lg px-2 py-1 font-bold text-blue-600 transition hover:bg-blue-50 hover:underline"
                       >
-                        {festivalCounts.get(o.id) ?? 0}개
+                        {festivalCountsReady ? `${festivalCounts.get(o.id) ?? 0}개` : '—'}
                       </button>
                     </td>
                   </tr>
@@ -389,7 +390,7 @@ function OrganizerList({ onViewFestivals }) {
                     <dt className="text-xs text-gray-400">등록 페스티벌</dt>
                     <dd>
                       <button type="button" onClick={() => onViewFestivals(o.nickname)} className="font-bold text-blue-600 hover:underline">
-                        {festivalCounts.get(o.id) ?? 0}개
+                        {festivalCountsReady ? `${festivalCounts.get(o.id) ?? 0}개` : '—'}
                       </button>
                     </dd>
                   </div>

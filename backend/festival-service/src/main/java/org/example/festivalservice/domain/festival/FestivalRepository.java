@@ -55,4 +55,59 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
 
     //좌표 백필 대상 — 카카오맵 기능 이전에 등록됐거나 지도를 안 쓰고 등록해 좌표가 없는 페스티벌
     List<Festival> findByLatitudeIsNull();
+
+    //운영자 심사 목록 — 상태 묶음 + 검색(페스티벌명 또는 주최자) + 페이징. 정렬은 Pageable로 받는다
+    @Query("""
+        SELECT f FROM Festival f
+        WHERE f.festivalStatus IN :statuses
+          AND (:keyword IS NULL
+               OR f.name LIKE CONCAT('%', :keyword, '%')
+               OR f.hostUserId IN :hostIds)
+        """)
+    Page<Festival> searchForAdmin(@Param("keyword") String keyword,
+                                  @Param("statuses") Collection<FestivalStatus> statuses,
+                                  @Param("hostIds") Collection<Long> hostIds,
+                                  Pageable pageable);
+
+    //운영자 주최자 목록 — 주최자별 등록 페스티벌 개수(상태 무관)
+    @Query("""
+        SELECT f.hostUserId, COUNT(f) FROM Festival f
+        WHERE f.hostUserId IN :hostIds
+        GROUP BY f.hostUserId
+        """)
+    List<Object[]> countByHostUserIds(@Param("hostIds") Collection<Long> hostIds);
+
+    //어드민 운영 현황 — 공개된 적 있는 페스티벌을 운영 상태(예정/진행 중/종료/취소)·검색으로 조회
+//운영 상태는 festivalStatus와 "지금" 시각을 함께 보고 판단한다(종료 배치가 아직 안 돈 PUBLISHED도 종료로 본다)
+    @Query("""
+        SELECT f FROM Festival f
+        WHERE f.festivalStatus IN :visibleStatuses
+          AND (:keyword IS NULL
+               OR f.name LIKE CONCAT('%', :keyword, '%')
+               OR f.hostUserId IN :hostIds)
+          AND (:operationStatus = 'ALL'
+               OR (:operationStatus = 'SCHEDULED'
+                   AND f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED
+                   AND f.startAt > :now)
+               OR (:operationStatus = 'ONGOING'
+                   AND f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED
+                   AND f.startAt <= :now AND f.endAt >= :now)
+               OR (:operationStatus = 'CLOSED'
+                   AND (f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.CLOSED
+                        OR (f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED
+                            AND f.endAt < :now)))
+               OR (:operationStatus = 'CANCELLED'
+                   AND f.festivalStatus IN (
+                       org.example.festivalservice.domain.festival.FestivalStatus.CANCELLATION_PENDING,
+                       org.example.festivalservice.domain.festival.FestivalStatus.CANCELLED)))
+        """)
+    Page<Festival> searchOperationsForAdmin(@Param("keyword") String keyword,
+                                            @Param("hostIds") Collection<Long> hostIds,
+                                            @Param("visibleStatuses") Collection<FestivalStatus> visibleStatuses,
+                                            @Param("operationStatus") String operationStatus,
+                                            @Param("now") LocalDateTime now,
+                                            Pageable pageable);
+
+    //운영자 취소 승인 — 아직 승인 안 된 취소 요청(대기)
+    List<Festival> findByFestivalStatusAndCancellationApprovedAtIsNull(FestivalStatus status);
 }

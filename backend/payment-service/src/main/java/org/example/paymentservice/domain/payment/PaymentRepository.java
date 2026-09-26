@@ -4,6 +4,7 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -27,4 +28,15 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // 보상 환불 재시도 대상 — 예매 확정이 거절된 지 일정 시간이 지났는데 아직 전액 취소되지 않은 결제
     List<Payment> findByStatusInAndReservationRejectedAtBefore(Collection<PaymentStatus> statuses, Instant before);
+
+    //행사 취소 환불 미리보기 — 환불 배치와 같은 대상(PAID·부분 취소, 예매 확정 거절 제외)의 결제를 가볍게 조회
+//결과: [결제 id, 페스티벌 id, 결제 금액]
+    @Query("""
+        SELECT p.id, p.festivalId, p.ticketAmount FROM Payment p
+        WHERE p.festivalId IN :festivalIds
+          AND p.status IN :statuses
+          AND p.reservationRejectedAt IS NULL
+        """)
+    List<Object[]> findRefundPreviewTargets(@Param("festivalIds") Collection<Long> festivalIds,
+                                            @Param("statuses") Collection<PaymentStatus> statuses);
 }

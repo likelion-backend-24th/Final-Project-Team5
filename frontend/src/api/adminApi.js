@@ -13,8 +13,18 @@ export function fetchAdminHosts(params, signal) {
   return apiClient.get('/api/admin/hosts', { params, signal })
 }
 
-export function fetchPendingFestivals() {
-  return apiClient.get('/api/admin/festivals')
+export function fetchPendingFestivals(params, signal) {
+  return apiClient.get('/api/admin/festivals', { params, signal })
+}
+
+//주최자 목록의 "등록 페스티벌 N개"용 — 상태 무관 개수(요청 id가 0개여도 포함, 최대 100명)
+export function fetchFestivalHostCounts(hostIds) {
+  return apiClient.get('/api/admin/festivals/host-counts', { params: { hostIds: hostIds.join(',') } })
+}
+
+//운영자 운영 현황 — 공개된 적 있는 페스티벌의 운영 상태·판매 현황
+export function fetchFestivalOperations(params, signal) {
+  return apiClient.get('/api/admin/festivals/operations', { params, signal })
 }
 
 export function reviewFestival(id, { decision, rejectReason }) {
@@ -22,8 +32,8 @@ export function reviewFestival(id, { decision, rejectReason }) {
 }
 
 //주최자가 요청한 행사 취소 목록(approved=true면 이미 환불 배치 진행 중)
-export function fetchCancellationRequests() {
-  return apiClient.get('/api/admin/festivals/cancellation-requests')
+export function fetchCancellationRequests(status = 'PENDING') {
+  return apiClient.get('/api/admin/festivals/cancellation-requests', { params: { status } })
 }
 
 //행사 취소 승인 — 이후 payment-service 배치가 남은 티켓을 위약금 없이 전액 환불한다(되돌릴 수 없음)

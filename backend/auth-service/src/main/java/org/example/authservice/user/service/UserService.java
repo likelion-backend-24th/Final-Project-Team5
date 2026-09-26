@@ -17,6 +17,7 @@ import org.example.authservice.user.entity.Role;
 import org.example.authservice.user.entity.User;
 import org.example.authservice.user.exception.UserErrorCode;
 import org.example.authservice.user.repository.UserRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserService {
     private static final int MAX_INTERNAL_USER_IDS = 200;
+    private static final int MAX_INTERNAL_SEARCH_RESULTS = 500;
 
     private final UserRepository userRepository;
     private final HelperInvitationRepository helperInvitations;
@@ -44,6 +46,15 @@ public class UserService {
         return userRepository.findAllById(limited).stream()
                 .map(InternalUserSummaryResponse::from)
                 .toList();
+    }
+
+    // 내부 검색 — 닉네임·이메일에 검색어가 포함된 회원 id 목록 (최대 500개)
+    public List<Long> searchInternalUserIds(String keyword, Role role) {
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        return userRepository.searchIdsByKeyword(
+                keyword.trim(), role, PageRequest.of(0, MAX_INTERNAL_SEARCH_RESULTS));
     }
 
     // 내 정보 조회

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface TicketTypeRepository extends JpaRepository<TicketType,Long> {
@@ -25,4 +26,17 @@ public interface TicketTypeRepository extends JpaRepository<TicketType,Long> {
     @Query("UPDATE TicketType t SET t.remainQuantity = t.remainQuantity + :qty " +
             "WHERE t.id = :id AND t.remainQuantity + :qty <= t.totalQuantity")
     int restoreStock(@Param("id") Long id, @Param("qty") int qty);
+
+    //어드민 목록 — 한 페이지의 페스티벌들에 속한 티켓 종류를 한 번에 조회(N+1 방지)
+    List<TicketType> findByFestivalIdIn(Collection<Long> festivalIds);
+
+    //어드민 운영 현황 — 페스티벌별 티켓 전체 수량·판매 수량 합계를 한 번에 조회(N+1 방지)
+//결과: [festivalId, 전체 수량 합, 판매 수량 합]
+    @Query("""
+        SELECT t.festival.id, SUM(t.totalQuantity), SUM(t.totalQuantity - t.remainQuantity)
+        FROM TicketType t
+        WHERE t.festival.id IN :festivalIds
+        GROUP BY t.festival.id
+        """)
+    List<Object[]> sumQuantitiesByFestivalIds(@Param("festivalIds") Collection<Long> festivalIds);
 }

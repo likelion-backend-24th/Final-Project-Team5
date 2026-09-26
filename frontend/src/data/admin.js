@@ -8,6 +8,7 @@ import {
   fetchPendingHostApplications,
   reviewHostApplication,
   fetchPendingFestivals,
+  fetchFestivalOperations,
   reviewFestival,
 } from '../api/adminApi'
 import { FESTIVAL_CATEGORY_LABELS, toAbsoluteImageUrl } from '../api/festivalApi'
@@ -40,7 +41,7 @@ export function formatDate(value) {
     .replace(/\.$/, '')
 }
 
-function formatDateRange(startAt, endAt) {
+export function formatDateRange(startAt, endAt) {
   const start = formatDate(startAt)
   const end = formatDate(endAt)
   if (!start || !end) return start || end
@@ -141,9 +142,10 @@ function mapFestivalSubmission(raw) {
   }
 }
 
-export async function fetchFestivalSubmissions() {
-  const response = await fetchPendingFestivals()
-  return response.data.data.map(mapFestivalSubmission)
+/** GET /api/admin/festivals를 서버 페이징 파라미터(status/keyword/page/size/sort)로 조회한다. */
+export async function fetchFestivalSubmissionsPage(params, signal) {
+  const response = await fetchPendingFestivals(params, signal)
+  return { items: response.data.data.map(mapFestivalSubmission), pagination: response.data.meta.pagination }
 }
 
 /** PATCH /api/admin/festivals/:id 를 호출한다. decision은 'PUBLISHED' | 'REJECTED'. 반려 시 rejectReason이 필수다. */
@@ -157,6 +159,38 @@ export async function reviewFestivalSubmission(id, decision, rejectReason) {
         (decision === 'PUBLISHED' ? '공개 처리에 실패했어요. 잠시 후 다시 시도해주세요.' : '반려 처리에 실패했어요. 잠시 후 다시 시도해주세요.'),
     )
   }
+}
+
+/* ---------- 운영 현황 (실제 API 연동) ---------- */
+
+//예정·진행 중·종료·취소 — 서로 구분되도록 기존 팔레트에서 고른 4색
+export const OPERATION_STATUS_META = {
+  SCHEDULED: { label: '예정', cls: 'bg-blue-50 text-blue-600' },
+  ONGOING: { label: '진행 중', cls: 'bg-emerald-100 text-emerald-700' },
+  CLOSED: { label: '종료', cls: 'bg-gray-100 text-gray-600' },
+  CANCELLED: { label: '취소', cls: 'bg-red-50 text-red-600' },
+}
+
+function mapFestivalOperation(raw) {
+  return {
+    id: raw.id,
+    name: raw.name,
+    host: raw.hostNickname ?? '주최자 정보 없음',
+    category: FESTIVAL_CATEGORY_LABELS[raw.festivalCategory] ?? raw.festivalCategory,
+    dateRange: formatDateRange(raw.startAt, raw.endAt),
+    festivalStatus: raw.festivalStatus,
+    operationStatus: raw.operationStatus,
+    image: toAbsoluteImageUrl(raw.thumbnailImageUrl) ?? '/placeholder.jpg',
+    totalQuantity: raw.totalQuantity,
+    soldQuantity: raw.soldQuantity,
+    saleRate: raw.saleRate,
+  }
+}
+
+/** GET /api/admin/festivals/operations를 서버 페이징 파라미터(operationStatus/keyword/page/size)로 조회한다. */
+export async function fetchFestivalOperationsPage(params, signal) {
+  const response = await fetchFestivalOperations(params, signal)
+  return { items: response.data.data.map(mapFestivalOperation), pagination: response.data.meta.pagination }
 }
 
 /* ---------- 주최자 목록 ---------- */

@@ -51,4 +51,15 @@ public interface UserRepository extends JpaRepository<User,Long> {
                               @Param("role") Role role,
                               @Param("status") AccountStatus status,
                               Pageable pageable);
+
+    // 내부 API — 닉네임·이메일로 회원 id만 검색 (다른 서비스의 "주최자 검색"용)
+    @Query("""
+        SELECT u.id FROM User u
+        WHERE (:role IS NULL OR u.role = :role)
+          AND (u.nickname LIKE CONCAT('%', :keyword, '%')
+               OR u.username LIKE CONCAT('%', :keyword, '%'))
+        """)
+    List<Long> searchIdsByKeyword(@Param("keyword") String keyword,
+                                  @Param("role") Role role,
+                                  Pageable pageable);
 }

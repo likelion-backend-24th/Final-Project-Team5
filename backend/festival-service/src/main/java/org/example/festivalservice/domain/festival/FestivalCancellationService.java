@@ -2,10 +2,13 @@ package org.example.festivalservice.domain.festival;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.List;
+import java.util.*;
 
 import lombok.RequiredArgsConstructor;
+import org.example.festivalservice.common.UserLookupClient;
 import org.example.festivalservice.common.exception.ApiException;
+import org.example.festivalservice.domain.tickettype.TicketTypeRepository;
+import org.example.festivalservice.infrastructure.payment.PaymentServiceClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -29,7 +32,15 @@ public class FestivalCancellationService {
             FestivalStatus.PUBLISHED, FestivalStatus.CLOSED, FestivalStatus.CANCELLATION_PENDING,
             FestivalStatus.CANCELLED);
 
+    //운영자 취소 목록 필터 — 대기 / 환불 진행 중 / 취소 완료 / 반려
+    private static final Set<String> CANCELLATION_LIST_STATUSES =
+            Set.of("PENDING", "REFUNDING", "CANCELLED", "REJECTED");
+
     private final FestivalRepository festivalRepository;
+    private final FestivalCancellationRejectionRepository festivalCancellationRejectionRepository;
+    private final TicketTypeRepository ticketTypeRepository;
+    private final UserLookupClient userLookupClient;
+    private final PaymentServiceClient paymentServiceClient;
 
     //호스트가 입력한 종료 시각은 타임존 없는 벽시계 값이라 "지금"과 비교할 기준 타임존을 명시한다(auth-service와 같은 키).
     @Value("${app.timezone:Asia/Seoul}")
@@ -81,8 +92,9 @@ public class FestivalCancellationService {
     }
 
     //운영자가 취소 요청을 반려한다. 승인 뒤에는 환불 배치가 이미 돈을 돌려주고 있으므로 되돌릴 수 없다.
+//반려하면 Festival의 요청 기록이 지워지므로, 지우기 전에 반려 이력으로 복사해 둔다.
     @Transactional
-    public FestivalStatus rejectCancellation(Long id, String role) {
+    public FestivalStatus rejectCancellation(Long id, Long adminUserId, String role) {
         if (!ADMIN_ROLE.equals(role)) {
             throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
@@ -93,23 +105,135 @@ public class FestivalCancellationService {
         if (festival.getCancellationApprovedAt() != null) {
             throw new ApiException(FestivalErrorCode.CANCELLATION_ALREADY_APPROVED);
         }
+
+        // 요청 기록이 지워지기 전에 이력으로 남긴다
+        festivalCancellationRejectionRepository.save(FestivalCancellationRejection.builder()
+                .festivalId(festival.getId())
+                .festivalName(festival.getName())
+                .hostUserId(festival.getHostUserId())
+                .requestedByUserId(festival.getCancelledByUserId())
+                .cancelReason(festival.getCancelReason())
+                .rejectedByUserId(adminUserId)
+                .build());
+
         festival.rejectCancellation();
         return festival.getFestivalStatus();
     }
 
-    //운영자 화면용 — 취소 대기 중인 페스티벌과 승인 여부
+    //운영자 화면용 — 상태별 취소 목록. 대기(PENDING)에는 승인 전 영향 미리보기(판매 티켓·예상 환불)를 붙인다.
     @Transactional(readOnly = true)
-    public List<FestivalCancellationRequestResponseDto> listCancellationRequests(String role) {
+    public List<FestivalCancellationRequestResponseDto> listCancellationRequests(String role, String status) {
         if (!ADMIN_ROLE.equals(role)) {
             throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
-        return festivalRepository.findByFestivalStatus(FestivalStatus.CANCELLATION_PENDING).stream()
-                .map(festival -> new FestivalCancellationRequestResponseDto(
-                        festival.getId(),
-                        festival.getName(),
-                        festival.getCancelReason(),
-                        festival.getCancellationApprovedAt() != null))
-                .toList();
+
+        // 모르는 값은 대기로 처리
+        String listStatus = "PENDING";
+        if (status != null && CANCELLATION_LIST_STATUSES.contains(status)) {
+            listStatus = status;
+        }
+
+        if ("REJECTED".equals(listStatus)) {
+            return listRejections();
+        }
+
+        List<Festival> festivals;
+        if ("REFUNDING".equals(listStatus)) {
+            festivals = festivalRepository.findByFestivalStatusAndCancellationApprovedAtIsNotNull(
+                    FestivalStatus.CANCELLATION_PENDING);
+        } else if ("CANCELLED".equals(listStatus)) {
+            festivals = festivalRepository.findByFestivalStatus(FestivalStatus.CANCELLED);
+        } else {
+            festivals = festivalRepository.findByFestivalStatusAndCancellationApprovedAtIsNull(
+                    FestivalStatus.CANCELLATION_PENDING);
+        }
+
+        List<Long> festivalIds = new ArrayList<>();
+        List<Long> hostUserIds = new ArrayList<>();
+        for (Festival festival : festivals) {
+            festivalIds.add(festival.getId());
+            if (festival.getHostUserId() != null) {
+                hostUserIds.add(festival.getHostUserId());
+            }
+        }
+
+        Map<Long, UserLookupClient.UserSummary> hosts = userLookupClient.findByIds(hostUserIds);
+
+        // 영향 미리보기는 대기 목록에서만 계산한다
+        Map<Long, Long> soldByFestival = new HashMap<>();
+        Map<Long, PaymentServiceClient.RefundPreview> previews = Map.of();
+        if ("PENDING".equals(listStatus) && !festivalIds.isEmpty()) {
+            for (Object[] row : ticketTypeRepository.sumQuantitiesByFestivalIds(festivalIds)) {
+                long sold = row[2] == null ? 0L : ((Number) row[2]).longValue();
+                soldByFestival.put((Long) row[0], sold);
+            }
+            previews = paymentServiceClient.refundPreview(festivalIds);
+        }
+
+        List<FestivalCancellationRequestResponseDto> result = new ArrayList<>();
+        for (Festival festival : festivals) {
+            UserLookupClient.UserSummary host = hosts.get(festival.getHostUserId());
+            PaymentServiceClient.RefundPreview preview = previews.get(festival.getId());
+            boolean isPending = "PENDING".equals(listStatus);
+
+            result.add(new FestivalCancellationRequestResponseDto(
+                    festival.getId(),
+                    festival.getName(),
+                    festival.getCancelReason(),
+                    festival.getCancellationApprovedAt() != null,
+                    listStatus,
+                    festival.getHostUserId(),
+                    host == null ? null : host.nickname(),
+                    festival.getStartAt(),
+                    festival.getEndAt(),
+                    festival.getCancellationApprovedAt(),
+                    festival.getCancelledAt(),
+                    null,
+                    isPending ? soldByFestival.getOrDefault(festival.getId(), 0L) : null,
+                    preview == null ? null : preview.refundTargetPaymentCount(),
+                    preview == null ? null : preview.expectedRefundAmount(),
+                    preview == null ? null : preview.unresolvedPaymentCount()
+            ));
+        }
+        return result;
+    }
+
+    //반려 이력(내부 메서드) — 반려 당시 스냅샷을 최신순으로
+    private List<FestivalCancellationRequestResponseDto> listRejections() {
+        List<FestivalCancellationRejection> rejections =
+                festivalCancellationRejectionRepository.findAllByOrderByRejectedAtDesc();
+
+        List<Long> hostUserIds = new ArrayList<>();
+        for (FestivalCancellationRejection rejection : rejections) {
+            if (rejection.getHostUserId() != null) {
+                hostUserIds.add(rejection.getHostUserId());
+            }
+        }
+        Map<Long, UserLookupClient.UserSummary> hosts = userLookupClient.findByIds(hostUserIds);
+
+        List<FestivalCancellationRequestResponseDto> result = new ArrayList<>();
+        for (FestivalCancellationRejection rejection : rejections) {
+            UserLookupClient.UserSummary host = hosts.get(rejection.getHostUserId());
+            result.add(new FestivalCancellationRequestResponseDto(
+                    rejection.getFestivalId(),
+                    rejection.getFestivalName(),
+                    rejection.getCancelReason(),
+                    false,
+                    "REJECTED",
+                    rejection.getHostUserId(),
+                    host == null ? null : host.nickname(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    rejection.getRejectedAt(),
+                    null,
+                    null,
+                    null,
+                    null
+            ));
+        }
+        return result;
     }
 
     //payment-service 환불 배치용 — 승인이 끝난 취소 요청만 전액 환불 대상이다

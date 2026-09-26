@@ -76,4 +76,35 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
         GROUP BY f.hostUserId
         """)
     List<Object[]> countByHostUserIds(@Param("hostIds") Collection<Long> hostIds);
+
+    //어드민 운영 현황 — 공개된 적 있는 페스티벌을 운영 상태(예정/진행 중/종료/취소)·검색으로 조회
+//운영 상태는 festivalStatus와 "지금" 시각을 함께 보고 판단한다(종료 배치가 아직 안 돈 PUBLISHED도 종료로 본다)
+    @Query("""
+        SELECT f FROM Festival f
+        WHERE f.festivalStatus IN :visibleStatuses
+          AND (:keyword IS NULL
+               OR f.name LIKE CONCAT('%', :keyword, '%')
+               OR f.hostUserId IN :hostIds)
+          AND (:operationStatus = 'ALL'
+               OR (:operationStatus = 'SCHEDULED'
+                   AND f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED
+                   AND f.startAt > :now)
+               OR (:operationStatus = 'ONGOING'
+                   AND f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED
+                   AND f.startAt <= :now AND f.endAt >= :now)
+               OR (:operationStatus = 'CLOSED'
+                   AND (f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.CLOSED
+                        OR (f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED
+                            AND f.endAt < :now)))
+               OR (:operationStatus = 'CANCELLED'
+                   AND f.festivalStatus IN (
+                       org.example.festivalservice.domain.festival.FestivalStatus.CANCELLATION_PENDING,
+                       org.example.festivalservice.domain.festival.FestivalStatus.CANCELLED)))
+        """)
+    Page<Festival> searchOperationsForAdmin(@Param("keyword") String keyword,
+                                            @Param("hostIds") Collection<Long> hostIds,
+                                            @Param("visibleStatuses") Collection<FestivalStatus> visibleStatuses,
+                                            @Param("operationStatus") String operationStatus,
+                                            @Param("now") LocalDateTime now,
+                                            Pageable pageable);
 }

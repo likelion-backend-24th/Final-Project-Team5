@@ -7,14 +7,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.dto.ApiResponse;
 import org.example.festivalservice.common.dto.Meta;
-import org.example.festivalservice.domain.festival.CoordinateBackfillResultDto;
-import org.example.festivalservice.domain.festival.FestivalCancellationRequestResponseDto;
-import org.example.festivalservice.domain.festival.FestivalCancellationService;
-import org.example.festivalservice.domain.festival.FestivalCoordinateBackfillService;
-import org.example.festivalservice.domain.festival.FestivalResponseDto;
-import org.example.festivalservice.domain.festival.FestivalReviewRequestDto;
-import org.example.festivalservice.domain.festival.FestivalService;
-import org.example.festivalservice.domain.festival.FestivalStatus;
+import org.example.festivalservice.domain.festival.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -30,6 +23,7 @@ public class AdminFestivalController {
     private final FestivalService festivalService;
     private final FestivalCancellationService festivalCancellationService;
     private final FestivalCoordinateBackfillService festivalCoordinateBackfillService;
+    private final FestivalOperationService festivalOperationService;
 
     //운영자 페스티벌 심사 목록 — 상태 묶음(ALL/PENDING/APPROVED/REJECTED)·검색·정렬·페이징
     @GetMapping
@@ -51,6 +45,19 @@ public class AdminFestivalController {
             @RequestParam("hostIds") List<Long> hostIds) {
         return ResponseEntity.ok(ApiResponse.success("주최자별 페스티벌 개수 조회",
                 festivalService.countFestivalsByHosts(role, hostIds)));
+    }
+
+    //운영자 운영 현황 — 공개된 적 있는 페스티벌의 운영 상태(ALL/SCHEDULED/ONGOING/CLOSED/CANCELLED)·판매 현황
+    @GetMapping("/operations")
+    public ResponseEntity<ApiResponse<List<FestivalOperationResponseDto>>> searchOperations(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestParam(defaultValue = "ALL") String operationStatus,
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 10, sort = "startAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<FestivalOperationResponseDto> page =
+                festivalOperationService.searchOperations(role, operationStatus, keyword, pageable);
+        return ResponseEntity.ok(ApiResponse.success("운영자 페스티벌 운영 현황 조회", page.getContent(), Meta.of(page)));
     }
 
     //운영자가 대기 중인 페스티벌을 공개·반려 처리한다

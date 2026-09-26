@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { fetchFestivalSubmissions, fetchOrganizerApplications } from '../../data/admin'
+import { fetchOrganizerApplications } from '../../data/admin'
 import OrganizerManagement from './OrganizerManagement'
 
 vi.mock('../../data/admin', { spy: true })
@@ -31,15 +31,4 @@ it('shows nearby pages and ellipses instead of every page', async () => {
   expect(screen.getAllByText('…')).toHaveLength(2)
   await user.click(screen.getByRole('button', { name: '다음 페이지' }))
   expect(screen.getByRole('button', { name: '6', exact: true }).getAttribute('aria-current')).toBe('page')
-})
-
-it('uses the existing fallback image for a festival without an image', async () => {
-  fetchFestivalSubmissions.mockResolvedValue([{
-    id: 1, name: '이미지 없는 행사', host: '주최자', image: '', status: 'APPROVED',
-    appliedAt: '2026.09.21', category: '음악', description: '', tickets: [],
-  }])
-  const user = userEvent.setup()
-  render(<OrganizerManagement />)
-  await user.click(screen.getByRole('button', { name: '페스티벌 등록 승인' }))
-  expect((await screen.findByRole('img', { name: '이미지 없는 행사' })).getAttribute('src')).toBe('/placeholder.jpg')
 })

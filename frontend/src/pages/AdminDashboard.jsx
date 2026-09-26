@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { LayoutDashboard, Users, Megaphone, CalendarDays, Wallet, CircleAlertIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import OrganizerManagement from '../components/admin/OrganizerManagement'
+import FestivalManagement from '../components/admin/FestivalManagement'
 import SettlementDashboard from '../components/admin/SettlementDashboard'
 import UserManagement from '../components/admin/UserManagement'
 
@@ -16,8 +17,8 @@ const TABS = [
 const TAB_META = {
   dashboard: { title: '대시보드', description: '플랫폼 운영 현황을 한눈에 확인합니다.' },
   member: { title: '회원 관리', description: '전체 회원을 조회하고 계정 정지·해제를 처리합니다.' },
-  organizer: { title: '주최자 관리', description: '주최자 신청과 페스티벌 등록을 심사하고 승인·반려를 처리합니다.' },
-  festival: { title: '페스티벌 관리', description: '등록된 페스티벌의 운영 현황을 확인합니다.' },
+  organizer: { title: '주최자 관리', description: '주최자 신청을 심사하고 주최자 현황을 관리합니다.' },
+  festival: { title: '페스티벌 관리', description: '페스티벌 등록과 행사 취소를 심사하고 승인·반려를 처리합니다.' },
   settlement: { title: '정산 대시보드', description: '플랫폼 거래·수수료 현황과 페스티벌별 정산 상태를 확인합니다.' },
 }
 
@@ -29,9 +30,10 @@ function ComingSoon() {
   )
 }
 
-function renderTab(tab) {
+function renderTab(tab, { festivalQuery, onViewOrganizerFestivals }) {
   if (tab === 'member') return <UserManagement />
-  if (tab === 'organizer') return <OrganizerManagement />
+  if (tab === 'organizer') return <OrganizerManagement onViewFestivals={onViewOrganizerFestivals} />
+  if (tab === 'festival') return <FestivalManagement initialQuery={festivalQuery} />
   if (tab === 'settlement') return <SettlementDashboard />
   return <ComingSoon />
 }
@@ -41,6 +43,19 @@ function AdminDashboard() {
   const { user, isLoading: authLoading } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
   const [tab, setTab] = useState('dashboard')
+  const [festivalQuery, setFestivalQuery] = useState('')
+
+  //주최자 목록의 "등록 페스티벌 N개"는 다른 최상위 탭(페스티벌 관리)으로 이동해야 하므로,
+  //직접 탭을 클릭할 때는 이전에 남아있던 검색어를 초기화한다.
+  function handleTabClick(key) {
+    setFestivalQuery('')
+    setTab(key)
+  }
+
+  function handleViewOrganizerFestivals(nickname) {
+    setFestivalQuery(nickname)
+    setTab('festival')
+  }
 
   if (authLoading) {
     return (
@@ -76,7 +91,7 @@ function AdminDashboard() {
               <button
                 key={t.key}
                 type="button"
-                onClick={() => setTab(t.key)}
+                onClick={() => handleTabClick(t.key)}
                 className={
                   'flex items-center gap-2 border-b-2 px-5 py-4 text-sm font-bold transition ' +
                   (on ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700')
@@ -97,7 +112,7 @@ function AdminDashboard() {
         </div>
 
         <div key={tab} className="animate-in fade-in duration-300">
-          {renderTab(tab)}
+          {renderTab(tab, { festivalQuery, onViewOrganizerFestivals: handleViewOrganizerFestivals })}
         </div>
       </div>
     </div>

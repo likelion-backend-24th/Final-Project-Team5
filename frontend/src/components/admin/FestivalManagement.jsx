@@ -244,14 +244,14 @@ function FestivalApprovals({ initialQuery = '', onActionSuccess }) {
 /* ---------- 서브탭 C: 행사 취소 승인 ---------- */
 
 //정산 대시보드 하단에 있을 때는 운영자가 찾지 못해 승인이 멈췄다. 주최자 심사와 같은 자리에 둔다.
-function CancellationApprovals({ onActionSuccess }) {
+function CancellationApprovals({ onActionSuccess, initialFilter }) {
   return (
     <div>
       <h2 className="text-lg font-extrabold text-gray-900">행사 취소 승인</h2>
       <p className="mt-1 text-sm text-gray-500">
         주최자가 요청한 행사 취소를 승인하면 남은 티켓이 위약금 없이 전액 환불되고, 정산은 환불이 끝날 때까지 보류돼요.
       </p>
-      <CancellationRequests onActionSuccess={onActionSuccess} />
+      <CancellationRequests onActionSuccess={onActionSuccess} initialFilter={initialFilter} />
     </div>
   )
 }
@@ -264,8 +264,10 @@ const SUB_TABS = [
   { key: 'cancellation', label: '행사 취소 승인' },
 ]
 
-function FestivalManagement({ initialQuery = '' }) {
-  const [sub, setSub] = useState('festival')
+//initialSub/initialOperationsFilter/initialCancellationFilter가 없으면 기존과 동일하게 시작한다
+//(어드민 대시보드에서 서브탭·필터를 지정해 진입할 때만 쓴다).
+function FestivalManagement({ initialQuery = '', initialSub, initialOperationsFilter, initialCancellationFilter }) {
+  const [sub, setSub] = useState(initialSub ?? 'festival')
   const [registrationPendingCount, setRegistrationPendingCount] = useState(0)
   const [cancellationPendingCount, setCancellationPendingCount] = useState(0)
 
@@ -297,8 +299,8 @@ function FestivalManagement({ initialQuery = '' }) {
     if (sub === 'festival') {
       return <FestivalApprovals key={initialQuery} initialQuery={initialQuery} onActionSuccess={refreshRegistrationPendingCount} />
     }
-    if (sub === 'operations') return <FestivalOperations />
-    return <CancellationApprovals onActionSuccess={refreshCancellationPendingCount} />
+    if (sub === 'operations') return <FestivalOperations initialFilter={initialOperationsFilter} />
+    return <CancellationApprovals onActionSuccess={refreshCancellationPendingCount} initialFilter={initialCancellationFilter} />
   }
 
   return (

@@ -110,4 +110,29 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
 
     //운영자 취소 승인 — 아직 승인 안 된 취소 요청(대기)
     List<Festival> findByFestivalStatusAndCancellationApprovedAtIsNull(FestivalStatus status);
+
+    //어드민 대시보드 — 상태 묶음별 페스티벌 수(등록 심사 대기)
+    long countByFestivalStatusIn(Collection<FestivalStatus> statuses);
+
+    //어드민 대시보드 — 취소 요청 대기(승인 전)
+    long countByFestivalStatusAndCancellationApprovedAtIsNull(FestivalStatus status);
+
+    //어드민 대시보드 — 환불 진행 중(승인 후 환불 배치 진행)
+    long countByFestivalStatusAndCancellationApprovedAtIsNotNull(FestivalStatus status);
+
+    //어드민 대시보드 — 진행 중(운영 현황 ONGOING과 같은 기준)
+    @Query("""
+        SELECT COUNT(f) FROM Festival f
+        WHERE f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED
+          AND f.startAt <= :now AND f.endAt >= :now
+        """)
+    long countOngoing(@Param("now") LocalDateTime now);
+
+    //어드민 대시보드 — 예정(운영 현황 SCHEDULED와 같은 기준)
+    @Query("""
+        SELECT COUNT(f) FROM Festival f
+        WHERE f.festivalStatus = org.example.festivalservice.domain.festival.FestivalStatus.PUBLISHED
+          AND f.startAt > :now
+        """)
+    long countScheduled(@Param("now") LocalDateTime now);
 }

@@ -221,13 +221,15 @@ function AccountCell({ organizer, onViewSuspendDetail }) {
   )
 }
 
-function OrganizerList({ onViewFestivals }) {
+//initialAccountFilter가 없으면 기존과 동일하게 'ALL'로 시작한다(어드민 대시보드에서 필터를 지정해
+//진입할 때만 쓴다).
+function OrganizerList({ onViewFestivals, initialAccountFilter }) {
   const [items, setItems] = useState([])
   const [pagination, setPagination] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
 
-  const [accountFilter, setAccountFilter] = useState('ALL')
+  const [accountFilter, setAccountFilter] = useState(initialAccountFilter ?? 'ALL')
   const [queryInput, setQueryInput] = useState('')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
@@ -433,8 +435,10 @@ const SUB_TABS = [
   { key: 'list', label: '주최자 목록' },
 ]
 
-function OrganizerManagement({ onViewFestivals = () => {} }) {
-  const [sub, setSub] = useState('organizer')
+//initialSub/initialAccountFilter가 없으면 기존과 동일하게 시작한다(어드민 대시보드에서 서브탭·필터를
+//지정해 진입할 때만 쓴다).
+function OrganizerManagement({ onViewFestivals = () => {}, initialSub, initialAccountFilter }) {
+  const [sub, setSub] = useState(initialSub ?? 'organizer')
 
   const [applications, setApplications] = useState([])
   const [appsLoading, setAppsLoading] = useState(true)
@@ -476,7 +480,7 @@ function OrganizerManagement({ onViewFestivals = () => {} }) {
         />
       )
     }
-    return <OrganizerList onViewFestivals={onViewFestivals} />
+    return <OrganizerList onViewFestivals={onViewFestivals} initialAccountFilter={initialAccountFilter} />
   }
 
   return (

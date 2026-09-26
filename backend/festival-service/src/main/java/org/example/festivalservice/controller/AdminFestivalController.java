@@ -24,6 +24,7 @@ public class AdminFestivalController {
     private final FestivalCancellationService festivalCancellationService;
     private final FestivalCoordinateBackfillService festivalCoordinateBackfillService;
     private final FestivalOperationService festivalOperationService;
+    private final AdminSummaryService adminSummaryService;
 
     //운영자 페스티벌 심사 목록 — 상태 묶음(ALL/PENDING/APPROVED/REJECTED)·검색·정렬·페이징
     @GetMapping
@@ -46,6 +47,16 @@ public class AdminFestivalController {
         return ResponseEntity.ok(ApiResponse.success("주최자별 페스티벌 개수 조회",
                 festivalService.countFestivalsByHosts(role, hostIds)));
     }
+
+    //어드민 대시보드 요약 — 진행 중·예정 페스티벌, 주최자 신청·등록 심사·취소 요청 대기, 환불 진행 중 개수
+    @GetMapping("/summary")
+    public ResponseEntity<ApiResponse<AdminSummaryResponseDto>> getSummary(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role) {
+        return ResponseEntity.ok(ApiResponse.success("어드민 대시보드 요약 조회",
+                adminSummaryService.getSummary(role)));
+    }
+
 
     //운영자 운영 현황 — 공개된 적 있는 페스티벌의 운영 상태(ALL/SCHEDULED/ONGOING/CLOSED/CANCELLED)·판매 현황
     @GetMapping("/operations")

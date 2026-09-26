@@ -30,6 +30,7 @@ public class FestivalCancellationService {
             FestivalStatus.CANCELLED);
 
     private final FestivalRepository festivalRepository;
+    private final FestivalCancellationRejectionRepository festivalCancellationRejectionRepository;
 
     //호스트가 입력한 종료 시각은 타임존 없는 벽시계 값이라 "지금"과 비교할 기준 타임존을 명시한다(auth-service와 같은 키).
     @Value("${app.timezone:Asia/Seoul}")
@@ -81,8 +82,9 @@ public class FestivalCancellationService {
     }
 
     //운영자가 취소 요청을 반려한다. 승인 뒤에는 환불 배치가 이미 돈을 돌려주고 있으므로 되돌릴 수 없다.
+//반려하면 Festival의 요청 기록이 지워지므로, 지우기 전에 반려 이력으로 복사해 둔다.
     @Transactional
-    public FestivalStatus rejectCancellation(Long id, String role) {
+    public FestivalStatus rejectCancellation(Long id, Long adminUserId, String role) {
         if (!ADMIN_ROLE.equals(role)) {
             throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
@@ -93,6 +95,17 @@ public class FestivalCancellationService {
         if (festival.getCancellationApprovedAt() != null) {
             throw new ApiException(FestivalErrorCode.CANCELLATION_ALREADY_APPROVED);
         }
+
+        // 요청 기록이 지워지기 전에 이력으로 남긴다
+        festivalCancellationRejectionRepository.save(FestivalCancellationRejection.builder()
+                .festivalId(festival.getId())
+                .festivalName(festival.getName())
+                .hostUserId(festival.getHostUserId())
+                .requestedByUserId(festival.getCancelledByUserId())
+                .cancelReason(festival.getCancelReason())
+                .rejectedByUserId(adminUserId)
+                .build());
+
         festival.rejectCancellation();
         return festival.getFestivalStatus();
     }

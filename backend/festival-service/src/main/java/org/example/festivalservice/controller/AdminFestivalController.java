@@ -96,7 +96,7 @@ public class AdminFestivalController {
             @RequestHeader("X-User-Id") Long userId,
             @RequestHeader("X-User-Role") String role) {
         return ResponseEntity.ok(ApiResponse.success("취소 요청 반려",
-                festivalCancellationService.rejectCancellation(id, role)));
+                festivalCancellationService.rejectCancellation(id, userId, role)));
     }
 
     //운영자가 좌표 없이 등록된 페스티벌들의 좌표를 카카오 장소 검색으로 일괄 채운다(실행할 때마다 남아있는

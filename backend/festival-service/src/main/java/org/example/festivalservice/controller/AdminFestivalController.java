@@ -70,13 +70,15 @@ public class AdminFestivalController {
         return ResponseEntity.ok(ApiResponse.success("심사 대기 중인 페스티벌 상태 변경 성공",festivalService.reviewFestival(id, role, request)));
     }
 
-    //운영자가 승인 대기 중인 행사 취소 요청 목록을 조회한다(approved=true면 환불 배치가 이미 진행 중)
+    //운영자 행사 취소 목록 — PENDING(대기)·REFUNDING(환불 진행 중)·CANCELLED(취소 완료)·REJECTED(반려)
+//대기 목록에는 승인 전 영향 미리보기(판매 티켓 수·예상 환불 금액)가 붙는다
     @GetMapping("/cancellation-requests")
     public ResponseEntity<ApiResponse<List<FestivalCancellationRequestResponseDto>>> listCancellationRequests(
             @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Role") String role) {
-        return ResponseEntity.ok(ApiResponse.success("취소 승인 요청",
-                festivalCancellationService.listCancellationRequests(role)));
+            @RequestHeader("X-User-Role") String role,
+            @RequestParam(defaultValue = "PENDING") String status) {
+        return ResponseEntity.ok(ApiResponse.success("행사 취소 목록 조회",
+                festivalCancellationService.listCancellationRequests(role, status)));
     }
 
     //운영자가 행사 취소를 승인한다 — 승인 시각은 최초 1회만 기록되고 환불 배치가 이를 기준으로 전액 환불을 시작한다

@@ -107,4 +107,7 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
                                             @Param("operationStatus") String operationStatus,
                                             @Param("now") LocalDateTime now,
                                             Pageable pageable);
+
+    //운영자 취소 승인 — 아직 승인 안 된 취소 요청(대기)
+    List<Festival> findByFestivalStatusAndCancellationApprovedAtIsNull(FestivalStatus status);
 }

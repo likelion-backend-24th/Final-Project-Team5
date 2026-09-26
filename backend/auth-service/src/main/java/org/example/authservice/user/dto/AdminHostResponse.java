@@ -13,7 +13,9 @@ public record AdminHostResponse(
         String nickname,
         String email,
         AccountStatus accountStatus,
-        LocalDateTime joinedAt
+        LocalDateTime joinedAt,
+        String suspendReason,
+        LocalDateTime suspendedAt
 ) {
     public static AdminHostResponse from(User user) {
         return new AdminHostResponse(
@@ -21,7 +23,9 @@ public record AdminHostResponse(
                 user.getNickname(),
                 user.getUsername(),
                 user.getStatus(),
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                user.getSuspendReason(),
+                user.getSuspendedAt()
         );
     }
 }

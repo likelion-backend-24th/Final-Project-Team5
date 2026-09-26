@@ -64,6 +64,43 @@ it('운영 현황 서브탭은 필터·페이지 파라미터로 조회한다', 
   })
 })
 
+it('initialSub가 있으면 그 서브탭으로 시작한다', async () => {
+  render(<FestivalManagement initialSub="operations" />)
+
+  await waitFor(() => {
+    expect(fetchFestivalOperations).toHaveBeenCalledWith(
+      expect.objectContaining({ operationStatus: 'ALL', page: 0, size: 10 }),
+      expect.anything(),
+    )
+  })
+  expect(screen.getByRole('button', { name: '운영 현황' }).className).toContain('bg-white text-blue-600')
+})
+
+it('initialSub가 없으면 기존과 동일하게 페스티벌 등록 승인 서브탭으로 시작한다', async () => {
+  render(<FestivalManagement />)
+  await waitFor(() => expect(fetchFestivalSubmissionsPage).toHaveBeenCalled())
+  expect(fetchFestivalOperations).not.toHaveBeenCalled()
+})
+
+it('initialOperationsFilter가 있으면 운영 현황이 그 필터로 시작한다', async () => {
+  render(<FestivalManagement initialSub="operations" initialOperationsFilter="ONGOING" />)
+
+  await waitFor(() => {
+    expect(fetchFestivalOperations).toHaveBeenCalledWith(
+      expect.objectContaining({ operationStatus: 'ONGOING' }),
+      expect.anything(),
+    )
+  })
+})
+
+it('initialCancellationFilter가 있으면 행사 취소 승인이 그 필터로 시작한다', async () => {
+  render(<FestivalManagement initialSub="cancellation" initialCancellationFilter="REFUNDING" />)
+
+  await waitFor(() => {
+    expect(fetchCancellationRequests).toHaveBeenCalledWith('REFUNDING')
+  })
+})
+
 it('행사 취소 승인 대기 목록은 예상 환불 금액을 확인할 수 없으면 안내 문구를 보여준다', async () => {
   fetchCancellationRequests.mockImplementation((status) =>
     Promise.resolve({

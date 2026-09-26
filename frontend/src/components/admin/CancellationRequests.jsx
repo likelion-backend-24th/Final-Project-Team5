@@ -33,9 +33,11 @@ function toErrorMessage(error) {
  * 주최자가 요청한 행사 취소를 운영자가 승인하는 목록(페스티벌 관리 > 행사 취소 승인 탭).
  * 승인하면 payment-service 환불 배치가 남은 티켓을 위약금 없이 전액 환불하므로 되돌릴 수 없다.
  * 제목·설명은 부모(FestivalManagement)가 그리고, 여기서는 상태 필터와 목록을 함께 렌더링한다.
+ * initialFilter가 없으면 기존과 동일하게 'PENDING'으로 시작한다(어드민 대시보드에서 필터를 지정해
+ * 진입할 때만 쓴다).
  */
-function CancellationRequests({ onActionSuccess }) {
-  const [filter, setFilter] = useState('PENDING')
+function CancellationRequests({ onActionSuccess, initialFilter }) {
+  const [filter, setFilter] = useState(initialFilter ?? 'PENDING')
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')

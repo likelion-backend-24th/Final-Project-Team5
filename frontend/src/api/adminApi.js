@@ -60,3 +60,8 @@ export function suspendUser(userId, reason) {
 export function unsuspendUser(userId) {
   return apiClient.patch(`/api/admin/users/${userId}/unsuspend`)
 }
+
+//어드민 대시보드 요약 — 운영 현황·처리 대기 개수를 한 번에 조회한다
+export function fetchAdminSummary(signal) {
+  return apiClient.get('/api/admin/festivals/summary', { signal })
+}

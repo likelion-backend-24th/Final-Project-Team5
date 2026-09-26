@@ -88,6 +88,33 @@ it('주최자 목록 서브탭은 서버 파라미터(page/size/status)로 조�
   })
 })
 
+it('initialSub가 있으면 그 서브탭으로 시작한다', async () => {
+  render(<OrganizerManagement initialSub="list" />)
+
+  await waitFor(() => {
+    expect(fetchAdminHosts).toHaveBeenCalledWith({ page: 0, size: 10 }, expect.anything())
+  })
+  expect(screen.queryByText('pending@example.com')).toBeNull()
+})
+
+it('initialSub가 없으면 기존과 동일하게 주최자 신청 승인 서브탭으로 시작한다', async () => {
+  render(<OrganizerManagement />)
+
+  const pendingFilter = await screen.findByRole('button', { name: '승인대기' })
+  expect(pendingFilter).toBeTruthy()
+  expect(fetchAdminHosts).not.toHaveBeenCalled()
+})
+
+it('initialAccountFilter가 있으면 주최자 목록이 그 상태 필터로 시작한다', async () => {
+  render(<OrganizerManagement initialSub="list" initialAccountFilter="ACTIVE" />)
+
+  await waitFor(() => {
+    expect(fetchAdminHosts).toHaveBeenCalledWith({ page: 0, size: 10, status: 'ACTIVE' }, expect.anything())
+  })
+  const activeFilter = await screen.findByRole('button', { name: '활동중' })
+  expect(activeFilter.className).toContain('bg-blue-600')
+})
+
 it('등록 페스티벌 개수 조회에 실패해도 주최자 목록은 정상 표시되고 개수는 —로 보인다', async () => {
   fetchFestivalHostCounts.mockRejectedValue(new Error('network error'))
   const user = userEvent.setup()

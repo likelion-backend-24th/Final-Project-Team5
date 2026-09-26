@@ -35,19 +35,29 @@ function operationBadge(item) {
   return meta
 }
 
-function HighlightBadges({ item }) {
-  const isSoldOut = item.totalQuantity > 0 && item.soldQuantity >= item.totalQuantity
-  const isLowSale = (item.operationStatus === 'SCHEDULED' || item.operationStatus === 'ONGOING') && item.saleRate < LOW_SALE_RATE_THRESHOLD
-  if (!isSoldOut && !isLowSale) return null
+//매진·판매 부진 판단 — 어드민 대시보드도 같은 기준을 써야 해서 export한다.
+export function isSoldOut(item) {
+  return item.totalQuantity > 0 && item.soldQuantity >= item.totalQuantity
+}
+export function isLowSale(item) {
+  return (item.operationStatus === 'SCHEDULED' || item.operationStatus === 'ONGOING') && item.saleRate < LOW_SALE_RATE_THRESHOLD
+}
+
+export function HighlightBadges({ item }) {
+  const soldOut = isSoldOut(item)
+  const lowSale = isLowSale(item)
+  if (!soldOut && !lowSale) return null
   return (
     <div className="mt-1 flex flex-wrap gap-1">
-      {isSoldOut && <span className={'rounded-full px-2 py-0.5 text-[11px] font-bold ' + SOLD_OUT_BADGE_CLS}>매진</span>}
-      {isLowSale && <span className={'rounded-full px-2 py-0.5 text-[11px] font-bold ' + LOW_SALE_BADGE_CLS}>판매 부진</span>}
+      {soldOut && <span className={'rounded-full px-2 py-0.5 text-[11px] font-bold ' + SOLD_OUT_BADGE_CLS}>매진</span>}
+      {lowSale && <span className={'rounded-full px-2 py-0.5 text-[11px] font-bold ' + LOW_SALE_BADGE_CLS}>판매 부진</span>}
     </div>
   )
 }
 
-function SalesProgress({ item }) {
+//판매 진행 막대 — 어드민 대시보드에서도 재사용한다. 대시보드는 매진/판매 부진 뱃지를 카드 상단에 따로
+//두므로 showBadges=false로 여기 내장된 뱃지를 끈다(기본값은 true라 기존 화면은 그대로다).
+export function SalesProgress({ item, showBadges = true }) {
   return (
     <div className="min-w-[140px]">
       <p className="text-sm font-semibold text-gray-700">
@@ -57,7 +67,7 @@ function SalesProgress({ item }) {
       <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-gray-100">
         <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${item.saleRate}%` }} />
       </div>
-      <HighlightBadges item={item} />
+      {showBadges && <HighlightBadges item={item} />}
     </div>
   )
 }
@@ -75,9 +85,10 @@ function OperationStatusBadge({ item }) {
   return <span className={'rounded-full px-2.5 py-1 text-xs font-bold ' + badge.cls}>{badge.label}</span>
 }
 
-/** 페스티벌 관리 > 운영 현황 서브탭 — 공개된 적 있는 페스티벌의 운영 상태·판매 현황을 조회한다. */
-function FestivalOperations() {
-  const [filter, setFilter] = useState('ALL')
+/** 페스티벌 관리 > 운영 현황 서브탭 — 공개된 적 있는 페스티벌의 운영 상태·판매 현황을 조회한다.
+ * initialFilter가 없으면 기존과 동일하게 'ALL'로 시작한다(어드민 대시보드에서 필터를 지정해 진입할 때만 쓴다). */
+function FestivalOperations({ initialFilter } = {}) {
+  const [filter, setFilter] = useState(initialFilter ?? 'ALL')
   const [queryInput, setQueryInput] = useState('')
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)

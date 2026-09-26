@@ -21,6 +21,12 @@ export function StatusBadge({ status }) {
   return <span className={'rounded-full px-2.5 py-1 text-xs font-bold ' + meta.cls}>{meta.label}</span>
 }
 
+/** 상태 필터 매칭 규칙. '승인대기(PENDING)' 필터에는 권한 부여 확인 중(APPROVAL_PENDING)인 항목도 포함한다.
+ * 뱃지 카운트 등 다른 곳에서도 이 조건을 그대로 재사용해 필터 결과와 절대 어긋나지 않게 한다. */
+export function matchesStatus(itemStatus, filterStatus) {
+  return filterStatus === 'ALL' || itemStatus === filterStatus || (filterStatus === 'PENDING' && itemStatus === 'APPROVAL_PENDING')
+}
+
 export function Toolbar({ status, setStatus, query, setQuery, sort, setSort }) {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -114,29 +120,35 @@ export function Pagination({ page, pages, setPage }) {
   )
 }
 
-/** 실제 API에서 목록을 불러와 상태 필터·검색·정렬·페이지네이션을 적용하는 공통 훅. */
-export function useReviewList(loader, matches, initialQuery = '') {
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
-  const [status, setStatusState] = useState('ALL')
+/** 실제 API에서 목록을 불러와 상태 필터·검색·정렬·페이지네이션을 적용하는 공통 훅.
+ * `options.items`가 주어지면(부모가 이미 데이터를 불러와 관리하는 경우) 자체 fetch를 생략하고
+ * 부모 state를 그대로 사용한다 — 같은 API를 두 번 호출하지 않기 위함. `options.initialStatus`로
+ * 초기 상태 필터를 지정할 수 있다(기본은 기존과 동일한 'ALL'). 둘 다 생략하면 기존 동작과 완전히 같다. */
+export function useReviewList(loader, matches, initialQuery = '', options = {}) {
+  const hasExternalItems = options.items !== undefined
+
+  const [internalItems, setInternalItems] = useState([])
+  const [internalLoading, setInternalLoading] = useState(true)
+  const [internalLoadError, setInternalLoadError] = useState('')
+  const [status, setStatusState] = useState(options.initialStatus ?? 'ALL')
   const [query, setQueryState] = useState(initialQuery)
   const [sort, setSort] = useState('latest')
   const [page, setPage] = useState(1)
 
   useEffect(() => {
+    if (hasExternalItems) return
     let cancelled = false
-    setLoading(true)
-    setLoadError('')
+    setInternalLoading(true)
+    setInternalLoadError('')
     loader()
       .then((data) => {
-        if (!cancelled) setItems(data)
+        if (!cancelled) setInternalItems(data)
       })
       .catch(() => {
-        if (!cancelled) setLoadError('목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
+        if (!cancelled) setInternalLoadError('목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.')
       })
       .finally(() => {
-        if (!cancelled) setLoading(false)
+        if (!cancelled) setInternalLoading(false)
       })
     return () => {
       cancelled = true
@@ -144,11 +156,15 @@ export function useReviewList(loader, matches, initialQuery = '') {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const items = hasExternalItems ? options.items : internalItems
+  const loading = hasExternalItems ? options.loading : internalLoading
+  const loadError = hasExternalItems ? options.loadError : internalLoadError
+  const setItems = hasExternalItems ? options.setItems : setInternalItems
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return items
-      //'승인대기' 필터에는 권한 부여 확인 중(APPROVAL_PENDING)인 신청도 함께 보여준다.
-      .filter((it) => status === 'ALL' || it.status === status || (status === 'PENDING' && it.status === 'APPROVAL_PENDING'))
+      .filter((it) => matchesStatus(it.status, status))
       .filter((it) => q === '' || matches(it, q))
       .sort((a, b) => (sort === 'latest' ? b.appliedAt.localeCompare(a.appliedAt) : a.appliedAt.localeCompare(b.appliedAt)))
   }, [items, status, query, sort, matches])

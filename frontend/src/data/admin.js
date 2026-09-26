@@ -5,7 +5,6 @@
  * 정산 대시보드는 settlementApi와 SettlementReport에서 실제 API를 사용한다.
  */
 import {
-  fetchAdminHosts,
   fetchPendingHostApplications,
   reviewHostApplication,
   fetchPendingFestivals,
@@ -168,38 +167,6 @@ export const ACCOUNT_STATUS_META = {
   REVOKED: { label: '해지', cls: 'bg-gray-200 text-gray-600' },
   SUSPENDED: { label: '정지됨', cls: 'bg-gray-200 text-gray-600' },
   WITHDRAWN: { label: '탈퇴', cls: 'bg-red-100 text-red-600' },
-}
-
-const ORGANIZER_LIST_ERROR_MESSAGES = {
-  FORBIDDEN_ADMIN_ROLE: '운영자 권한이 없습니다.',
-}
-
-export async function fetchOrganizers() {
-  try {
-    const [hostsResponse, festivalsResponse] = await Promise.all([
-      fetchAdminHosts(),
-      fetchPendingFestivals(),
-    ])
-    const festivalCounts = (festivalsResponse.data.data ?? []).reduce((counts, festival) => {
-      counts.set(festival.hostUserId, (counts.get(festival.hostUserId) ?? 0) + 1)
-      return counts
-    }, new Map())
-
-    return (hostsResponse.data.data ?? []).map((host) => ({
-      id: String(host.id),
-      nickname: host.nickname,
-      email: host.email,
-      accountStatus: host.accountStatus,
-      joinedAt: formatDate(host.joinedAt),
-      festivalCount: festivalCounts.get(host.id) ?? 0,
-    }))
-  } catch (error) {
-    const errorCode = error.response?.data?.errorCode
-    throw new Error(
-      ORGANIZER_LIST_ERROR_MESSAGES[errorCode] ??
-        '주최자 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
-    )
-  }
 }
 
 /* ---------- 회원 관리 ---------- */

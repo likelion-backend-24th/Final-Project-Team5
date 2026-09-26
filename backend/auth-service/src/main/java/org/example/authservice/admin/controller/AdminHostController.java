@@ -1,13 +1,13 @@
-package org.example.authservice.user.controller;
+package org.example.authservice.admin.controller;
 
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 import org.example.authservice.common.dto.ApiResponse;
 import org.example.authservice.common.dto.Meta;
-import org.example.authservice.user.dto.AdminHostResponse;
+import org.example.authservice.admin.dto.AdminHostResponse;
 import org.example.authservice.user.entity.AccountStatus;
-import org.example.authservice.user.service.AdminHostService;
+import org.example.authservice.admin.service.AdminHostService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;

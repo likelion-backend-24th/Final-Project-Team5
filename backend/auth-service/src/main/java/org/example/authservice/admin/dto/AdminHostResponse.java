@@ -1,4 +1,4 @@
-package org.example.authservice.user.dto;
+package org.example.authservice.admin.dto;
 
 import java.time.LocalDateTime;
 

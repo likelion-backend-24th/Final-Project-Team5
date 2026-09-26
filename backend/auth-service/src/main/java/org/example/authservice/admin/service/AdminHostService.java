@@ -1,10 +1,8 @@
-package org.example.authservice.user.service;
-
-import java.util.List;
+package org.example.authservice.admin.service;
 
 import lombok.RequiredArgsConstructor;
 import org.example.authservice.common.exception.ApiException;
-import org.example.authservice.user.dto.AdminHostResponse;
+import org.example.authservice.admin.dto.AdminHostResponse;
 import org.example.authservice.user.entity.AccountStatus;
 import org.example.authservice.user.entity.Role;
 import org.example.authservice.user.exception.UserErrorCode;

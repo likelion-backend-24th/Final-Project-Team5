@@ -55,4 +55,25 @@ public interface FestivalRepository extends JpaRepository<Festival, Long> {
 
     //좌표 백필 대상 — 카카오맵 기능 이전에 등록됐거나 지도를 안 쓰고 등록해 좌표가 없는 페스티벌
     List<Festival> findByLatitudeIsNull();
+
+    //운영자 심사 목록 — 상태 묶음 + 검색(페스티벌명 또는 주최자) + 페이징. 정렬은 Pageable로 받는다
+    @Query("""
+        SELECT f FROM Festival f
+        WHERE f.festivalStatus IN :statuses
+          AND (:keyword IS NULL
+               OR f.name LIKE CONCAT('%', :keyword, '%')
+               OR f.hostUserId IN :hostIds)
+        """)
+    Page<Festival> searchForAdmin(@Param("keyword") String keyword,
+                                  @Param("statuses") Collection<FestivalStatus> statuses,
+                                  @Param("hostIds") Collection<Long> hostIds,
+                                  Pageable pageable);
+
+    //운영자 주최자 목록 — 주최자별 등록 페스티벌 개수(상태 무관)
+    @Query("""
+        SELECT f.hostUserId, COUNT(f) FROM Festival f
+        WHERE f.hostUserId IN :hostIds
+        GROUP BY f.hostUserId
+        """)
+    List<Object[]> countByHostUserIds(@Param("hostIds") Collection<Long> hostIds);
 }

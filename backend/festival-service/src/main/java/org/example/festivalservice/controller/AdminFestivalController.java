@@ -2,8 +2,11 @@ package org.example.festivalservice.controller;
 
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
 import org.example.festivalservice.common.dto.ApiResponse;
+import org.example.festivalservice.common.dto.Meta;
 import org.example.festivalservice.domain.festival.CoordinateBackfillResultDto;
 import org.example.festivalservice.domain.festival.FestivalCancellationRequestResponseDto;
 import org.example.festivalservice.domain.festival.FestivalCancellationService;
@@ -12,6 +15,10 @@ import org.example.festivalservice.domain.festival.FestivalResponseDto;
 import org.example.festivalservice.domain.festival.FestivalReviewRequestDto;
 import org.example.festivalservice.domain.festival.FestivalService;
 import org.example.festivalservice.domain.festival.FestivalStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,12 +31,26 @@ public class AdminFestivalController {
     private final FestivalCancellationService festivalCancellationService;
     private final FestivalCoordinateBackfillService festivalCoordinateBackfillService;
 
-    //운영자가 심사 대기 중인 페스티벌 목록을 조회한다
+    //운영자 페스티벌 심사 목록 — 상태 묶음(ALL/PENDING/APPROVED/REJECTED)·검색·정렬·페이징
     @GetMapping
-    public ResponseEntity<ApiResponse<List<FestivalResponseDto>>> listPendingFestivals(
+    public ResponseEntity<ApiResponse<List<FestivalResponseDto>>> searchFestivalsForAdmin(
             @RequestHeader("X-User-Id") Long userId,
-            @RequestHeader("X-User-Role") String role) {
-        return ResponseEntity.ok(ApiResponse.success("심사 대기 중인 페스티벌 목록 조회",festivalService.listPendingFestivals(role)));
+            @RequestHeader("X-User-Role") String role,
+            @RequestParam(defaultValue = "ALL") String status,
+            @RequestParam(required = false) String keyword,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<FestivalResponseDto> page = festivalService.searchFestivalsForAdmin(role, status, keyword, pageable);
+        return ResponseEntity.ok(ApiResponse.success("운영자 페스티벌 심사 목록 조회", page.getContent(), Meta.of(page)));
+    }
+
+    //운영자 주최자 목록용 — 주최자 id별 등록 페스티벌 개수(상태 무관, 최대 100명)
+    @GetMapping("/host-counts")
+    public ResponseEntity<ApiResponse<Map<Long, Long>>> countFestivalsByHosts(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestHeader("X-User-Role") String role,
+            @RequestParam("hostIds") List<Long> hostIds) {
+        return ResponseEntity.ok(ApiResponse.success("주최자별 페스티벌 개수 조회",
+                festivalService.countFestivalsByHosts(role, hostIds)));
     }
 
     //운영자가 대기 중인 페스티벌을 공개·반려 처리한다

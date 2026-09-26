@@ -1,6 +1,7 @@
 package org.example.festivalservice.domain.hostapplication;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -21,4 +22,7 @@ public interface HostApplicationRepository extends JpaRepository<HostApplication
 
     //Role 부여 응답을 못 받아 APPROVAL_PENDING에 머문 신청 — 재시도 배치용
     List<HostApplication> findByStatusAndUpdatedAtBefore(HostApplicationStatus status, LocalDateTime before);
+
+    //어드민 대시보드 — 상태 묶음별 신청 건수
+    long countByStatusIn(Collection<HostApplicationStatus> statuses);
 }

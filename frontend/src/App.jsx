@@ -135,7 +135,7 @@ function App() {
         <Route path="/store/booths" element={<StoreBooths />} />
         <Route path="/store/booths/:id" element={<StoreBoothDetail />} />
         <Route path="/check-in" element={<CheckIn />} />
-        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/*" element={<AdminDashboard />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route

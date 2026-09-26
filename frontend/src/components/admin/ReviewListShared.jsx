@@ -27,7 +27,7 @@ export function matchesStatus(itemStatus, filterStatus) {
   return filterStatus === 'ALL' || itemStatus === filterStatus || (filterStatus === 'PENDING' && itemStatus === 'APPROVAL_PENDING')
 }
 
-export function Toolbar({ status, setStatus, query, setQuery, sort, setSort }) {
+export function Toolbar({ status, setStatus, query, setQuery, sort, setSort, placeholder = '이메일 또는 이름 검색' }) {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap gap-2">
@@ -54,7 +54,7 @@ export function Toolbar({ status, setStatus, query, setQuery, sort, setSort }) {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="이메일 또는 이름 검색"
+            placeholder={placeholder}
             className="w-56 rounded-2xl border border-gray-200 bg-white py-2.5 pl-4 pr-10 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
           />
           <Search className="absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />

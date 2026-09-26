@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { fetchOrganizerApplications } from '../../data/admin'
-import { fetchAdminHosts, fetchPendingFestivals } from '../../api/adminApi'
+import { fetchAdminHosts, fetchFestivalHostCounts } from '../../api/adminApi'
 import OrganizerManagement from './OrganizerManagement'
 
 vi.mock('../../data/admin', { spy: true })
@@ -11,13 +11,19 @@ vi.mock('../../api/adminApi', { spy: true })
 beforeEach(() => {
   vi.clearAllMocks()
   fetchOrganizerApplications.mockResolvedValue([])
-  fetchAdminHosts.mockResolvedValue({
-    data: {
-      data: [],
-      meta: { pagination: { page: 0, size: 10, totalItems: 0, totalPages: 0, hasNext: false, hasPrev: false } },
-    },
-  })
-  fetchPendingFestivals.mockResolvedValue({ data: { data: [] } })
+  //매 호출마다 새 배열을 반환해야 items(state)의 참조가 바뀌어 host-counts 재조회 이펙트가 트리거된다.
+  fetchAdminHosts.mockImplementation(() =>
+    Promise.resolve({
+      data: {
+        data: [
+          { id: 1, nickname: '주최자1', email: 'host1@example.com', accountStatus: 'ACTIVE', joinedAt: '2026-01-01' },
+          { id: 2, nickname: '주최자2', email: 'host2@example.com', accountStatus: 'ACTIVE', joinedAt: '2026-01-02' },
+        ],
+        meta: { pagination: { page: 0, size: 10, totalItems: 2, totalPages: 1, hasNext: false, hasPrev: false } },
+      },
+    }),
+  )
+  fetchFestivalHostCounts.mockResolvedValue({ data: { data: { 1: 3, 2: 0 } } })
 })
 
 it('shows nearby pages and ellipses instead of every page', async () => {
@@ -58,7 +64,7 @@ it('주최자 신청 승인 서브탭은 승인대기 상태 필터로 시작한
   expect(screen.queryByText('approved@example.com')).toBeNull()
 })
 
-it('주최자 목록 서브탭은 서버 파라미터(page/size/status)로 조회한다', async () => {
+it('주최자 목록 서브탭은 서버 파라미터(page/size/status)로 조회하고, 목록이 올 때마다 현재 페이지 주최자 id로 등록 페스티벌 개수를 조회한다', async () => {
   const user = userEvent.setup()
   render(<OrganizerManagement />)
 
@@ -67,13 +73,31 @@ it('주최자 목록 서브탭은 서버 파라미터(page/size/status)로 조�
   await waitFor(() => {
     expect(fetchAdminHosts).toHaveBeenCalledWith({ page: 0, size: 10 }, expect.anything())
   })
-  expect(fetchPendingFestivals).toHaveBeenCalledTimes(1)
+  await waitFor(() => {
+    expect(fetchFestivalHostCounts).toHaveBeenCalledWith([1, 2])
+  })
 
   await user.click(screen.getByRole('button', { name: '정지됨' }))
 
   await waitFor(() => {
     expect(fetchAdminHosts).toHaveBeenLastCalledWith({ page: 0, size: 10, status: 'SUSPENDED' }, expect.anything())
   })
-  //필터를 바꿔도 페스티벌 개수 집계는 다시 부르지 않는다.
-  expect(fetchPendingFestivals).toHaveBeenCalledTimes(1)
+  //주최자 목록이 새로 올 때마다(필터가 바뀌어도) 현재 페이지 id로 다시 조회한다.
+  await waitFor(() => {
+    expect(fetchFestivalHostCounts).toHaveBeenCalledTimes(2)
+  })
+})
+
+it('등록 페스티벌 개수 조회에 실패해도 주최자 목록은 정상 표시되고 개수는 —로 보인다', async () => {
+  fetchFestivalHostCounts.mockRejectedValue(new Error('network error'))
+  const user = userEvent.setup()
+  render(<OrganizerManagement />)
+
+  await user.click(screen.getByRole('button', { name: '주최자 목록' }))
+
+  expect((await screen.findAllByText('주최자1')).length).toBeGreaterThan(0)
+  await waitFor(() => {
+    expect(fetchFestivalHostCounts).toHaveBeenCalledWith([1, 2])
+  })
+  expect(screen.getAllByText('—').length).toBeGreaterThan(0)
 })

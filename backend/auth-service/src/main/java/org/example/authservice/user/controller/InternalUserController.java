@@ -6,6 +6,7 @@ import org.example.authservice.common.dto.ApiResponse;
 import org.example.authservice.common.exception.ApiException;
 import org.example.authservice.role.exception.RoleErrorCode;
 import org.example.authservice.user.dto.InternalUserSummaryResponse;
+import org.example.authservice.user.entity.Role;
 import org.example.authservice.user.service.UserService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -37,11 +38,27 @@ public class InternalUserController {
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
             @RequestParam("ids") List<Long> ids
     ) {
-        if (!authorization.equals(BEARER_PREFIX + internalAuthToken)) {
-            throw new ApiException(RoleErrorCode.INVALID_INTERNAL_TOKEN);
-        }
+        checkInternalToken(authorization);
         //사용자 조회 범위와 DTO 구성은 서비스에서 관리한다.
         List<InternalUserSummaryResponse> users = userService.findInternalUserSummaries(ids);
         return ResponseEntity.ok(ApiResponse.success("사용자 요약 조회 성공", users));
+    }
+
+    //닉네임·이메일 검색어로 회원 id 목록을 조회한다 — festival-service가 "주최자 이름으로 페스티벌 검색"할 때 쓴다.
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<Long>>> searchIds(
+            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @RequestParam("keyword") String keyword,
+            @RequestParam(value = "role", required = false) Role role
+    ) {
+        checkInternalToken(authorization);
+        List<Long> ids = userService.searchInternalUserIds(keyword, role);
+        return ResponseEntity.ok(ApiResponse.success("사용자 검색 성공", ids));
+    }
+
+    private void checkInternalToken(String authorization) {
+        if (!authorization.equals(BEARER_PREFIX + internalAuthToken)) {
+            throw new ApiException(RoleErrorCode.INVALID_INTERNAL_TOKEN);
+        }
     }
 }

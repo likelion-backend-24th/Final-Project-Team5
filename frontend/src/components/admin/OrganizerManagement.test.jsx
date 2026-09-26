@@ -1,9 +1,20 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { fetchOrganizerApplications } from '../../data/admin'
 import { fetchAdminHosts, fetchFestivalHostCounts } from '../../api/adminApi'
 import OrganizerManagement from './OrganizerManagement'
+
+//서브탭이 NavLink라 라우터 컨텍스트가 필요하다. sub는 이제 부모(AdminDashboard)가 내려주는 controlled
+//prop이라, 기본값('applications')이 필요한 테스트는 명시적으로 넘긴다.
+function renderOrganizerManagement(props) {
+  return render(
+    <MemoryRouter>
+      <OrganizerManagement sub="applications" {...props} />
+    </MemoryRouter>,
+  )
+}
 
 vi.mock('../../data/admin', { spy: true })
 vi.mock('../../api/adminApi', { spy: true })
@@ -32,7 +43,7 @@ it('shows nearby pages and ellipses instead of every page', async () => {
     status: 'APPROVED', appliedAt: '2026.09.21',
   })))
   const user = userEvent.setup()
-  render(<OrganizerManagement />)
+  renderOrganizerManagement()
 
   //기본 필터는 '승인대기'라 이 테스트의 APPROVED 신청들을 보려면 '전체'로 바꿔야 한다.
   await user.click(await screen.findByRole('button', { name: '전체' }))
@@ -56,7 +67,7 @@ it('주최자 신청 승인 서브탭은 승인대기 상태 필터로 시작한
     { id: '1', name: '신청자 1', email: 'pending@example.com', status: 'PENDING', appliedAt: '2026.09.20' },
     { id: '2', name: '신청자 2', email: 'approved@example.com', status: 'APPROVED', appliedAt: '2026.09.21' },
   ])
-  render(<OrganizerManagement />)
+  renderOrganizerManagement()
 
   const pendingFilter = await screen.findByRole('button', { name: '승인대기' })
   expect(pendingFilter.className).toContain('bg-blue-600')
@@ -66,9 +77,7 @@ it('주최자 신청 승인 서브탭은 승인대기 상태 필터로 시작한
 
 it('주최자 목록 서브탭은 서버 파라미터(page/size/status)로 조회하고, 목록이 올 때마다 현재 페이지 주최자 id로 등록 페스티벌 개수를 조회한다', async () => {
   const user = userEvent.setup()
-  render(<OrganizerManagement />)
-
-  await user.click(screen.getByRole('button', { name: '주최자 목록' }))
+  renderOrganizerManagement({ sub: 'list' })
 
   await waitFor(() => {
     expect(fetchAdminHosts).toHaveBeenCalledWith({ page: 0, size: 10 }, expect.anything())
@@ -88,8 +97,8 @@ it('주최자 목록 서브탭은 서버 파라미터(page/size/status)로 조�
   })
 })
 
-it('initialSub가 있으면 그 서브탭으로 시작한다', async () => {
-  render(<OrganizerManagement initialSub="list" />)
+it('sub가 list면 주최자 목록 서브탭으로 시작한다', async () => {
+  renderOrganizerManagement({ sub: 'list' })
 
   await waitFor(() => {
     expect(fetchAdminHosts).toHaveBeenCalledWith({ page: 0, size: 10 }, expect.anything())
@@ -97,8 +106,8 @@ it('initialSub가 있으면 그 서브탭으로 시작한다', async () => {
   expect(screen.queryByText('pending@example.com')).toBeNull()
 })
 
-it('initialSub가 없으면 기존과 동일하게 주최자 신청 승인 서브탭으로 시작한다', async () => {
-  render(<OrganizerManagement />)
+it('sub가 applications면 주최자 신청 승인 서브탭을 보여준다', async () => {
+  renderOrganizerManagement({ sub: 'applications' })
 
   const pendingFilter = await screen.findByRole('button', { name: '승인대기' })
   expect(pendingFilter).toBeTruthy()
@@ -106,7 +115,7 @@ it('initialSub가 없으면 기존과 동일하게 주최자 신청 승인 서�
 })
 
 it('initialAccountFilter가 있으면 주최자 목록이 그 상태 필터로 시작한다', async () => {
-  render(<OrganizerManagement initialSub="list" initialAccountFilter="ACTIVE" />)
+  renderOrganizerManagement({ sub: 'list', initialAccountFilter: 'ACTIVE' })
 
   await waitFor(() => {
     expect(fetchAdminHosts).toHaveBeenCalledWith({ page: 0, size: 10, status: 'ACTIVE' }, expect.anything())
@@ -117,10 +126,7 @@ it('initialAccountFilter가 있으면 주최자 목록이 그 상태 필터로 �
 
 it('등록 페스티벌 개수 조회에 실패해도 주최자 목록은 정상 표시되고 개수는 —로 보인다', async () => {
   fetchFestivalHostCounts.mockRejectedValue(new Error('network error'))
-  const user = userEvent.setup()
-  render(<OrganizerManagement />)
-
-  await user.click(screen.getByRole('button', { name: '주최자 목록' }))
+  renderOrganizerManagement({ sub: 'list' })
 
   expect((await screen.findAllByText('주최자1')).length).toBeGreaterThan(0)
   await waitFor(() => {

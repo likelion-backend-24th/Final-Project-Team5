@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { NavLink } from 'react-router-dom'
 import { Search, Mail, Phone, CalendarDays } from 'lucide-react'
 import { ACCOUNT_STATUS_META, fetchOrganizerApplications, reviewOrganizerApplication, formatDate } from '../../data/admin'
 import { fetchAdminHosts, fetchFestivalHostCounts } from '../../api/adminApi'
 import { Pagination, StatusBadge, Toolbar, approveBtn, confirmApprove, matchesStatus, rejectBtn, useReviewList } from './ReviewListShared'
 import SharedPagination from '../Pagination'
 import DetailModal from './DetailModal'
+import { ADMIN_SUB_TABS } from './adminNav'
 
 const HOST_PAGE_SIZE = 10
 
@@ -192,7 +194,7 @@ function OrganizerApprovals({ applications, appsLoading, appsLoadError, setAppli
 
 /* ---------- 서브탭 B: 주최자 목록 (서버 페이징) ---------- */
 
-const ACCOUNT_FILTERS = [
+export const ACCOUNT_FILTERS = [
   { key: 'ALL', label: '전체' },
   { key: 'ACTIVE', label: ACCOUNT_STATUS_META.ACTIVE.label },
   { key: 'SUSPENDED', label: ACCOUNT_STATUS_META.SUSPENDED.label },
@@ -430,16 +432,11 @@ function OrganizerList({ onViewFestivals, initialAccountFilter }) {
 
 /* ---------- 주최자 관리 (탭 1) ---------- */
 
-const SUB_TABS = [
-  { key: 'organizer', label: '주최자 신청 승인' },
-  { key: 'list', label: '주최자 목록' },
-]
+const SUB_TABS = ADMIN_SUB_TABS.hosts
 
-//initialSub/initialAccountFilter가 없으면 기존과 동일하게 시작한다(어드민 대시보드에서 서브탭·필터를
-//지정해 진입할 때만 쓴다).
-function OrganizerManagement({ onViewFestivals = () => {}, initialSub, initialAccountFilter }) {
-  const [sub, setSub] = useState(initialSub ?? 'organizer')
-
+//sub는 부모(AdminDashboard)가 현재 경로에서 계산해 내려주는 값이다('applications' | 'list').
+//initialAccountFilter가 없으면 기존과 동일하게 시작한다(어드민 대시보드에서 필터를 지정해 진입할 때만 쓴다).
+function OrganizerManagement({ sub, onViewFestivals = () => {}, initialAccountFilter }) {
   const [applications, setApplications] = useState([])
   const [appsLoading, setAppsLoading] = useState(true)
   const [appsLoadError, setAppsLoadError] = useState('')
@@ -470,7 +467,7 @@ function OrganizerManagement({ onViewFestivals = () => {}, initialSub, initialAc
   )
 
   function renderSub() {
-    if (sub === 'organizer') {
+    if (sub === 'applications') {
       return (
         <OrganizerApprovals
           applications={applications}
@@ -490,17 +487,16 @@ function OrganizerManagement({ onViewFestivals = () => {}, initialSub, initialAc
         {SUB_TABS.map((t) => {
           const on = sub === t.key
           return (
-            <button
+            <NavLink
               key={t.key}
-              type="button"
-              onClick={() => setSub(t.key)}
+              to={t.path}
               className={'rounded-xl px-5 py-2.5 text-sm font-bold transition ' + (on ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700')}
             >
               {t.label}
-              {t.key === 'organizer' && pendingCount > 0 && (
+              {t.key === 'applications' && pendingCount > 0 && (
                 <span className="ml-2 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">{pendingCount}</span>
               )}
-            </button>
+            </NavLink>
           )
         })}
       </div>

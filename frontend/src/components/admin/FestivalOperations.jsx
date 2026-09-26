@@ -10,7 +10,7 @@ const LOW_SALE_RATE_THRESHOLD = 30
 const SOLD_OUT_BADGE_CLS = 'bg-indigo-50 text-indigo-700'
 const LOW_SALE_BADGE_CLS = 'bg-orange-50 text-orange-800'
 
-const OPERATION_FILTERS = [
+export const OPERATION_FILTERS = [
   { key: 'ALL', label: '전체' },
   { key: 'SCHEDULED', label: '예정' },
   { key: 'ONGOING', label: '진행 중' },

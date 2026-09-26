@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { NavLink } from 'react-router-dom'
 import { CATEGORY_BADGE, DEFAULT_CATEGORY_BADGE_CLS, fetchFestivalSubmissionsPage, reviewFestivalSubmission } from '../../data/admin'
 import { fetchCancellationRequests, fetchPendingFestivals } from '../../api/adminApi'
 import { Pagination, StatusBadge, Toolbar, approveBtn, confirmApprove, rejectBtn } from './ReviewListShared'
 import CancellationRequests from './CancellationRequests'
 import FestivalOperations from './FestivalOperations'
 import DetailModal from './DetailModal'
+import { ADMIN_SUB_TABS } from './adminNav'
 
 const FESTIVAL_PAGE_SIZE = 5
 
@@ -258,16 +260,12 @@ function CancellationApprovals({ onActionSuccess, initialFilter }) {
 
 /* ---------- 페스티벌 관리 (탭) ---------- */
 
-const SUB_TABS = [
-  { key: 'festival', label: '페스티벌 등록 승인' },
-  { key: 'operations', label: '운영 현황' },
-  { key: 'cancellation', label: '행사 취소 승인' },
-]
+const SUB_TABS = ADMIN_SUB_TABS.festivals
 
-//initialSub/initialOperationsFilter/initialCancellationFilter가 없으면 기존과 동일하게 시작한다
-//(어드민 대시보드에서 서브탭·필터를 지정해 진입할 때만 쓴다).
-function FestivalManagement({ initialQuery = '', initialSub, initialOperationsFilter, initialCancellationFilter }) {
-  const [sub, setSub] = useState(initialSub ?? 'festival')
+//sub는 부모(AdminDashboard)가 현재 경로에서 계산해 내려주는 값이다
+//('submissions' | 'operations' | 'cancellations'). initialOperationsFilter/initialCancellationFilter가
+//없으면 기존과 동일하게 시작한다(어드민 대시보드에서 필터를 지정해 진입할 때만 쓴다).
+function FestivalManagement({ sub, initialQuery = '', initialOperationsFilter, initialCancellationFilter }) {
   const [registrationPendingCount, setRegistrationPendingCount] = useState(0)
   const [cancellationPendingCount, setCancellationPendingCount] = useState(0)
 
@@ -290,13 +288,13 @@ function FestivalManagement({ initialQuery = '', initialSub, initialOperationsFi
   }, [])
 
   function badgeCountFor(key) {
-    if (key === 'festival') return registrationPendingCount
-    if (key === 'cancellation') return cancellationPendingCount
+    if (key === 'submissions') return registrationPendingCount
+    if (key === 'cancellations') return cancellationPendingCount
     return 0
   }
 
   function renderSub() {
-    if (sub === 'festival') {
+    if (sub === 'submissions') {
       return <FestivalApprovals key={initialQuery} initialQuery={initialQuery} onActionSuccess={refreshRegistrationPendingCount} />
     }
     if (sub === 'operations') return <FestivalOperations initialFilter={initialOperationsFilter} />
@@ -311,17 +309,16 @@ function FestivalManagement({ initialQuery = '', initialSub, initialOperationsFi
           const on = sub === t.key
           const badgeCount = badgeCountFor(t.key)
           return (
-            <button
+            <NavLink
               key={t.key}
-              type="button"
-              onClick={() => setSub(t.key)}
+              to={t.path}
               className={'rounded-xl px-5 py-2.5 text-sm font-bold transition ' + (on ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700')}
             >
               {t.label}
               {badgeCount > 0 && (
                 <span className="ml-2 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">{badgeCount}</span>
               )}
-            </button>
+            </NavLink>
           )
         })}
       </div>

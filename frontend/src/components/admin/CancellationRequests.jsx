@@ -10,7 +10,7 @@ const CANCELLATION_ERROR_MESSAGES = {
   FESTIVAL_NOT_FOUND: '존재하지 않는 페스티벌이에요.',
 }
 
-const CANCELLATION_FILTERS = [
+export const CANCELLATION_FILTERS = [
   { key: 'PENDING', label: '대기' },
   { key: 'REFUNDING', label: '환불 진행 중' },
   { key: 'CANCELLED', label: '취소 완료' },

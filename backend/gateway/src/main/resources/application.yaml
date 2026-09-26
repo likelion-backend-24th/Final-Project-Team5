@@ -54,7 +54,7 @@ spring:
             - id: admin-hosts
               uri: ${AUTH_SERVICE_URL:http://localhost:8081}
               predicates:
-                - Path=/api/admin/hosts
+                - Path=/api/admin/hosts/**
             - id: admin-users
               uri: ${AUTH_SERVICE_URL:http://localhost:8081}
               predicates:

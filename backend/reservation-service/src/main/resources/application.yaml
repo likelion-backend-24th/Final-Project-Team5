@@ -1,5 +1,9 @@
 server:
   port: 8083
+  tomcat:
+    # 예매 오픈 순간 게이트웨이가 연결을 한꺼번에 새로 열면 기본 대기열(100)이 넘쳐 연결이 끊긴다
+    # (로컬 부하 테스트: 1,000명 동시 예매에서 5~33% Connection reset → 1000으로 올린 뒤 0건).
+    accept-count: 1000
 
 spring:
   application:

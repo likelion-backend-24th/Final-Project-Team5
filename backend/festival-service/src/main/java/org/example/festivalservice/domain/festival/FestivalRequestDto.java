@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -14,7 +15,7 @@ import org.example.festivalservice.domain.tickettype.TicketTypeRequestDto;
 
 public record FestivalRequestDto(
         @NotBlank String name,
-        String description,
+        @Size(max = 1000, message = "페스티벌 소개는 1000자 이내로 입력해주세요.") String description,
         @NotNull @Future LocalDateTime startAt,
         @NotNull LocalDateTime endAt,
         //장소 — 행정구역(시/도) 드롭다운 + 상세주소 텍스트

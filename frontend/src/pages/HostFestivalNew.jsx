@@ -51,6 +51,8 @@ function todayDateTime(hour) {
 
 const MAX_DETAIL_IMAGE_COUNT = 2
 const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
+//백엔드 FestivalRequestDto.description의 @Size(max)와 같은 값
+const MAX_DESCRIPTION_LENGTH = 1000
 
 const IMAGE_ERROR_MESSAGES = {
   FORBIDDEN_ROLE: '주최자 권한이 없습니다.',
@@ -421,6 +423,10 @@ function validate(form, thumbnail, detailImages) {
   if (!form.name.trim()) {
     fieldErrors.name = '페스티벌 이름을 입력해주세요.'
   }
+  //직접 입력은 maxLength로 막히지만 AI 초안은 그대로 채워지므로 여기서도 확인한다.
+  if (form.description.length > MAX_DESCRIPTION_LENGTH) {
+    fieldErrors.description = `소개는 ${MAX_DESCRIPTION_LENGTH}자 이내로 입력해주세요.`
+  }
   if (!form.startAt) {
     fieldErrors.startAt = '시작 일시를 입력해주세요.'
   } else if (new Date(form.startAt) <= new Date()) {
@@ -473,7 +479,7 @@ const STEP_LABELS = {
 //"다음" 클릭 시 이 단계에 해당하는 필드만 막는다 — validate()는 항상 전체를 검사하지만,
 //다른 단계의 에러(예: 아직 안 채운 4단계 티켓 종류)까지 1단계에서 막아버리면 안 되기 때문이다.
 const STEP_FIELD_KEYS = {
-  1: ['name', 'startAt', 'endAt', 'region', 'locationDetail'],
+  1: ['name', 'description', 'startAt', 'endAt', 'region', 'locationDetail'],
   2: ['operatingEndTime'],
   3: ['festivalCategory', 'thumbnail', 'detailImages'],
   4: ['ticketTypes'],
@@ -1068,7 +1074,9 @@ function HostFestivalNew() {
               value={form.description}
               onChange={handleChange('description')}
               rows={5}
+              maxLength={MAX_DESCRIPTION_LENGTH}
             />
+            {errors.description && <p className={styles.errorText}>{errors.description}</p>}
           </div>
           )}
 

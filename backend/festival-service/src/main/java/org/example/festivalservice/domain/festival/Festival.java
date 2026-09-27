@@ -29,7 +29,9 @@ public class Festival {
 
     //페스티벌 이름
     private String name;
-    //페스티벌 설명
+    //페스티벌 설명 — 기본 VARCHAR(255)로는 긴 소개글이 DB에서 거부돼 등록이 서버 오류로 실패했다.
+    //길이 제한은 FestivalRequestDto에서 건다.
+    @Column(columnDefinition = "TEXT")
     private String description;
     //개최 일자 및 시각
     @Column(name = "start_at")

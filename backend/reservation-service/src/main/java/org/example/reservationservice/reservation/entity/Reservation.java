@@ -16,7 +16,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Getter
 @Entity
-@Table(name = "reservations")
+//1인당 구매 제한 합산은 예매마다 (user_id, festival_id)로 조회한다. 인덱스가 없으면 예매 테이블 전체를 읽어
+//예매가 쌓일수록 예매 생성이 느려진다(합산은 잠금 없이 읽으므로 이 인덱스로 잠금 범위가 바뀌지는 않는다).
+@Table(name = "reservations", indexes = {
+        @Index(name = "idx_reservations_user_festival", columnList = "user_id, festival_id")
+})
 public class Reservation {
     @Id@GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

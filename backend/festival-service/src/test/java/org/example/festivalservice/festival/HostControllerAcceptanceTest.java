@@ -114,6 +114,29 @@ class HostControllerAcceptanceTest {
     }
 
     @Test
+    void createFestivalAcceptsDescriptionUpTo1000Chars() throws Exception {
+        String description = "가".repeat(1000);
+
+        mockMvc.perform(post(ENDPOINT)
+                        .header("X-User-Id", "1")
+                        .header("X-User-Role", "HOST")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CREATE_REQUEST_BODY.replace("\"설명\"", "\"" + description + "\"")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.description", is(description)));
+    }
+
+    @Test
+    void createFestivalWithDescriptionOver1000CharsIsBadRequest() throws Exception {
+        mockMvc.perform(post(ENDPOINT)
+                        .header("X-User-Id", "1")
+                        .header("X-User-Role", "HOST")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(CREATE_REQUEST_BODY.replace("\"설명\"", "\"" + "가".repeat(1001) + "\"")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void createFestivalWithoutAuthHeaderIsUnauthorized() throws Exception {
         mockMvc.perform(post(ENDPOINT)
                         .contentType(MediaType.APPLICATION_JSON)

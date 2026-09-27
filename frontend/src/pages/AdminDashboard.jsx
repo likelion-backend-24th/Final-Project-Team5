@@ -1,19 +1,81 @@
-import { useState } from 'react'
-import { Users, Wallet, CircleAlertIcon } from 'lucide-react'
+import { Navigate, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { CircleAlertIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { ADMIN_TABS, ADMIN_TAB_META, isValidAdminStatus, parseAdminPath } from '../components/admin/adminNav'
+import AdminOverviewDashboard from '../components/admin/AdminOverviewDashboard'
 import OrganizerManagement from '../components/admin/OrganizerManagement'
+import FestivalManagement from '../components/admin/FestivalManagement'
 import SettlementDashboard from '../components/admin/SettlementDashboard'
+import UserManagement from '../components/admin/UserManagement'
 
-const TABS = [
-  { key: 'organizer', label: '주최자 관리', icon: Users },
-  { key: 'settlement', label: '정산 대시보드', icon: Wallet },
-]
+//대시보드 카드가 내려주는 옛 tab/서브탭 키를 새 경로 세그먼트로 옮긴다.
+const DASHBOARD_NAV_TAB = { member: 'members', organizer: 'hosts', festival: 'festivals' }
+const DASHBOARD_NAV_ORGANIZER_SUB = { organizer: 'applications', list: 'list' }
+const DASHBOARD_NAV_FESTIVAL_SUB = { festival: 'submissions', operations: 'operations', cancellation: 'cancellations' }
 
-/** 어드민 대시보드 — 주최자 관리(신청/페스티벌 승인, 목록)와 정산 대시보드를 한 화면에서 다룬다. */
+function ComingSoon() {
+  return (
+    <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
+      <p className="py-12 text-center text-sm font-semibold text-gray-400">준비 중인 기능입니다.</p>
+    </div>
+  )
+}
+
+function renderTab(tab, sub, { status, q, onViewOrganizerFestivals, onDashboardNavigate }) {
+  if (tab === 'dashboard') return <AdminOverviewDashboard onNavigate={onDashboardNavigate} />
+  if (tab === 'members') return <UserManagement />
+  if (tab === 'hosts') {
+    return <OrganizerManagement sub={sub} onViewFestivals={onViewOrganizerFestivals} initialAccountFilter={status} />
+  }
+  if (tab === 'festivals') {
+    return (
+      <FestivalManagement
+        sub={sub}
+        initialQuery={q}
+        initialOperationsFilter={status}
+        initialCancellationFilter={status}
+      />
+    )
+  }
+  if (tab === 'settlements') return <SettlementDashboard />
+  return <ComingSoon />
+}
+
+//대시보드 카드 클릭({ tab, organizerSub, organizerAccountFilter, festivalSub, operationsFilter,
+//cancellationFilter })을 실제 경로+status 쿼리로 바꾼다. AdminOverviewDashboard의 onNavigate
+//호출 형태는 그대로 두고 여기서만 변환한다.
+function buildDashboardNavigateUrl(target) {
+  const tab = DASHBOARD_NAV_TAB[target.tab] ?? target.tab
+  let sub = null
+  let status = null
+  if (target.tab === 'organizer') {
+    sub = DASHBOARD_NAV_ORGANIZER_SUB[target.organizerSub] ?? null
+    status = target.organizerAccountFilter ?? null
+  } else if (target.tab === 'festival') {
+    sub = DASHBOARD_NAV_FESTIVAL_SUB[target.festivalSub] ?? null
+    status = target.operationsFilter ?? target.cancellationFilter ?? null
+  }
+  const pathname = sub ? `/admin/${tab}/${sub}` : `/admin/${tab}`
+  const search = status ? `?${new URLSearchParams({ status }).toString()}` : ''
+  return `${pathname}${search}`
+}
+
+/** 어드민 패널 — 대시보드/회원 관리/주최자 관리/페스티벌 관리/정산 대시보드를 한 화면에서 다룬다.
+ * 탭·서브탭은 경로(/admin/festivals/operations)로, 초기 필터·검색어는 쿼리(status, q)로 표현한다. */
 function AdminDashboard() {
   const { user, isLoading: authLoading } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
-  const [tab, setTab] = useState('organizer')
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+
+  function handleViewOrganizerFestivals(nickname) {
+    navigate(`/admin/festivals/submissions?${new URLSearchParams({ q: nickname }).toString()}`)
+  }
+
+  function handleDashboardNavigate(target) {
+    navigate(buildDashboardNavigateUrl(target))
+  }
 
   if (authLoading) {
     return (
@@ -33,19 +95,31 @@ function AdminDashboard() {
     )
   }
 
+  const parsed = parseAdminPath(location.pathname)
+  if (parsed.status === 'invalid') return <Navigate to="/admin" replace />
+  if (parsed.status === 'needs-default-sub') return <Navigate to={parsed.redirectTo} replace />
+
+  const { tab, sub } = parsed
+  const rawStatus = searchParams.get('status')
+  const status = isValidAdminStatus(tab, sub, rawStatus) ? rawStatus : undefined
+  const q = searchParams.get('q') ?? ''
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 관리자 전용 상단 네비게이션 */}
       <div className="border-b border-gray-200 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-6">
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">어드민 패널</h1>
+          <p className="mt-1 text-sm text-gray-500">FevalGo 운영 관리 콘솔</p>
+        </div>
         <div className="mx-auto flex max-w-6xl items-center gap-1 px-4">
-          {TABS.map((t) => {
+          {ADMIN_TABS.map((t) => {
             const Icon = t.icon
             const on = tab === t.key
             return (
-              <button
+              <NavLink
                 key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
+                to={t.path}
                 className={
                   'flex items-center gap-2 border-b-2 px-5 py-4 text-sm font-bold transition ' +
                   (on ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700')
@@ -53,7 +127,7 @@ function AdminDashboard() {
               >
                 <Icon className="h-4 w-4" />
                 {t.label}
-              </button>
+              </NavLink>
             )
           })}
         </div>
@@ -61,14 +135,17 @@ function AdminDashboard() {
 
       <div className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">{tab === 'organizer' ? '주최자 관리' : '정산 대시보드'}</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {tab === 'organizer' ? '주최자 신청과 페스티벌 등록을 심사하고 승인·반려를 처리합니다.' : '플랫폼 거래·수수료 현황과 페스티벌별 정산 상태를 확인합니다.'}
-          </p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">{ADMIN_TAB_META[tab].title}</h1>
+          <p className="mt-1 text-sm text-gray-500">{ADMIN_TAB_META[tab].description}</p>
         </div>
 
         <div key={tab} className="animate-in fade-in duration-300">
-          {tab === 'organizer' ? <OrganizerManagement /> : <SettlementDashboard />}
+          {renderTab(tab, sub, {
+            status,
+            q,
+            onViewOrganizerFestivals: handleViewOrganizerFestivals,
+            onDashboardNavigate: handleDashboardNavigate,
+          })}
         </div>
       </div>
     </div>

@@ -1,8 +1,11 @@
 package org.example.authservice.user.repository;
 
 import jakarta.persistence.LockModeType;
+import org.example.authservice.user.entity.AccountStatus;
 import org.example.authservice.user.entity.Role;
 import org.example.authservice.user.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -34,4 +37,29 @@ public interface UserRepository extends JpaRepository<User,Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select u from User u where u.id = :id")
     Optional<User> findLockedById(@Param("id") Long id);
+
+    @Query("""
+        SELECT u FROM User u
+        WHERE (:keyword IS NULL
+               OR u.nickname LIKE CONCAT('%', :keyword, '%')
+               OR u.username LIKE CONCAT('%', :keyword, '%'))
+          AND (:role IS NULL OR u.role = :role)
+          AND (:status IS NULL OR u.status = :status)
+        ORDER BY u.createdAt DESC
+        """)
+    Page<User> searchForAdmin(@Param("keyword") String keyword,
+                              @Param("role") Role role,
+                              @Param("status") AccountStatus status,
+                              Pageable pageable);
+
+    // 내부 API — 닉네임·이메일로 회원 id만 검색 (다른 서비스의 "주최자 검색"용)
+    @Query("""
+        SELECT u.id FROM User u
+        WHERE (:role IS NULL OR u.role = :role)
+          AND (u.nickname LIKE CONCAT('%', :keyword, '%')
+               OR u.username LIKE CONCAT('%', :keyword, '%'))
+        """)
+    List<Long> searchIdsByKeyword(@Param("keyword") String keyword,
+                                  @Param("role") Role role,
+                                  Pageable pageable);
 }

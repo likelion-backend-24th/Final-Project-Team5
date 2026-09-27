@@ -45,6 +45,7 @@ import org.example.reservationservice.reservation.infrastructure.festival.Festiv
 import org.example.reservationservice.reservation.infrastructure.festival.dto.FestivalDetailResponseDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
@@ -100,7 +101,9 @@ public class ReservationService {
     private String appTimezone;
 
     //참가자가 티켓 예매를 신청한다: 페스티벌·티켓종류 검증 → 구매 제한 검증 → 재고 차감(festival-service) → 예매 저장
-    @Transactional
+    //READ COMMITTED: 구매 제한 합산이 잠금 없이도 먼저 끝난 같은 사용자의 예매를 읽게 한다(MySQL 기본 REPEATABLE READ는
+    //트랜잭션 앞부분의 조회 시점 스냅숏을 계속 읽어 놓칠 수 있다). 좌석 선점·재고 차감은 조건부 UPDATE라 격리 수준과 무관하다.
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ReservationResponseDto createReservation(Long userId, ReservationCreateRequestDto request) {
         FestivalDetailResponseDto festival = getFestivalOrThrow(request.festivalId());
         if (!PUBLISHED.equals(festival.festivalStatus())) {
@@ -675,9 +678,11 @@ public class ReservationService {
     private void checkPurchaseLimitOrThrow(Long userId, Long festivalId, int quantity) {
         //같은 사용자가 동시에 예매를 보내도 둘 다 합산 전 수량으로 통과하지 않도록, (사용자, 페스티벌)별 잠금 행을 잡은 뒤 센다.
         //잠금은 이 예매 트랜잭션이 끝날 때 풀리므로 뒤 요청은 앞 요청의 예매까지 합산해 검사한다.
+        //합산은 잠금 없이 읽는다 — createReservation이 READ COMMITTED라 잠금을 기다린 뒤의 조회는 앞 요청이 커밋한 예매를 본다.
+        //(예매 테이블을 잠금 조회하면 MySQL이 다른 사용자의 행·빈 구간까지 잠가, 예매 생성이 전부 줄을 서거나 교착이 난다.)
         lockPurchaseLimit(userId, festivalId);
         int alreadyHeld = reservationRepository
-                .findForUpdateByUserIdAndFestivalIdAndReservationStatusIn(userId, festivalId, PURCHASE_LIMIT_STATUSES).stream()
+                .findByUserIdAndFestivalIdAndReservationStatusIn(userId, festivalId, PURCHASE_LIMIT_STATUSES).stream()
                 .mapToInt(Reservation::remainingQuantity)
                 .sum();
         if (alreadyHeld + quantity > maxQuantityPerFestival) {

@@ -5,10 +5,10 @@
  * 정산 대시보드는 settlementApi와 SettlementReport에서 실제 API를 사용한다.
  */
 import {
-  fetchAdminHosts,
   fetchPendingHostApplications,
   reviewHostApplication,
   fetchPendingFestivals,
+  fetchFestivalOperations,
   reviewFestival,
 } from '../api/adminApi'
 import { FESTIVAL_CATEGORY_LABELS, toAbsoluteImageUrl } from '../api/festivalApi'
@@ -31,7 +31,7 @@ export const CATEGORY_BADGE = {
 }
 export const DEFAULT_CATEGORY_BADGE_CLS = 'bg-gray-100 text-gray-600'
 
-function formatDate(value) {
+export function formatDate(value) {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
@@ -41,7 +41,7 @@ function formatDate(value) {
     .replace(/\.$/, '')
 }
 
-function formatDateRange(startAt, endAt) {
+export function formatDateRange(startAt, endAt) {
   const start = formatDate(startAt)
   const end = formatDate(endAt)
   if (!start || !end) return start || end
@@ -142,9 +142,10 @@ function mapFestivalSubmission(raw) {
   }
 }
 
-export async function fetchFestivalSubmissions() {
-  const response = await fetchPendingFestivals()
-  return response.data.data.map(mapFestivalSubmission)
+/** GET /api/admin/festivals를 서버 페이징 파라미터(status/keyword/page/size/sort)로 조회한다. */
+export async function fetchFestivalSubmissionsPage(params, signal) {
+  const response = await fetchPendingFestivals(params, signal)
+  return { items: response.data.data.map(mapFestivalSubmission), pagination: response.data.meta.pagination }
 }
 
 /** PATCH /api/admin/festivals/:id 를 호출한다. decision은 'PUBLISHED' | 'REJECTED'. 반려 시 rejectReason이 필수다. */
@@ -160,6 +161,38 @@ export async function reviewFestivalSubmission(id, decision, rejectReason) {
   }
 }
 
+/* ---------- 운영 현황 (실제 API 연동) ---------- */
+
+//예정·진행 중·종료·취소 — 서로 구분되도록 기존 팔레트에서 고른 4색
+export const OPERATION_STATUS_META = {
+  SCHEDULED: { label: '예정', cls: 'bg-blue-50 text-blue-600' },
+  ONGOING: { label: '진행 중', cls: 'bg-emerald-100 text-emerald-700' },
+  CLOSED: { label: '종료', cls: 'bg-gray-100 text-gray-600' },
+  CANCELLED: { label: '취소', cls: 'bg-red-50 text-red-600' },
+}
+
+function mapFestivalOperation(raw) {
+  return {
+    id: raw.id,
+    name: raw.name,
+    host: raw.hostNickname ?? '주최자 정보 없음',
+    category: FESTIVAL_CATEGORY_LABELS[raw.festivalCategory] ?? raw.festivalCategory,
+    dateRange: formatDateRange(raw.startAt, raw.endAt),
+    festivalStatus: raw.festivalStatus,
+    operationStatus: raw.operationStatus,
+    image: toAbsoluteImageUrl(raw.thumbnailImageUrl) ?? '/placeholder.jpg',
+    totalQuantity: raw.totalQuantity,
+    soldQuantity: raw.soldQuantity,
+    saleRate: raw.saleRate,
+  }
+}
+
+/** GET /api/admin/festivals/operations를 서버 페이징 파라미터(operationStatus/keyword/page/size)로 조회한다. */
+export async function fetchFestivalOperationsPage(params, signal) {
+  const response = await fetchFestivalOperations(params, signal)
+  return { items: response.data.data.map(mapFestivalOperation), pagination: response.data.meta.pagination }
+}
+
 /* ---------- 주최자 목록 ---------- */
 
 export const ACCOUNT_STATUS_META = {
@@ -170,34 +203,17 @@ export const ACCOUNT_STATUS_META = {
   WITHDRAWN: { label: '탈퇴', cls: 'bg-red-100 text-red-600' },
 }
 
-const ORGANIZER_LIST_ERROR_MESSAGES = {
-  FORBIDDEN_ADMIN_ROLE: '운영자 권한이 없습니다.',
+/* ---------- 회원 관리 ---------- */
+
+export const ROLE_BADGE_META = {
+  USER: { label: 'USER', cls: 'bg-gray-100 text-gray-600' },
+  HOST: { label: 'HOST', cls: 'bg-blue-50 text-blue-600' },
+  HELPER: { label: 'HELPER', cls: 'bg-teal-50 text-teal-600' },
+  STOREHOST: { label: 'STOREHOST', cls: 'bg-orange-50 text-orange-600' },
+  ADMIN: { label: 'ADMIN', cls: 'bg-purple-50 text-purple-600' },
 }
 
-export async function fetchOrganizers() {
-  try {
-    const [hostsResponse, festivalsResponse] = await Promise.all([
-      fetchAdminHosts(),
-      fetchPendingFestivals(),
-    ])
-    const festivalCounts = (festivalsResponse.data.data ?? []).reduce((counts, festival) => {
-      counts.set(festival.hostUserId, (counts.get(festival.hostUserId) ?? 0) + 1)
-      return counts
-    }, new Map())
-
-    return (hostsResponse.data.data ?? []).map((host) => ({
-      id: String(host.id),
-      nickname: host.nickname,
-      email: host.email,
-      accountStatus: host.accountStatus,
-      joinedAt: formatDate(host.joinedAt),
-      festivalCount: festivalCounts.get(host.id) ?? 0,
-    }))
-  } catch (error) {
-    const errorCode = error.response?.data?.errorCode
-    throw new Error(
-      ORGANIZER_LIST_ERROR_MESSAGES[errorCode] ??
-        '주최자 목록을 불러오지 못했어요. 잠시 후 다시 시도해주세요.',
-    )
-  }
+export const PROVIDER_LABELS = {
+  KAKAO: '카카오',
+  GOOGLE: '구글',
 }

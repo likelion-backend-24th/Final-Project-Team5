@@ -25,7 +25,9 @@ public enum PaymentErrorCode implements ErrorCode {
     REFUND_WINDOW_CLOSED(HttpStatus.CONFLICT, "공연 시작이 임박해 환불할 수 없습니다"),
     ALREADY_CHECKED_IN_NOT_REFUNDABLE(HttpStatus.CONFLICT, "이미 입장한 예매는 환불할 수 없습니다"),
     REFUND_QUANTITY_EXCEEDED(HttpStatus.CONFLICT, "환불 가능한 수량을 초과했습니다"),
-    REFUND_FAILED(HttpStatus.BAD_GATEWAY, "결제사 취소 요청에 실패했습니다");
+    REFUND_FAILED(HttpStatus.BAD_GATEWAY, "결제사 취소 요청에 실패했습니다"),
+    //서비스 간 내부 API 호출 인증 실패
+    INVALID_INTERNAL_TOKEN(HttpStatus.UNAUTHORIZED, "내부 인증 토큰이 올바르지 않습니다");
 
     private final HttpStatus httpStatus;
     private final String message;

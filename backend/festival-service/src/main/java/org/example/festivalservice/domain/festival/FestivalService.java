@@ -3,6 +3,7 @@ package org.example.festivalservice.domain.festival;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.example.festivalservice.common.UserLookupClient;
@@ -33,6 +34,21 @@ public class FestivalService {
 
     private static final int MAX_DETAIL_IMAGE_COUNT = 2;
     private static final Logger log = LoggerFactory.getLogger(FestivalService.class);
+
+    //운영자 심사 목록의 상태 묶음 — 프론트 필터 칩(승인대기/승인/반려)과 같은 기준
+    private static final List<FestivalStatus> REVIEW_PENDING_STATUSES =
+            List.of(FestivalStatus.PENDING, FestivalStatus.PUBLISH_PENDING);
+    private static final List<FestivalStatus> REVIEW_APPROVED_STATUSES =
+            List.of(FestivalStatus.PUBLISHED, FestivalStatus.CLOSED,
+                    FestivalStatus.CANCELLATION_PENDING, FestivalStatus.CANCELLED);
+    private static final List<FestivalStatus> REVIEW_REJECTED_STATUSES =
+            List.of(FestivalStatus.REJECTED);
+
+    //검색어로 찾은 주최자가 없을 때 IN 조건에 넣는 값(존재할 수 없는 id) — 빈 IN () 문법 오류 방지
+    private static final Long NO_MATCH_ID = -1L;
+
+    //주최자별 개수 조회 한 번에 받을 수 있는 최대 주최자 수
+    private static final int MAX_HOST_COUNT_IDS = 100;
 
     private final FestivalRepository festivalRepository;
     private final TicketTypeRepository ticketTypeRepository;
@@ -228,22 +244,110 @@ public class FestivalService {
         return toResponseDto(festival);
     }
 
-    //운영자가 심사할 페스티벌 목록을 조회한다 — 대기뿐 아니라 공개·반려·종료된 것도 이력으로 함께 내려준다.
-    //주최자 닉네임은 auth-service에서 한 번에 조회해 붙인다(실패하면 null, 목록은 유지).
-    public List<FestivalResponseDto> listPendingFestivals(String role) {
+    //운영자 심사 목록 — 상태 묶음·검색·페이징. 대기뿐 아니라 공개·반려·종료된 것도 이력으로 조회할 수 있다.
+//검색어는 페스티벌명 또는 주최자 닉네임·이메일(auth-service 검색)에 매칭한다.
+    public Page<FestivalResponseDto> searchFestivalsForAdmin(String role, String status, String keyword,
+                                                             Pageable pageable) {
         if (!ADMIN_ROLE.equals(role)) {
             throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
         }
-        List<Festival> festivals = festivalRepository.findAllByOrderByCreatedAtDesc();
-        Map<Long, UserSummary> hosts = userLookupClient.findByIds(
-                festivals.stream().map(Festival::getHostUserId).toList());
-        return festivals.stream()
-                .map(festival -> FestivalResponseDto.from(
-                        festival,
-                        ticketTypeRepository.findByFestivalId(festival.getId()),
-                        festivalImageRepository.findByFestivalId(festival.getId()),
-                        hosts.get(festival.getHostUserId())))
-                .toList();
+
+        List<FestivalStatus> statuses = reviewStatuses(status);
+
+        // 검색창이 비어 있으면 null로 바꿔서 "검색 조건 없음"으로 처리
+        String searchKeyword = null;
+        if (keyword != null && !keyword.isBlank()) {
+            searchKeyword = keyword.trim();
+        }
+
+        // 주최자 닉네임·이메일로 찾은 id 목록 (없으면 아무것도 매칭되지 않는 값)
+        List<Long> hostIds = List.of(NO_MATCH_ID);
+        if (searchKeyword != null) {
+            List<Long> foundHostIds = userLookupClient.searchIds(searchKeyword, HOST_ROLE);
+            if (!foundHostIds.isEmpty()) {
+                hostIds = foundHostIds;
+            }
+        }
+
+        Page<Festival> festivalPage = festivalRepository.searchForAdmin(searchKeyword, statuses, hostIds, pageable);
+        return toAdminResponsePage(festivalPage);
+    }
+
+    //운영자 주최자 목록 — 주최자 id 목록별 등록 페스티벌 개수(없는 주최자는 0)
+    public Map<Long, Long> countFestivalsByHosts(String role, List<Long> hostIds) {
+        if (!ADMIN_ROLE.equals(role)) {
+            throw new ApiException(FestivalErrorCode.FORBIDDEN_ADMIN_ROLE);
+        }
+
+        List<Long> ids = hostIds.stream().distinct().limit(MAX_HOST_COUNT_IDS).toList();
+
+        // 먼저 전부 0으로 채워두고, 페스티벌이 있는 주최자만 개수를 덮어쓴다
+        Map<Long, Long> counts = new HashMap<>();
+        for (Long id : ids) {
+            counts.put(id, 0L);
+        }
+        if (ids.isEmpty()) {
+            return counts;
+        }
+        for (Object[] row : festivalRepository.countByHostUserIds(ids)) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
+    }
+
+    //필터 값 → 상태 묶음(내부 메서드). 모르는 값은 전체로 처리한다
+    private List<FestivalStatus> reviewStatuses(String status) {
+        if ("PENDING".equals(status)) {
+            return REVIEW_PENDING_STATUSES;
+        }
+        if ("APPROVED".equals(status)) {
+            return REVIEW_APPROVED_STATUSES;
+        }
+        if ("REJECTED".equals(status)) {
+            return REVIEW_REJECTED_STATUSES;
+        }
+        return List.of(FestivalStatus.values());
+    }
+
+    //어드민 목록 응답 조립(내부 메서드) — 티켓·이미지·주최자를 페이지 단위로 한 번씩만 조회한다(N+1 방지)
+    private Page<FestivalResponseDto> toAdminResponsePage(Page<Festival> festivalPage) {
+        List<Festival> festivals = festivalPage.getContent();
+
+        List<Long> festivalIds = new ArrayList<>();
+        List<Long> hostUserIds = new ArrayList<>();
+        for (Festival festival : festivals) {
+            festivalIds.add(festival.getId());
+            if (festival.getHostUserId() != null) {
+                hostUserIds.add(festival.getHostUserId());
+            }
+        }
+
+        Map<Long, List<TicketType>> ticketsByFestival = new HashMap<>();
+        Map<Long, List<FestivalImage>> imagesByFestival = new HashMap<>();
+        if (!festivalIds.isEmpty()) {
+            for (TicketType ticketType : ticketTypeRepository.findByFestivalIdIn(festivalIds)) {
+                Long festivalId = ticketType.getFestival().getId();
+                if (!ticketsByFestival.containsKey(festivalId)) {
+                    ticketsByFestival.put(festivalId, new ArrayList<>());
+                }
+                ticketsByFestival.get(festivalId).add(ticketType);
+            }
+            for (FestivalImage image : festivalImageRepository.findByFestivalIdIn(festivalIds)) {
+                Long festivalId = image.getFestival().getId();
+                if (!imagesByFestival.containsKey(festivalId)) {
+                    imagesByFestival.put(festivalId, new ArrayList<>());
+                }
+                imagesByFestival.get(festivalId).add(image);
+            }
+        }
+
+        Map<Long, UserSummary> hosts = userLookupClient.findByIds(hostUserIds);
+
+        return festivalPage.map(festival -> FestivalResponseDto.from(
+                festival,
+                ticketsByFestival.getOrDefault(festival.getId(), List.of()),
+                imagesByFestival.getOrDefault(festival.getId(), List.of()),
+                hosts.get(festival.getHostUserId())));
     }
 
     //운영자가 대기 중인 페스티벌을 공개(PUBLISHED)·반려(REJECTED) 처리한다

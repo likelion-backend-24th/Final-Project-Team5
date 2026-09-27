@@ -66,6 +66,14 @@ public class User {
     @Column(name = "withdrawn_at")
     private LocalDateTime withdrawnAt;
 
+    // 어드민이 정지할 때 입력한 사유. 정지 상태일 때만 값이 있다.
+    @Column(name = "suspend_reason", length = 255)
+    private String suspendReason;
+
+    // 정지된 시각. 해제하면 null로 돌아간다.
+    @Column(name = "suspended_at")
+    private LocalDateTime suspendedAt;
+
     @Column(name = "terms_agree_at", nullable = true)
     private LocalDateTime termsAgreeAt;  // 회원가입 약관동의
 

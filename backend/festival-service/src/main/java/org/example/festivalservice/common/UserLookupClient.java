@@ -35,6 +35,11 @@ public class UserLookupClient {
     private record LookupEnvelope(List<UserSummary> data) {
     }
 
+    //검색 API 응답 봉투 — data가 회원 id 목록이다.
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record IdsEnvelope(List<Long> data) {
+    }
+
     private final RestClient authServiceRestClient;
 
     @Value("${internal.auth-service.token:CHANGE_ME_IN_ENV}")
@@ -58,6 +63,37 @@ public class UserLookupClient {
         } catch (RestClientException e) {
             log.warn("auth-service 사용자 요약 조회 실패 — 신청자 정보 없이 목록을 반환한다. ids={}", ids, e);
             return Map.of();
+        }
+    }
+
+    /**
+     * 닉네임·이메일 검색어로 회원 id 목록을 조회한다(최대 500개, auth-service 기준).
+     * 어드민 페스티벌 검색에서 "주최자 이름으로 찾기"에 쓰며, 실패하면 빈 목록을 돌려줘
+     * 페스티벌명 검색은 그대로 동작하게 한다.
+     */
+    public List<Long> searchIds(String keyword, String role) {
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
+        }
+        try {
+            IdsEnvelope response = authServiceRestClient.get()
+                    .uri(uriBuilder -> {
+                        uriBuilder.path("/internal/v1/users/search").queryParam("keyword", keyword.trim());
+                        if (role != null) {
+                            uriBuilder.queryParam("role", role);
+                        }
+                        return uriBuilder.build();
+                    })
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + internalAuthToken)
+                    .retrieve()
+                    .body(IdsEnvelope.class);
+            if (response == null || response.data() == null) {
+                return List.of();
+            }
+            return response.data();
+        } catch (RestClientException e) {
+            log.warn("auth-service 사용자 검색 실패 — 주최자 검색 없이 진행한다. keyword={}", keyword, e);
+            return List.of();
         }
     }
 }

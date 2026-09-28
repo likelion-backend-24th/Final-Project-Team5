@@ -5,6 +5,5 @@ CLAUDE.md
 backend/festival-service/savedimage/
 .claude/
 
-# Keep only the shared documentation index in version control.
-/docs/*
-!/docs/README.md
+# docs/reference: 로컬 작업용 자료(스캔 노트, 강의 템플릿 등)라 커밋하지 않음
+/docs/reference/

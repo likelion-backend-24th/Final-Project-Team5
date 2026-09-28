@@ -27,9 +27,10 @@ jobs:
             git pull --ff-only origin deploy
             docker compose -f docker-compose.yml -f docker-compose.small.yml pull gateway auth-service festival-service reservation-service payment-service frontend
             docker compose -f docker-compose.yml -f docker-compose.small.yml up -d
-            # nginx는 설정 파일이 bind mount라 내용이 바뀌어도, 이미지도 안 바뀌므로
+            # nginx는 설정 폴더가 bind mount라 내용이 바뀌어도, 이미지도 안 바뀌므로
             # Compose가 재생성 대상으로 인식하지 못한다. 컨테이너를 통째로 재생성하는
-            # 대신 reload 시그널만 보내 최신 nginx.conf를 반영한다. reload는 새 워커
+            # 대신 reload 시그널만 보내 최신 nginx.conf를 반영한다. 파일이 아니라 폴더를
+            # 연결해야 git pull이 바꿔 쓴 새 파일을 컨테이너가 볼 수 있다. reload는 새 워커
             # 프로세스를 띄우는 과정에서 업스트림 호스트명도 다시 조회하므로, 방금 위에서
             # 재생성된 백엔드 컨테이너들의 바뀐 내부 IP에 대한 DNS 캐시 갱신도 함께 된다.
             docker exec nginx nginx -s reload

@@ -141,7 +141,9 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # 파일이 아니라 폴더를 연결한다. 파일 하나만 연결하면 git pull이 파일을 새로 바꿔 쓸 때
+      # 컨테이너는 예전 파일을 계속 보게 되어, reload를 해도 바뀐 설정이 반영되지 않는다.
+      - ./nginx:/etc/nginx/conf.d:ro
       - ./certbot-webroot:/var/www/certbot:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:

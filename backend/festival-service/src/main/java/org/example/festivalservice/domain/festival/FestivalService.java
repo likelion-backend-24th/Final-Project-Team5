@@ -3,6 +3,7 @@ package org.example.festivalservice.domain.festival;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -230,9 +231,11 @@ public class FestivalService {
             FestivalStatus.CANCELLATION_PENDING, FestivalStatus.CANCELLED);
 
     //페스티벌 목록 조회(페이징), 인증 불필요 — 공개(PUBLISHED) 상태만 노출
+    //한 트랜잭션 안에서 조회해야 티켓·이미지가 가리키는 페스티벌을 다시 SELECT하지 않는다.
+    @Transactional(readOnly = true)
     public Page<FestivalResponseDto> listFestivals(Pageable pageable) {
-        return festivalRepository.findByFestivalStatus(FestivalStatus.PUBLISHED, pageable)
-                .map(this::toResponseDto);
+        return toResponsePage(festivalRepository.findByFestivalStatus(FestivalStatus.PUBLISHED, pageable),
+                Collections.emptyMap());
     }
 
     //페스티벌 상세 조회, 인증 불필요 — 공개·종료·취소 상태가 아니면 404(미승인·반려 페스티벌은 존재 자체를 숨김)
@@ -311,15 +314,21 @@ public class FestivalService {
 
     //어드민 목록 응답 조립(내부 메서드) — 티켓·이미지·주최자를 페이지 단위로 한 번씩만 조회한다(N+1 방지)
     private Page<FestivalResponseDto> toAdminResponsePage(Page<Festival> festivalPage) {
-        List<Festival> festivals = festivalPage.getContent();
-
-        List<Long> festivalIds = new ArrayList<>();
         List<Long> hostUserIds = new ArrayList<>();
-        for (Festival festival : festivals) {
-            festivalIds.add(festival.getId());
+        for (Festival festival : festivalPage.getContent()) {
             if (festival.getHostUserId() != null) {
                 hostUserIds.add(festival.getHostUserId());
             }
+        }
+
+        return toResponsePage(festivalPage, userLookupClient.findByIds(hostUserIds));
+    }
+
+    //목록 응답 조립(내부 메서드) — 티켓·이미지를 페이지 단위로 한 번씩만 조회한다(N+1 방지). 주최자 정보는 어드민 목록만 넘긴다
+    private Page<FestivalResponseDto> toResponsePage(Page<Festival> festivalPage, Map<Long, UserSummary> hosts) {
+        List<Long> festivalIds = new ArrayList<>();
+        for (Festival festival : festivalPage.getContent()) {
+            festivalIds.add(festival.getId());
         }
 
         Map<Long, List<TicketType>> ticketsByFestival = new HashMap<>();
@@ -340,8 +349,6 @@ public class FestivalService {
                 imagesByFestival.get(festivalId).add(image);
             }
         }
-
-        Map<Long, UserSummary> hosts = userLookupClient.findByIds(hostUserIds);
 
         return festivalPage.map(festival -> FestivalResponseDto.from(
                 festival,

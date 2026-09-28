@@ -146,6 +146,9 @@ services:
       - ./nginx:/etc/nginx/conf.d:ro
       - ./certbot-webroot:/var/www/certbot:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
+      # festival-service가 저장하는 업로드 이미지 폴더(아래 festival-service volumes와 같은 경로)를
+      # 읽기 전용으로 연결해 nginx가 이미지를 직접 제공한다.
+      - ${HOST_SAVED_IMAGE:-./backend/festival-service/savedimage}:/var/www/savedimage:ro
     depends_on:
       - gateway
       - frontend

@@ -47,6 +47,30 @@ describe('ZoneSelect', () => {
     expect(screen.getByRole('spinbutton', { name: '입장권 수량' })).toBeTruthy()
   })
 
+  it('draws the hovered center-stage zone outline last so neighbouring zones do not cover it', async () => {
+    fetchFestivalDetail.mockResolvedValue({ data: { data: {
+      id: 7, name: '중앙형 확인', festivalStatus: 'PUBLISHED', stageLayout: 'CENTER_STAGE',
+      ticketTypes: ['북측', '동측', '남측', '서측'].map((name, index) => ({
+        id: index + 1, name, ticketMode: 'SEATED', remainQuantity: 10, price: 1000, positionAngle: index * 90,
+      })),
+    } } })
+    const user = userEvent.setup()
+    renderPage()
+
+    const south = await screen.findByRole('button', { name: '남측 선택' })
+    const svg = south.closest('svg')
+    expect(svg.querySelectorAll('path')).toHaveLength(4)
+
+    //남측은 서측보다 먼저 그려져, 서측과 맞닿은 경계의 강조선이 가려졌었다.
+    await user.hover(south)
+    const outline = svg.lastElementChild
+    expect(outline.getAttribute('d')).toBe(south.getAttribute('d'))
+    expect(outline.getAttribute('aria-hidden')).toBe('true')
+
+    await user.unhover(south)
+    expect(svg.querySelectorAll('path')).toHaveLength(4)
+  })
+
   it('preserves the zone selection destination when login is required', async () => {
     useAuth.mockReturnValue({ user: null, isLoading: false })
     renderPage()

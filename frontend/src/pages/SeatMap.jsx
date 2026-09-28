@@ -138,6 +138,8 @@ function SeatMap() {
 
   function toggleSeat(seat) {
     if (seat.seatStatus !== 'AVAILABLE') return
+    //좌석을 다시 고르거나 해제하면 이전 선점 안내는 지난 일이므로 지운다.
+    setSeatNotice('')
     setSelectedSeatIds((prev) => {
       if (prev.includes(seat.id)) return prev.filter((id) => id !== seat.id)
       if (prev.length >= MAX_QUANTITY_PER_TICKET_TYPE) return prev

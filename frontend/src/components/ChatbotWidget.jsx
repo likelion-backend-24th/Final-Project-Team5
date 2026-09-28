@@ -22,12 +22,14 @@ const ERROR_MESSAGES = {
 const BOOTH_ALERT_POLL_INTERVAL_MS = 15_000
 
 //백엔드에는 "이미 확인함" 개념이 없어(호출된 대기 항목은 myTurn=true로 영구히 남는다), 새로고침해도
-//같은 알림을 또 새 알림으로 착각하지 않도록 "이미 알림을 보낸 boothId"를 로그인 계정별로 브라우저에 남겨둔다.
-function notifiedBoothIdsStorageKey(userId) {
+//이미 확인한 호출에 안 읽음 배지를 또 띄우지 않도록 "알림 패널을 열어 확인한 boothId"를 로그인 계정별로
+//브라우저에 남겨둔다. 알림 목록 자체는 매 폴링의 서버 응답으로 다시 만들므로 이 값과 무관하게 유지된다.
+//키 이름은 이전 버전과 같게 둬서, 이미 확인했던 호출에 배지가 다시 뜨지 않게 한다.
+function seenBoothIdsStorageKey(userId) {
   return `fevalgo:notified-booth-alerts:${userId ?? 'anonymous'}`
 }
 
-function loadNotifiedBoothIds(storageKey) {
+function loadSeenBoothIds(storageKey) {
   try {
     const raw = localStorage.getItem(storageKey)
     return raw ? new Set(JSON.parse(raw)) : new Set()
@@ -37,7 +39,7 @@ function loadNotifiedBoothIds(storageKey) {
   }
 }
 
-function saveNotifiedBoothIds(storageKey, boothIds) {
+function saveSeenBoothIds(storageKey, boothIds) {
   try {
     localStorage.setItem(storageKey, JSON.stringify([...boothIds]))
   } catch {
@@ -49,9 +51,9 @@ function saveNotifiedBoothIds(storageKey, boothIds) {
  * 우하단 고정 챗봇 FAB. 평소엔 버튼 1개만 보이다가 누르면 "추천 챗봇"·"부스 알림" 미니 버튼
  * 2개로 펼쳐지는 스피드다이얼이다. 두 기능은 패널과 데이터를 완전히 분리한다 —
  * 추천 대화(chatMessages)와 부스 대기 호출 알림 피드(boothAlerts)는 서로 섞이지 않는다.
- * 대화·알림 피드는 이 컴포넌트 state에만 두고 서버에는 저장하지 않는다(새로고침하면 초기화).
- * 단, "이미 알림을 보낸 boothId" 자체는 localStorage에 남겨서, 새로고침해도 이미 확인한 호출을
- * 또 새 알림으로 착각해 안 읽음 배지를 다시 띄우지 않게 한다(백엔드에 확인 처리 개념이 없어서다).
+ * 대화는 이 컴포넌트 state에만 두고 서버에는 저장하지 않는다(새로고침하면 초기화).
+ * 알림 피드는 폴링할 때마다 서버의 "내 차례" 목록으로 다시 만들어서 새로고침해도 유지되고,
+ * "알림 패널을 열어 확인한 boothId"만 localStorage에 남겨 안 읽음 배지 판단에 쓴다.
  */
 function ChatbotWidget() {
   const { isAuthenticated, isLoading, user } = useAuth()
@@ -64,8 +66,11 @@ function ChatbotWidget() {
   const [isSending, setIsSending] = useState(false)
   const [hasUnreadAlert, setHasUnreadAlert] = useState(false)
   const listRef = useRef(null)
-  //이미 알림을 보낸 boothId — setInterval 클로저 안에서도 최신 값을 보려고 ref로 둔다.
-  const notifiedBoothIdsRef = useRef(new Set())
+  const seenStorageKey = seenBoothIdsStorageKey(user?.id)
+  //알림 패널을 열어 확인한 boothId — setInterval 클로저 안에서도 최신 값을 보려고 ref로 둔다.
+  const seenBoothIdsRef = useRef(new Set())
+  //가장 최근 폴링에서 "내 차례"였던 boothId — 알림 패널을 열 때 확인 처리할 대상이다.
+  const calledBoothIdsRef = useRef([])
   //폴링 시점에 "부스 알림" 패널이 열려 있는지 확인하려고 ref로도 들고 있는다(effect 재시작 없이 최신값 참조).
   const activePanelRef = useRef(activePanel)
 
@@ -78,13 +83,12 @@ function ChatbotWidget() {
     if (list) list.scrollTop = list.scrollHeight
   }, [chatMessages, boothAlerts, isSending, activePanel])
 
-  //로그인 상태면 15초마다 내 부스 대기 현황을 폴링해, 새로 "내 차례"가 된 부스가 있으면
-  //알림 피드에 밀어 넣는다(서버에는 저장하지 않음).
+  //로그인 상태면 15초마다 내 부스 대기 현황을 폴링해, "내 차례"인 부스 전체로 알림 피드를 다시 만든다.
+  //피드를 서버 응답에서 매번 만들기 때문에 새로고침해도 호출 알림이 사라지지 않는다.
   useEffect(() => {
     if (!isAuthenticated) return
 
-    const storageKey = notifiedBoothIdsStorageKey(user?.id)
-    notifiedBoothIdsRef.current = loadNotifiedBoothIds(storageKey)
+    seenBoothIdsRef.current = loadSeenBoothIds(seenStorageKey)
 
     let cancelled = false
 
@@ -92,25 +96,25 @@ function ChatbotWidget() {
       fetchMyActiveBoothWaitlists()
         .then((response) => {
           if (cancelled) return
-          const newlyCalled = response.data.data.filter(
-            (item) => item.myTurn && !notifiedBoothIdsRef.current.has(item.boothId),
-          )
-          if (newlyCalled.length === 0) return
-
-          newlyCalled.forEach((item) => notifiedBoothIdsRef.current.add(item.boothId))
-          saveNotifiedBoothIds(storageKey, notifiedBoothIdsRef.current)
-          setBoothAlerts((prev) => [
-            ...prev,
-            ...newlyCalled.map((item) => ({
+          const called = response.data.data.filter((item) => item.myTurn)
+          calledBoothIdsRef.current = called.map((item) => item.boothId)
+          setBoothAlerts(
+            called.map((item) => ({
               id: `booth-alert-${item.boothId}-${item.calledNumber}`,
               role: 'assistant',
               boothAlert: true,
               content: `대기번호 ${item.queueNumber}번, 지금 부스에 입장할 차례예요!`,
               link: `/festivals/${item.festivalId}`,
             })),
-          ])
-          //이미 "부스 알림" 패널을 보고 있는 중이면 굳이 안 읽음 배지를 띄우지 않는다.
-          if (activePanelRef.current !== 'alerts') setHasUnreadAlert(true)
+          )
+
+          if (!called.some((item) => !seenBoothIdsRef.current.has(item.boothId))) return
+          //이미 "부스 알림" 패널을 보고 있는 중이면 배지 대신 바로 확인 처리한다.
+          if (activePanelRef.current === 'alerts') {
+            markCalledBoothsSeen()
+          } else {
+            setHasUnreadAlert(true)
+          }
         })
         .catch(() => {
           // 폴링 실패는 조용히 넘어가고 다음 주기에 다시 시도한다.
@@ -123,7 +127,15 @@ function ChatbotWidget() {
       cancelled = true
       clearInterval(interval)
     }
+    // markCalledBoothsSeen은 ref와 seenStorageKey만 쓰므로 user가 바뀔 때만 폴링을 다시 시작하면 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user?.id])
+
+  //알림 패널을 열어 본 시점에 지금 호출된 부스들을 "확인함"으로 기록한다.
+  function markCalledBoothsSeen() {
+    calledBoothIdsRef.current.forEach((boothId) => seenBoothIdsRef.current.add(boothId))
+    saveSeenBoothIds(seenStorageKey, seenBoothIdsRef.current)
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -154,7 +166,10 @@ function ChatbotWidget() {
   function openPanel(panel) {
     setActivePanel(panel)
     setDialOpen(false)
-    if (panel === 'alerts') setHasUnreadAlert(false)
+    if (panel === 'alerts') {
+      setHasUnreadAlert(false)
+      markCalledBoothsSeen()
+    }
   }
 
   function handleMainButtonClick() {

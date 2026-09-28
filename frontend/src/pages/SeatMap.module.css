@@ -9,7 +9,8 @@
 
 .card {
   width: 100%;
-  max-width: 720px;
+  /* 행당 20칸(좌석 32px·간격 6px)까지 데스크톱에서 한 줄에 들어가는 폭 */
+  max-width: 920px;
   height: fit-content;
   padding: 32px;
   border: var(--borderWidth-thin) solid var(--borderColor-default);
@@ -89,6 +90,8 @@
 
 .zone {
   padding: 16px;
+  /* 화면이 좁으면 행을 줄바꿈하지 않고 구역 안에서 가로로 스크롤한다 */
+  overflow-x: auto;
   border: var(--borderWidth-thin) solid var(--borderColor-default);
   border-radius: var(--borderRadius-medium);
   background-color: var(--bgColor-inset);
@@ -124,7 +127,6 @@
 .seatList {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
 }
 
 .seat {

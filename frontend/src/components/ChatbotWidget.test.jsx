@@ -116,7 +116,46 @@ describe('ChatbotWidget', () => {
     expect(link.getAttribute('href')).toBe('/festivals/9')
   })
 
-  it('does not re-show the unread badge for an already-seen alert after remounting (e.g. page refresh)', async () => {
+  it('does not re-show the unread badge for an alert already opened, after remounting (e.g. page refresh)', async () => {
+    fetchMyActiveBoothWaitlists.mockResolvedValue({
+      data: { data: [{ boothId: 1, festivalId: 9, queueNumber: 3, calledNumber: 3, myTurn: true }] },
+    })
+    const user = userEvent.setup()
+
+    const first = renderWidget()
+    await waitFor(() => expect(first.container.querySelector('.bg-red-500')).toBeTruthy())
+    await user.click(screen.getByRole('button', { name: '챗봇 메뉴 열기' }))
+    await user.click(screen.getByRole('button', { name: '부스 알림' }))
+    await screen.findByText(/대기번호 3번/)
+    first.unmount()
+
+    //새로고침을 흉내낸 재마운트 — 백엔드는 여전히 같은 항목을 myTurn:true로 내려주지만
+    //알림 패널을 열어 확인한 기록이 localStorage에 남아 있으므로 안 읽음 배지가 다시 뜨면 안 된다.
+    const second = renderWidget()
+    await waitFor(() => expect(fetchMyActiveBoothWaitlists).toHaveBeenCalledTimes(2))
+    expect(second.container.querySelector('.bg-red-500')).toBeNull()
+  })
+
+  it('keeps the called-number alert in the feed after remounting (e.g. page refresh)', async () => {
+    fetchMyActiveBoothWaitlists.mockResolvedValue({
+      data: { data: [{ boothId: 1, festivalId: 9, queueNumber: 3, calledNumber: 3, myTurn: true }] },
+    })
+    const user = userEvent.setup()
+
+    const first = renderWidget()
+    await waitFor(() => expect(fetchMyActiveBoothWaitlists).toHaveBeenCalledTimes(1))
+    first.unmount()
+
+    //예전에는 첫 폴링에서 "알림 보냄"을 기록해 두고 피드는 메모리에만 두어서, 새로고침하면
+    //서버가 여전히 myTurn:true를 내려줘도 피드가 비어 있었다.
+    renderWidget()
+    await waitFor(() => expect(fetchMyActiveBoothWaitlists).toHaveBeenCalledTimes(2))
+    await user.click(screen.getByRole('button', { name: '챗봇 메뉴 열기' }))
+    await user.click(screen.getByRole('button', { name: '부스 알림' }))
+    expect(await screen.findByText(/대기번호 3번/)).toBeTruthy()
+  })
+
+  it('shows the unread badge again after remounting if the alert panel was never opened', async () => {
     fetchMyActiveBoothWaitlists.mockResolvedValue({
       data: { data: [{ boothId: 1, festivalId: 9, queueNumber: 3, calledNumber: 3, myTurn: true }] },
     })
@@ -125,10 +164,8 @@ describe('ChatbotWidget', () => {
     await waitFor(() => expect(first.container.querySelector('.bg-red-500')).toBeTruthy())
     first.unmount()
 
-    //새로고침을 흉내낸 재마운트 — 백엔드는 여전히 같은 항목을 myTurn:true로 내려주지만
-    //localStorage에 남은 "이미 확인함" 기록 덕분에 안 읽음 배지가 다시 뜨면 안 된다.
+    //알림을 확인하기 전에 새로고침했다면 호출을 놓치지 않도록 배지가 다시 떠야 한다.
     const second = renderWidget()
-    await waitFor(() => expect(fetchMyActiveBoothWaitlists).toHaveBeenCalledTimes(2))
-    expect(second.container.querySelector('.bg-red-500')).toBeNull()
+    await waitFor(() => expect(second.container.querySelector('.bg-red-500')).toBeTruthy())
   })
 })

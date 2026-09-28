@@ -195,6 +195,21 @@ function CenterStageZones({ seatedZones, disabled, onSelectSeated }) {
   const sliceAngle = 360 / sortedZones.length
   const isFullRing = sortedZones.length === 1
   const midRadius = (DONUT_INNER_RADIUS + DONUT_OUTER_RADIUS) / 2
+  //마우스를 올렸거나 키보드로 포커스한 조각 — 강조 외곽선을 맨 위에 다시 그리는 데 쓴다.
+  const [activeIndex, setActiveIndex] = useState(null)
+
+  function slicePath(index) {
+    return isFullRing
+      ? fullRingPath(DONUT_CENTER, DONUT_CENTER, DONUT_INNER_RADIUS, DONUT_OUTER_RADIUS)
+      : donutSlicePath(
+          DONUT_CENTER,
+          DONUT_CENTER,
+          DONUT_INNER_RADIUS,
+          DONUT_OUTER_RADIUS,
+          index * sliceAngle,
+          (index + 1) * sliceAngle,
+        )
+  }
 
   return (
     <div className={styles.centerStageWrap}>
@@ -207,24 +222,18 @@ function CenterStageZones({ seatedZones, disabled, onSelectSeated }) {
           {sortedZones.map((ticketType, index) => {
             const { unavailable } = getZoneStatus(ticketType)
             const clickable = !disabled && !unavailable
-            const d = isFullRing
-              ? fullRingPath(DONUT_CENTER, DONUT_CENTER, DONUT_INNER_RADIUS, DONUT_OUTER_RADIUS)
-              : donutSlicePath(
-                  DONUT_CENTER,
-                  DONUT_CENTER,
-                  DONUT_INNER_RADIUS,
-                  DONUT_OUTER_RADIUS,
-                  index * sliceAngle,
-                  (index + 1) * sliceAngle,
-                )
             return (
               <path
                 key={ticketType.id}
-                d={d}
+                d={slicePath(index)}
                 fillRule="evenodd"
                 className={`${styles.donutSlice} ${unavailable ? styles.donutSliceSoldOut : ''}`}
                 role={clickable ? 'button' : undefined}
                 tabIndex={clickable ? 0 : undefined}
+                onMouseEnter={clickable ? () => setActiveIndex(index) : undefined}
+                onMouseLeave={clickable ? () => setActiveIndex(null) : undefined}
+                onFocus={clickable ? () => setActiveIndex(index) : undefined}
+                onBlur={clickable ? () => setActiveIndex(null) : undefined}
                 onClick={clickable ? () => onSelectSeated(ticketType) : undefined}
                 onKeyDown={
                   clickable
@@ -237,6 +246,11 @@ function CenterStageZones({ seatedZones, disabled, onSelectSeated }) {
               />
             )
           })}
+          {/* SVG는 나중에 그린 도형이 위에 오므로, 이웃 조각과 맞닿은 경계에서 강조 외곽선이 가려진다.
+              강조할 조각의 외곽선만 마지막에 한 번 더 그려 네 변이 모두 보이게 한다(클릭은 원래 조각이 받음). */}
+          {activeIndex !== null && (
+            <path d={slicePath(activeIndex)} fillRule="evenodd" className={styles.donutSliceOutline} aria-hidden="true" />
+          )}
         </svg>
 
         <div className={styles.donutLabelLayer}>

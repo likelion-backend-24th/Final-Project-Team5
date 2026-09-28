@@ -244,6 +244,14 @@
   outline: none;
 }
 
+/* 강조한 조각의 외곽선만 맨 위에 다시 그린 것 — 채우기 없이 선만, 클릭은 아래 조각이 받는다. */
+.donutSliceOutline {
+  fill: none;
+  stroke: var(--borderColor-accent-emphasis);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
 .donutSliceSoldOut {
   fill: var(--bgColor-muted);
   stroke: var(--borderColor-muted);

@@ -102,7 +102,7 @@ public class AdminUserService {
         if (user.getRole() == Role.ADMIN) {
             throw new ApiException(AdminErrorCode.CANNOT_SUSPEND_ADMIN);
         }
-        if (user.getRole() == Role.HELPER || user.getRole() == Role.STOREHOST) {
+        if (user.getRole() == Role.HELPER) {
             throw new ApiException(AdminErrorCode.CANNOT_SUSPEND_MANAGED_ACCOUNT);
         }
         if (user.getStatus() != AccountStatus.ACTIVE) {

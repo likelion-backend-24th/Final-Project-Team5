@@ -1,21 +1,29 @@
 package org.example.festivalservice.festival;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.persistence.EntityManagerFactory;
 import org.example.festivalservice.domain.booth.BoothRepository;
 import org.example.festivalservice.domain.festival.Festival;
 import org.example.festivalservice.domain.festival.FestivalCategory;
+import org.example.festivalservice.domain.festival.FestivalImage;
+import org.example.festivalservice.domain.festival.FestivalImageRepository;
+import org.example.festivalservice.domain.festival.FestivalImageType;
 import org.example.festivalservice.domain.festival.FestivalRegion;
 import org.example.festivalservice.domain.festival.FestivalRepository;
 import org.example.festivalservice.domain.festival.FestivalStatus;
 import org.example.festivalservice.domain.festival.FestivalViewRepository;
 import org.example.festivalservice.domain.tickettype.TicketType;
 import org.example.festivalservice.domain.tickettype.TicketTypeRepository;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,10 +52,17 @@ class FestivalControllerAcceptanceTest {
     @Autowired
     private FestivalViewRepository festivalViewRepository;
 
+    @Autowired
+    private FestivalImageRepository festivalImageRepository;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
+
     @BeforeEach
     void setUp() {
         boothRepository.deleteAll();
         festivalViewRepository.deleteAll();
+        festivalImageRepository.deleteAll();
         ticketTypeRepository.deleteAll();
         festivalRepository.deleteAll();
     }
@@ -80,6 +95,38 @@ class FestivalControllerAcceptanceTest {
                 .andExpect(jsonPath("$.meta.pagination.totalItems", is(3)))
                 .andExpect(jsonPath("$.meta.pagination.totalPages", is(2)))
                 .andExpect(jsonPath("$.meta.pagination.hasNext", is(true)));
+    }
+
+    //홈은 size=100으로 목록을 부른다 — 페스티벌 수만큼 티켓·이미지 조회가 늘어나면 응답이 수백 ms씩 느려진다
+    @Test
+    void listFestivalsQueryCountDoesNotGrowWithFestivalCount() throws Exception {
+        for (int i = 0; i < 5; i++) {
+            Festival festival = saveFestival("공개" + i, FestivalStatus.PUBLISHED);
+            ticketTypeRepository.save(TicketType.builder()
+                    .festival(festival)
+                    .name("일반")
+                    .price(50000)
+                    .totalQuantity(100)
+                    .remainQuantity(100)
+                    .build());
+            festivalImageRepository.save(FestivalImage.builder()
+                    .festival(festival)
+                    .imageUrl("/api/festivals/images/thumb-" + i + ".jpg")
+                    .imageType(FestivalImageType.THUMBNAIL)
+                    .build());
+        }
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        statistics.setStatisticsEnabled(true);
+        statistics.clear();
+
+        mockMvc.perform(get(ENDPOINT).param("page", "0").param("size", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(5)))
+                .andExpect(jsonPath("$.data[*].ticketTypes[0].name", everyItem(is("일반"))))
+                .andExpect(jsonPath("$.data[*].thumbnailImageUrl", everyItem(startsWith("/api/festivals/images/thumb-"))));
+
+        //목록 + 전체 개수 + 티켓 일괄 + 이미지 일괄
+        assertThat(statistics.getPrepareStatementCount()).isLessThanOrEqualTo(4);
     }
 
     @Test

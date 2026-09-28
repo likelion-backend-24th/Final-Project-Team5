@@ -53,7 +53,7 @@ function ProviderBadges({ providers }) {
 
 function ManageCell({ member, currentUserId, actionPendingId, onSuspend, onUnsuspend, error }) {
   const isSelf = member.id === currentUserId
-  const isManageable = member.role !== 'ADMIN' && !isSelf && member.role !== 'HELPER' && member.role !== 'STOREHOST'
+  const isManageable = member.role !== 'ADMIN' && !isSelf && member.role !== 'HELPER'
   const action = isManageable ? (member.status === 'ACTIVE' ? 'suspend' : member.status === 'SUSPENDED' ? 'unsuspend' : null) : null
 
   return (

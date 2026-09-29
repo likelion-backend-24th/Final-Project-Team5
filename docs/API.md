@@ -918,3 +918,15 @@ STOREHOST가 본인 부스의 대기열 현황을 조회하고 다음 순번을 
 ## 비동기 Event 계약
 
 해당 없음 - 서비스 간 통신은 전부 동기 HTTP이며 메시지 큐(Kafka·RabbitMQ)·Redis·도메인 이벤트가 없습니다. 비동기처럼 보이는 처리는 모두 같은 서비스 안의 DB 기반 재시도 스케줄러입니다: HostApplicationApprovalRetryScheduler, FestivalPublishRetryScheduler, ReservationExpiryScheduler, StockReleaseScheduler, SeatReleaseScheduler, PaymentCompensationScheduler, WebhookRetryScheduler, FestivalRefundScheduler, SettlementScheduler, VirtualAccountDemoDepositScheduler. 브라우저로 가는 좌석 상태 알림은 서비스 간 Event가 아니라 reservation-service의 STOMP 브로드캐스트(`/topic/festivals/{festivalId}/ticket-types/{ticketTypeId}/seats`, 메시지 seatId·status)입니다.
+
+## 2026-09-29 변경 (PR #357·#359·#361·#363·#365·#367)
+
+PR 6개는 2026-09-29 기준 리뷰 대기(OPEN)이며, 병합되면 아래 내용이 적용된다. 새 공개 API는 없다.
+
+| 대상 | 변경 | 근거 |
+| --- | --- | --- |
+| createBooth (`POST /api/store/booths`) | 페스티벌이 공개(PUBLISHED) 상태가 아니면 409 `FESTIVAL_NOT_OPEN_FOR_BOOTH`("공개 중인 페스티벌에만 부스를 개설할 수 있습니다."). 기존 조건(STOREHOST만, 페스티벌당 1개)은 그대로 | PR #363, `BoothErrorCode`, `BoothService.createBooth`, `BoothAcceptanceTest` |
+| 공통 헤더 `X-Trace-Id` | 게이트웨이는 요청에 값이 있으면 그대로, 없거나 비어 있으면 UUID를 만들어 하위 서비스로 보내고 응답 헤더에 한 번 붙인다. 각 서비스는 이 값을 로그(MDC `traceId`)에 싣고, 서비스 간 내부 호출에 이어 보낸다. 값이 `[A-Za-z0-9-]` 1~64자가 아니면 서비스가 새로 만든다. 서비스는 응답 헤더를 붙이지 않는다 | PR #359, `TraceIdGlobalFilter`(gateway), 각 서비스 `TraceIdFilter`·`TraceIdPropagationInterceptor` |
+| 내부 `GET /internal/v1/helper-accounts/session` | 게이트웨이가 확인 중인 요청의 `X-Trace-Id`를 함께 보낸다. 계약(인증·응답)은 그대로 | PR #359, `HelperSessionClient` |
+| 결제 상태 동기화 | API 변경 없음. `PaymentSyncScheduler`가 5분마다 생성 후 10분~24시간인 READY·PENDING·VIRTUAL_ACCOUNT_ISSUED 결제와 예매 확정 응답을 받지 못한 PAID 결제를 PortOne에 다시 조회해 기존 syncPayment 흐름으로 마무리한다 | PR #357 |
+| 내부 `POST /internal/v1/seats` | 계약 변경 없음. 결번·멱등·토큰 401을 검증하는 테스트 추가 | PR #365, `InternalSeatGenerationAcceptanceTest` |

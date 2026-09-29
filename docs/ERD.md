@@ -1,4 +1,3 @@
-
 # ERD
 <aside>
 🗂️
@@ -11,8 +10,6 @@ Service별 Table·핵심 Column·불변식/상태를 정의합니다. FK는 같�
 
 > 기준일 2026-09-28(main 코드) — 실행 원본은 각 서비스의 JPA 엔티티(ddl-auto: update)이며 Migration 파일은 없습니다. DB는 core-db 단일 MySQL 인스턴스에 auth_db·festival_db·reservation_db·payment_db 4개 스키마로 운영됩니다. 엔티티 수: auth 6, festival 7, reservation 9, payment 11(총 33, auth에는 컬렉션 테이블 helper_invitation_sends가 추가로 있음).
 > 
-
-
 ## Service별 모델
 
 | Service | Table·Aggregate | 핵심 Column | 불변식·상태 | 관련 Story·계약·Test | 상태 |
@@ -355,3 +352,6 @@ erDiagram
 ## 스키마 변경 반영 (2026-09-28)
 
 **festival-service · Festival**에 컬럼 추가: `latitude`, `longitude`(DOUBLE, nullable). 카카오맵 지도 클릭·주소 검색·AI 초안의 장소 인식(locationQuery)으로 채워지며, 값이 없으면 상세 페이지는 서울시청 기본 좌표로 지도를 대체 표시한다. 값이 없는 기존 페스티벌은 상세 조회 시 자동으로 한 번 채우는 지연 백필이 있고, 운영자는 `POST /api/admin/festivals/backfill-coordinates`로 일괄 백필도 가능하다(API 문서 참고).
+
+> 2026-09-29 재확인: PR #357·#359·#361·#363·#365·#367은 엔티티·컬럼·인덱스를 바꾸지 않는다. 결제 재조회 배치는 기존 `payments`의 `status`·`created_at`·`paid_at`·예매 확정·거절 시각 컬럼만 조회하고, 로컬 시드 계정은 기존 `users` 테이블을 쓴다. 따라서 위 스키마는 병합 후에도 그대로다.
+>

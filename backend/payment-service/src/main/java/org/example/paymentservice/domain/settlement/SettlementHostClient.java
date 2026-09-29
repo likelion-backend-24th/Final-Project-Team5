@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import lombok.extern.slf4j.Slf4j;
+import org.example.paymentservice.common.trace.TraceIdPropagationInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -42,6 +43,7 @@ public class SettlementHostClient {
         client = RestClient.builder()
                 .baseUrl(url)
                 .requestFactory(factory)
+                .requestInterceptor(new TraceIdPropagationInterceptor())
                 .defaultHeader("Authorization", "Bearer " + token)
                 .build();
     }

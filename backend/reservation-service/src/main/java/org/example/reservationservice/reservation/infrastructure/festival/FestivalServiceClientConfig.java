@@ -1,5 +1,6 @@
 package org.example.reservationservice.reservation.infrastructure.festival;
 
+import org.example.reservationservice.common.trace.TraceIdPropagationInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +31,7 @@ public class FestivalServiceClientConfig {
         return RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
+                .requestInterceptor(new TraceIdPropagationInterceptor())
                 .build();
     }
 }

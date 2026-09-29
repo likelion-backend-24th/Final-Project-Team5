@@ -1,5 +1,6 @@
 package org.example.paymentservice.infrastructure.reservation;
 
+import org.example.paymentservice.common.trace.TraceIdPropagationInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,6 +33,7 @@ public class ReservationServiceClientConfig {
         return RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
+                .requestInterceptor(new TraceIdPropagationInterceptor())
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + internalAuthToken)
                 .build();
     }

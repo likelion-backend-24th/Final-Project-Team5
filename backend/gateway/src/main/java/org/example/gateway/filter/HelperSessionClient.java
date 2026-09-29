@@ -27,12 +27,22 @@ public class HelperSessionClient {
     }
 
     public Mono<Boolean> isValid(long userId, long festivalId, long version) {
+        return isValid(userId, festivalId, version, null);
+    }
+
+    // traceId는 TraceIdGlobalFilter가 붙인 요청의 X-Trace-Id — auth-service 로그와 같은 요청으로 묶어 볼 수 있게 이어 붙인다.
+    public Mono<Boolean> isValid(long userId, long festivalId, long version, String traceId) {
         return client.get()
                 .uri(builder -> builder.path("/internal/v1/helper-accounts/session")
                         .queryParam("userId", userId)
                         .queryParam("festivalId", festivalId)
                         .queryParam("version", version)
                         .build())
+                .headers(headers -> {
+                    if (traceId != null) {
+                        headers.set(TraceIdGlobalFilter.TRACE_ID_HEADER, traceId);
+                    }
+                })
                 .retrieve()
                 .bodyToMono(SessionResponse.class)
                 .map(result -> result.success() && Boolean.TRUE.equals(result.data()))

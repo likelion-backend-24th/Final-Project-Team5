@@ -33,7 +33,7 @@ class JwtAuthenticationGlobalFilterTest {
     @BeforeEach
     void setUp() {
         helperSessionClient = mock(HelperSessionClient.class);
-        when(helperSessionClient.isValid(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong())).thenReturn(Mono.just(true));
+        when(helperSessionClient.isValid(org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.any())).thenReturn(Mono.just(true));
         filter = new JwtAuthenticationGlobalFilter(SECRET, helperSessionClient);
         chain = mock(GatewayFilterChain.class);
         when(chain.filter(any())).thenReturn(Mono.empty());
@@ -233,7 +233,7 @@ class JwtAuthenticationGlobalFilterTest {
 
     @Test
     void revokedHelperCannotCheckIn() {
-        when(helperSessionClient.isValid(42L, 7L, 0L)).thenReturn(Mono.just(false));
+        when(helperSessionClient.isValid(org.mockito.ArgumentMatchers.eq(42L), org.mockito.ArgumentMatchers.eq(7L), org.mockito.ArgumentMatchers.eq(0L), org.mockito.ArgumentMatchers.any())).thenReturn(Mono.just(false));
         var exchange = exchangeWithToken(MockServerHttpRequest.post("/api/organizer/reservations/verify"), "HELPER", 7L);
         filter.filter(exchange, chain).block();
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);

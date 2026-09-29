@@ -1,12 +1,14 @@
 package org.example.paymentservice.domain.payment;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +30,21 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     // 보상 환불 재시도 대상 — 예매 확정이 거절된 지 일정 시간이 지났는데 아직 전액 취소되지 않은 결제
     List<Payment> findByStatusInAndReservationRejectedAtBefore(Collection<PaymentStatus> statuses, Instant before);
+
+    // 결과 재조회 대상 — 완료 API·웹훅이 모두 오지 않아 결과를 모르는 결제, 또는 승인됐는데 예매 확정 응답을 못 받은 결제
+    @Query("""
+        SELECT p FROM Payment p
+        WHERE p.createdAt >= :createdFrom AND p.createdAt < :createdTo
+          AND (p.status IN :awaitingStatuses
+               OR (p.status = :paidStatus AND p.paidAt IS NOT NULL
+                   AND p.reservationConfirmedAt IS NULL AND p.reservationRejectedAt IS NULL))
+        ORDER BY p.id
+        """)
+    List<Payment> findSyncTargets(@Param("awaitingStatuses") Collection<PaymentStatus> awaitingStatuses,
+                                  @Param("paidStatus") PaymentStatus paidStatus,
+                                  @Param("createdFrom") LocalDateTime createdFrom,
+                                  @Param("createdTo") LocalDateTime createdTo,
+                                  Pageable pageable);
 
     //행사 취소 환불 미리보기 — 환불 배치와 같은 대상(PAID·부분 취소, 예매 확정 거절 제외)의 결제를 가볍게 조회
 //결과: [결제 id, 페스티벌 id, 결제 금액]

@@ -6,6 +6,7 @@ import org.example.festivalservice.common.exception.ApiException;
 import org.example.festivalservice.domain.festival.Festival;
 import org.example.festivalservice.domain.festival.FestivalErrorCode;
 import org.example.festivalservice.domain.festival.FestivalRepository;
+import org.example.festivalservice.domain.festival.FestivalStatus;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,8 +23,8 @@ public class BoothService {
     private final BoothRepository boothRepository;
     private final FestivalRepository festivalRepository;
 
-    //STOREHOST가 부스를 개설한다. 페스티벌 소유자인지, 부스 개설이 가능한 페스티벌 상태인지는 검증하지 않는다
-    //(요청대로 역할 체크만) — 필요해지면 여기 한 곳만 고치면 된다.
+    //STOREHOST가 부스를 개설한다. 부스 운영자는 페스티벌 주최자가 아니라 입점 사업자라 소유권은 따지지 않고,
+    //관람자가 실제로 찾아올 수 있는 공개(PUBLISHED) 페스티벌에만 개설을 허용한다 — 심사 전·반려·종료·취소된 행사는 거절한다.
     //페스티벌당 부스는 1개만 허용한다 — existsByFestivalId로 먼저 막고, 동시 요청 경합은 DB
     //유니크 제약(uk_booths_festival_id)에 걸려 DataIntegrityViolationException으로 잡히면 같은 에러로 변환한다.
     @Transactional
@@ -33,6 +34,9 @@ public class BoothService {
         }
         Festival festival = festivalRepository.findById(request.festivalId())
                 .orElseThrow(() -> new ApiException(FestivalErrorCode.FESTIVAL_NOT_FOUND));
+        if (festival.getFestivalStatus() != FestivalStatus.PUBLISHED) {
+            throw new ApiException(BoothErrorCode.FESTIVAL_NOT_OPEN_FOR_BOOTH);
+        }
 
         if (boothRepository.existsByFestivalId(request.festivalId())) {
             throw new ApiException(BoothErrorCode.DUPLICATE_BOOTH_FOR_FESTIVAL);

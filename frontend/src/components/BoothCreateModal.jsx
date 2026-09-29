@@ -7,6 +7,7 @@ const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024
 const SUBMIT_ERROR_MESSAGES = {
   FORBIDDEN_STOREHOST_ROLE: '부스 운영자 권한이 없습니다.',
   DUPLICATE_BOOTH_FOR_FESTIVAL: '이미 이 페스티벌에 개설된 부스가 있어요.',
+  FESTIVAL_NOT_OPEN_FOR_BOOTH: '공개 중인 페스티벌에만 부스를 개설할 수 있어요.',
   FESTIVAL_NOT_FOUND: '존재하지 않는 페스티벌이에요.',
   INVALID_IMAGE_SIZE: '이미지 용량은 10MB를 초과할 수 없어요.',
   INVALID_IMAGE_TYPE: '이미지 파일만 업로드할 수 있어요.',

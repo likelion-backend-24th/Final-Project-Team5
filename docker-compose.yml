@@ -28,6 +28,8 @@ services:
       # 호스트가 입력하는 페스티벌 시작·종료 시각은 타임존 없는 벽시계(KST)로 저장되는데, 컨테이너가
       # UTC로 돌면 LocalDateTime.now()와 9시간 어긋난다. 한국 대상 서비스이므로 서버 시계를 KST로 통일한다.
       TZ: Asia/Seoul
+      # 비밀값이 기본값(CHANGE_ME_IN_ENV 등)이거나 비어 있으면 기동하지 않는다(RequiredSecretsValidator).
+      REQUIRE_CONFIGURED_SECRETS: ${REQUIRE_CONFIGURED_SECRETS:-true}
       AUTH_DB_HOST: core-db
       AUTH_DB_PORT: 3306
     depends_on:
@@ -42,6 +44,8 @@ services:
     env_file: .env
     environment:
       TZ: Asia/Seoul
+      # 비밀값이 기본값(CHANGE_ME_IN_ENV 등)이거나 비어 있으면 기동하지 않는다(RequiredSecretsValidator).
+      REQUIRE_CONFIGURED_SECRETS: ${REQUIRE_CONFIGURED_SECRETS:-true}
       FESTIVAL_DB_HOST: core-db
       FESTIVAL_DB_PORT: 3306
       AUTH_SERVICE_URL: http://auth-service:8081
@@ -78,6 +82,8 @@ services:
     env_file: .env
     environment:
       TZ: Asia/Seoul
+      # 비밀값이 기본값(CHANGE_ME_IN_ENV 등)이거나 비어 있으면 기동하지 않는다(RequiredSecretsValidator).
+      REQUIRE_CONFIGURED_SECRETS: ${REQUIRE_CONFIGURED_SECRETS:-true}
       RESERVATION_DB_HOST: core-db
       RESERVATION_DB_PORT: 3306
       FESTIVAL_SERVICE_URL: http://festival-service:8082
@@ -94,6 +100,8 @@ services:
     env_file: .env
     environment:
       TZ: Asia/Seoul
+      # 비밀값이 기본값(CHANGE_ME_IN_ENV 등)이거나 비어 있으면 기동하지 않는다(RequiredSecretsValidator).
+      REQUIRE_CONFIGURED_SECRETS: ${REQUIRE_CONFIGURED_SECRETS:-true}
       PAYMENT_DB_HOST: core-db
       PAYMENT_DB_PORT: 3306
       AUTH_SERVICE_URL: http://auth-service:8081
@@ -112,6 +120,8 @@ services:
     env_file: .env
     environment:
       TZ: Asia/Seoul
+      # 비밀값이 기본값(CHANGE_ME_IN_ENV 등)이거나 비어 있으면 기동하지 않는다(RequiredSecretsValidator).
+      REQUIRE_CONFIGURED_SECRETS: ${REQUIRE_CONFIGURED_SECRETS:-true}
       AUTH_SERVICE_URL: http://auth-service:8081
       FESTIVAL_SERVICE_URL: http://festival-service:8082
       RESERVATION_SERVICE_URL: http://reservation-service:8083

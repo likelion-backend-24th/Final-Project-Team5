@@ -719,7 +719,7 @@ cd frontend && npm run test
 | 문서 | 위치 | 용도 |
 | --- | --- | --- |
 | 요구사항·설계·회의록 | [팀 Notion](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 요구사항, 설계 문서, 결정 이력 (최신본) |
-| 설계·테스트 문서 스냅샷 | [`docs/`](./docs) — API, ERD, 권한메트릭스, 서비스경계, 시퀀스, 아키텍처, 테스트전략, 테스트체크리스트, 실행·배포 가이드, 트러블슈팅, 스프린트리뷰, retrospective | Notion 문서의 저장소 사본. 각 파일 맨 위의 기준일 이후 변경은 Notion이 최신 |
+| 설계·테스트 문서 스냅샷 | [`docs/`](./docs) — API, ERD, 권한메트릭스, 서비스경계, 시퀀스, 아키텍처, 테스트전략, 테스트체크리스트, 실행·배포 가이드, 트러블슈팅, 스프린트리뷰, retrospective | Notion 문서를 내보낸 저장소 사본 |
 | 부하 테스트 | [`docs/loadtest-2026-09-27/`](./docs/loadtest-2026-09-27), [`docs/loadtest-2026-09-28/`](./docs/loadtest-2026-09-28) | k6 스크립트와 측정 기록 |
 | 발표 자료 | [`docs/presentation/FevalGo_final_presentation.pdf`](./docs/presentation/FevalGo_final_presentation.pdf) | 최종 발표 슬라이드 |
 | 수동 API 호출 예시 | [`backend/auth-service/src/test/java/org/example/authservice/auth/`](./backend/auth-service/src/test/java/org/example/authservice/auth) (`auth.http`, `emailverification.http`, `oauth.http`), [`user/user.http`](./backend/auth-service/src/test/java/org/example/authservice/user/user.http) | IntelliJ HTTP Client용 인증·회원 API 호출 예시 |

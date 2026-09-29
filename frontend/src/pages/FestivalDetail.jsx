@@ -334,6 +334,9 @@ function FestivalDetail() {
                 </span>
                 <Badge variant="secondary">{BOOTH_STATUS_LABELS[myBooth.boothStatus]}</Badge>
               </Link>
+            ) : festival.festivalStatus !== 'PUBLISHED' ? (
+              //부스는 공개 중인 페스티벌에만 개설할 수 있다(백엔드 FESTIVAL_NOT_OPEN_FOR_BOOTH와 같은 규칙).
+              <p className="text-sm text-gray-500">공개 중인 페스티벌에만 부스를 개설할 수 있어요.</p>
             ) : (
               <button
                 type="button"

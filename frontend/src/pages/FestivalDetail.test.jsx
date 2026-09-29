@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import FestivalDetail from './FestivalDetail'
 import { useAuth } from '../context/AuthContext.jsx'
 import { fetchFestivalDetail } from '../api/festivalApi'
+import { fetchMyBooths } from '../api/boothApi'
 
 vi.mock('../context/AuthContext.jsx')
 vi.mock('../api/boothApi')
@@ -128,5 +129,25 @@ describe('FestivalDetail', () => {
     expect(screen.getByText('하루 자유 입장')).toBeTruthy()
     expect(screen.getByText('30,000원')).toBeTruthy()
     expect(screen.getByText(/판매기간 09.01 ~ 09.30/)).toBeTruthy()
+  })
+
+  it('lets a store host open a booth only on a published festival', async () => {
+    useAuth.mockReturnValue({ user: { role: 'STOREHOST' } })
+    fetchMyBooths.mockResolvedValue({ data: { data: [] } })
+    fetchFestivalDetail.mockResolvedValue({ data: { data: detail } })
+    const published = renderPage()
+    expect(await screen.findByRole('button', { name: /부스 개설하기/ })).toBeTruthy()
+    published.unmount()
+
+    fetchFestivalDetail.mockResolvedValue({ data: { data: { ...detail, id: 8, festivalStatus: 'CLOSED' } } })
+    render(
+      <MemoryRouter initialEntries={['/festivals/8']}>
+        <Routes>
+          <Route path="/festivals/:id" element={<FestivalDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(await screen.findByText('공개 중인 페스티벌에만 부스를 개설할 수 있어요.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /부스 개설하기/ })).toBeNull()
   })
 })

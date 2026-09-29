@@ -110,6 +110,25 @@ class BoothAcceptanceTest {
     }
 
     @Test
+    void createBoothFailsWhenFestivalIsNotPublished() throws Exception {
+        for (FestivalStatus status : new FestivalStatus[]{
+                FestivalStatus.PENDING, FestivalStatus.REJECTED, FestivalStatus.CLOSED, FestivalStatus.CANCELLED}) {
+            Festival festival = festivalRepository.findById(festivalId).orElseThrow();
+            org.springframework.test.util.ReflectionTestUtils.setField(festival, "festivalStatus", status);
+            festivalRepository.save(festival);
+
+            mockMvc.perform(post("/api/store/booths")
+                            .header("X-User-Id", "10")
+                            .header("X-User-Role", "STOREHOST")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(createRequestBody()))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.errorCode", is("FESTIVAL_NOT_OPEN_FOR_BOOTH")));
+        }
+        org.assertj.core.api.Assertions.assertThat(boothRepository.count()).isZero();
+    }
+
+    @Test
     void waitingBoothIsHiddenFromPublicListAndDetail() throws Exception {
         Booth waiting = boothRepository.save(waitingBooth());
 

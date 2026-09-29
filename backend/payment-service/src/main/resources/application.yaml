@@ -49,3 +49,7 @@ auth-service:
 
 internal:
   auth-token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}
+
+# docker-compose.yml처럼 REQUIRE_CONFIGURED_SECRETS=true로 띄우면 비밀값이 기본값(CHANGE_ME_IN_ENV 등)이거나 비어 있을 때 기동하지 않는다(RequiredSecretsValidator).
+security:
+  require-configured-secrets: ${REQUIRE_CONFIGURED_SECRETS:false}

@@ -66,6 +66,9 @@ services:
         SERVICE: payment-service
     environment:
       REQUIRE_CONFIGURED_SECRETS: "false"
+      # PortOne 웹훅 검증기는 기동 때 비밀값을 base64로 읽어서 .env.example의 자리표시(CHANGE_ME_IN_ENV)로는 뜨지 않는다.
+      # localhost로는 PortOne 웹훅이 오지 않으므로, 로컬에서는 형식만 맞춘 값("local-only-webhook-secret")을 쓴다.
+      PORTONE_WEBHOOK_SECRET: whsec_bG9jYWwtb25seS13ZWJob29rLXNlY3JldA==
 
   gateway:
     container_name: fevalgo-local-gateway

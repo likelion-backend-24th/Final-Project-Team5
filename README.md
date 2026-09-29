@@ -9,6 +9,7 @@
 | 서비스 | https://fevalgo.duckdns.org/ |
 | 데이터 모델 | 레포에 ERD·DDL 파일은 없고, 스키마는 각 서비스 JPA 엔티티(`ddl-auto: update`)로 생성됩니다. ERD는 https://github.com/likelion-backend-24th/Final-Project-Team5/blob/main/docs/ERD.md |
 | 요구사항·설계 문서 | [팀 Notion](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) |
+| 발표 자료 | [최종 발표 슬라이드 (PDF)](./docs/presentation/FevalGo_final_presentation.pdf) |
 
 ## 프로젝트 개요
 
@@ -555,6 +556,41 @@ cd frontend && npm run test
 | reservation | 동시 예매 초과 판매 없음, 1인 한도 동시성, 좌석 재고, 만료·복구 재시도, 환불 위약금 구간·19시 반환, 입장(동시 스캔 1회), 부스 대기열 | `ReservationAcceptanceTest`, `PurchaseLimitConcurrencyAcceptanceTest`, `RefundPolicyTest`, `SeatedRefundAcceptanceTest`, `CheckInAcceptanceTest`, `BoothWaitlistAcceptanceTest` |
 | payment | 결제 성공·실패·금액 변조, 웹훅 중복·재시도, 이중 결제 보상 환불, 부분·전체 환불과 멱등키, 정산 계산·확정·보류·동시 확정 | `PaymentAcceptanceTest`, `PaymentCompensationAcceptanceTest`, `PaymentCancellationServiceTest`, `WebhookEventServiceTest`, `SettlementAcceptanceTest`, `SettlementCalculatorTest` |
 | frontend | API 어댑터, 인증 컨텍스트, 도우미 초대·홈, 예매·결제 복귀, 어드민 화면, 정산 리포트 | `AuthContext.test.jsx`, `HelperInvite.test.jsx`, `ReservationCheckout.test.jsx`, `PaymentRedirect.test.jsx`, `AdminDashboard.test.jsx`, `SettlementReport.test.jsx` |
+
+## 부하 테스트
+
+운영 서버에는 부하를 주지 않고, 로컬에서 운영 조건(모든 서비스와 MySQL을 CPU 2개에 고정, `docker-compose.small.yml`, 서비스별 커넥션 풀 5개)을 재현해 [k6](https://k6.io/)로 측정했습니다(2026-09-27·28). 결과는 매번 DB의 예매 건수·잔여 재고·좌석 상태와 대조했습니다.
+
+### 동시 요청 정합성
+
+| 시나리오 | 결과 |
+| --- | --- |
+| 재고 100장에 1,000명 동시 요청 | 정확히 100건 성공 |
+| 같은 좌석 1석에 500명 동시 요청 | 1명만 선점 |
+| 남은 좌석 99석에 1,000명 무작위 요청 | 99석 판매, 한 좌석에 한 명 |
+| 1인 한도 4장 계정으로 동시 100회 요청 | 4장까지만 성공 |
+
+모든 시나리오에서 서버 오류와 초과 판매는 없었습니다.
+
+### 처리량과 한계
+
+예매는 초당 80건까지 안정적이었고(p95 66~75ms), 인기 티켓 한 종류에 요청이 몰리면 초당 약 100건에서 더 늘지 않았습니다. 원인을 나눠 측정해 보니 세 가지가 겹쳐 있었습니다.
+
+1. **같은 재고 행의 잠금 대기:** 같은 티켓의 예매는 한 행을 차례로 차감해서, 앞 트랜잭션이 커밋을 마쳐야 다음 요청이 들어갑니다.
+2. **DB 커넥션 점유:** 예매 트랜잭션이 페스티벌 서비스의 응답을 기다리는 동안에도 커넥션을 쥐고 있어, 커넥션 5개 앞에 요청이 줄을 섰습니다.
+3. **CPU 2개:** 사용률이 80~90%였습니다.
+
+| 예매를 초당 200건 보냈을 때 실제 처리량(건/초) | 티켓 1종 | 티켓 4종으로 분산 |
+| --- | ---: | ---: |
+| 운영 설정 (CPU 2개, 커넥션 5개) | 108~112 | 113~115 |
+| 커넥션 10개 | 115 | 135 |
+| CPU 4개 | 116 | 146 |
+
+운영 설정에서는 재고를 나눠도 처리량이 거의 늘지 않았고, 커넥션이나 CPU 여유가 생긴 뒤에야 분산 효과가 나타났습니다. 측정 중 찾은 문제는 한도 조회 인덱스(#339)와 동시 접속 시 연결 끊김(#340)으로 고쳤습니다.
+
+**다음 단계(미구현):** 행사 조회를 예매 트랜잭션 밖으로 옮기고 예매 전용 내부 조회 API를 만들어 커넥션 점유를 줄인 뒤, 재고를 여러 행으로 나눕니다. 요청이 몰리는 순간의 대기는 대기열로 관리합니다.
+
+> 로컬 재현이라 운영 서버의 CPU 성능·스왑·HTTPS는 반영되지 않았고, 원인 분석 실험은 조건마다 1~2회 측정한 값입니다.
 
 ## 주요 기술 의사결정
 

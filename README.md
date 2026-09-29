@@ -7,10 +7,8 @@
 | 구분 | 링크 |
 | --- | --- |
 | 서비스 | https://fevalgo.duckdns.org/ |
-| 데이터 모델 | 레포에 ERD·DDL 파일은 없고, 스키마는 각 서비스 JPA 엔티티(`ddl-auto: update`)로 생성됩니다. ERD는 팀 Notion [확인 필요: Notion 내 ERD 페이지 링크] |
+| 데이터 모델 | 레포에 ERD·DDL 파일은 없고, 스키마는 각 서비스 JPA 엔티티(`ddl-auto: update`)로 생성됩니다. ERD는 https://github.com/likelion-backend-24th/Final-Project-Team5/blob/main/docs/ERD.md |
 | 요구사항·설계 문서 | [팀 Notion](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) |
-
-> [스크린샷 첨부 예정]
 
 ## 프로젝트 개요
 

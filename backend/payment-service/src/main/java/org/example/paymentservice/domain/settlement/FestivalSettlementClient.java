@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+import org.example.paymentservice.common.trace.TraceIdPropagationInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,7 @@ public class FestivalSettlementClient {
         client = RestClient.builder()
                 .baseUrl(url)
                 .requestFactory(factory)
+                .requestInterceptor(new TraceIdPropagationInterceptor())
                 .defaultHeader("Authorization", "Bearer " + token)
                 .build();
     }

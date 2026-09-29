@@ -13,11 +13,13 @@ class HelperSessionClientTest {
     AtomicReference<String> response = new AtomicReference<>("{\"success\":true,\"data\":true}");
     AtomicReference<String> authorization = new AtomicReference<>();
     AtomicReference<String> query = new AtomicReference<>();
+    AtomicReference<String> traceId = new AtomicReference<>();
     @BeforeEach void setup() throws Exception {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/internal/v1/helper-accounts/session", exchange -> {
             authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
             query.set(exchange.getRequestURI().getQuery());
+            traceId.set(exchange.getRequestHeaders().getFirst("X-Trace-Id"));
             byte[] bytes = response.get().getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, bytes.length);
@@ -31,6 +33,12 @@ class HelperSessionClientTest {
         assertThat(client.isValid(20, 7, 3).block()).isTrue();
         assertThat(authorization.get()).isEqualTo("Bearer test-internal");
         assertThat(query.get()).isEqualTo("userId=20&festivalId=7&version=3");
+    }
+    @Test void forwardsTraceIdOfTheRequestBeingChecked() {
+        assertThat(client.isValid(20, 7, 3, "3f2c1a9e-trace").block()).isTrue();
+        assertThat(traceId.get()).isEqualTo("3f2c1a9e-trace");
+        client.isValid(20, 7, 3).block();
+        assertThat(traceId.get()).isNull();
     }
     @Test void rejectsDeniedOrMalformedResponses() {
         response.set("{\"success\":false,\"data\":true}");

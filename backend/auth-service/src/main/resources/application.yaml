@@ -40,6 +40,9 @@ spring:
 
 #로그 설정
 logging:
+  # 로그 한 줄마다 요청의 X-Trace-Id를 붙인다(TraceIdFilter가 MDC에 넣는다).
+  pattern:
+    level: "%5p [%X{traceId:-}]"
   level:
     org.hibernate.SQL: INFO
     org.hibernate.type.descriptor.sql.BasicBinder: OFF

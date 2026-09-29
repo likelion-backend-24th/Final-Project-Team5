@@ -1,5 +1,6 @@
 package org.example.festivalservice.common;
 
+import org.example.festivalservice.common.trace.TraceIdPropagationInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ public class AuthServiceClientConfig {
         return RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
+                .requestInterceptor(new TraceIdPropagationInterceptor())
                 .build();
     }
 }

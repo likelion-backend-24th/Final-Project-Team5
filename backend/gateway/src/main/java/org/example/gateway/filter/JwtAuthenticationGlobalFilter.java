@@ -134,7 +134,8 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
                     return unauthorized(exchange);
                 }
                 return helperSessionClient.isValid(
-                                userId.longValue(), assignedFestival.longValue(), version == null ? 0 : version.longValue())
+                                userId.longValue(), assignedFestival.longValue(), version == null ? 0 : version.longValue(),
+                                exchange.getRequest().getHeaders().getFirst(TraceIdGlobalFilter.TRACE_ID_HEADER))
                         .flatMap(valid -> valid ? chain.filter(authenticated) : unauthorized(exchange));
             }
             return chain.filter(authenticated);

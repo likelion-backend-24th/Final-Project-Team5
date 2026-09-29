@@ -65,3 +65,8 @@ kakao:
   local:
     rest-api-key: ${KAKAO_MAP_REST_API_KEY:CHANGE_ME_IN_ENV}
     base-url: ${KAKAO_LOCAL_BASE_URL:https://dapi.kakao.com}
+
+# 로그 한 줄마다 요청의 X-Trace-Id를 붙인다(TraceIdFilter가 MDC에 넣고, 내부 호출은 TraceIdPropagationInterceptor가 이어 붙인다).
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"

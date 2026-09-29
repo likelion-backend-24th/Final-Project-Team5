@@ -72,3 +72,8 @@ internal:
 # 스캔은 프론트에서 카메라로 직접 처리하고 결과 문자열(qrToken)만 서버로 전달받는다.
 qr:
   image-base-url: ${QR_IMAGE_BASE_URL:https://api.qrserver.com/v1/create-qr-code/}
+
+# 로그 한 줄마다 요청의 X-Trace-Id를 붙인다(TraceIdFilter가 MDC에 넣고, 내부 호출은 TraceIdPropagationInterceptor가 이어 붙인다).
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"

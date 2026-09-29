@@ -49,3 +49,8 @@ auth-service:
 
 internal:
   auth-token: ${INTERNAL_AUTH_TOKEN:CHANGE_ME_IN_ENV}
+
+# 로그 한 줄마다 요청의 X-Trace-Id를 붙인다(TraceIdFilter가 MDC에 넣고, 내부 호출은 TraceIdPropagationInterceptor가 이어 붙인다).
+logging:
+  pattern:
+    level: "%5p [%X{traceId:-}]"

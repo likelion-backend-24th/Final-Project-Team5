@@ -9,8 +9,8 @@
 | 문서 | Notion 원본 URL | 담당자 | 최근 Git Snapshot(보존본) |
 |---|---|---|---|
 | 요구사항 | [팀 Notion 원본](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 송시훈, 조민규, 최승환 | [요구사항.md](요구사항.md) — commit `b8fe371` (2026-09-29) |
-| 공통 완료 기준 | [팀 Notion 원본](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 송시훈, 조민규, 최승환 | [공통완료기준.md](공통완료기준.md) — commit `b8fe371` (2026-09-29). 템플릿 파일명 `Definition_of_Done.md`와 다름 |
-| 화면 설계 | [팀 Notion 원본](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 송시훈, 조민규, 최승환 | 없음 — Sprint Review 뒤 `docs/화면설계.md` 생성 예정 |
+| 공통 완료 기준 | [팀 Notion 원본](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 송시훈, 조민규, 최승환 | [공통완료기준.md](공통완료기준.md) — commit `b8fe371` (2026-09-29). |
+| 화면 설계 | [팀 Notion 원본](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 송시훈, 조민규, 최승환 | [화면설계.md](화면설계.md)  |
 | 서비스 경계 | [팀 Notion 원본](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 송시훈, 조민규, 최승환 | [서비스경계.md](서비스경계.md) — commit `101d079` (2026-09-28) |
 | 아키텍처 | [팀 Notion 원본](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 송시훈, 조민규, 최승환 | [아키텍처.md](아키텍처.md) — commit `101d079` (2026-09-28) |
 | ERD | [팀 Notion 원본](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 송시훈, 조민규, 최승환 | [ERD.md](ERD.md) — commit `101d079` (2026-09-28) |

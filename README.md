@@ -526,9 +526,26 @@ npm ci && npm run dev                    # http://localhost:5173
 - 게이트웨이 CORS와 WebSocket 허용 origin은 `http://localhost:5173`이므로 Vite 기본 포트를 그대로 사용합니다.
 - 각 서비스는 `spring-dotenv`로 실행 작업 디렉터리의 `.env`를 읽습니다(별도 경로 설정 없음). `./gradlew :{모듈}:bootRun`은 Gradle 기본값대로 해당 모듈 디렉터리(`backend/{모듈}/`)에서 실행되므로, 파일로 값을 넣으려면 그 위치에 `.env`를 두거나 실행 환경 변수로 주입합니다. 값이 없으면 `application.yaml`의 로컬 기본값을 사용합니다.
 
+### 새 PC에서 전체 스택 재현 (docker compose 한 번)
+
+PR #367 병합 후 사용할 수 있습니다. 인증서·도메인 없이 HTTP로 전체 스택(core-db, 5개 백엔드, frontend, nginx)을 띄우고, 백엔드 jar는 이미지 안에서 빌드합니다. Docker Compose 2.24 이상이 필요합니다.
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+# http://localhost:8088
+```
+
+- 프로젝트 이름(`fevalgo-local`)과 컨테이너 이름을 따로 써서 같은 PC의 다른 스택과 겹치지 않고, 호스트에는 8088 포트만 엽니다.
+- auth-service가 로컬 전용 시드 계정 3개(`local-admin@fevalgo.test`, `local-storehost@fevalgo.test`, `local-user@fevalgo.test`)를 만듭니다. 비밀번호는 `.env`의 `LOCAL_SEED_PASSWORD`입니다.
+- PortOne 결제 완료·메일 발송·소셜 로그인·카카오맵은 실제 키가 없으면 동작하지 않습니다(카카오맵 키는 운영 도메인만 허용).
+- 2026-09-29 새 clone에서 8개 컨테이너 기동과 API 스모크 17단계(시드 계정 로그인 → 주최 신청·승인 → 등록·공개 → 부스 → 예매 → 결제 준비 → 401·403·409 실패 경로)를 확인했습니다.
+
+배포용 `docker-compose.yml`은 PR #361 병합 후 `REQUIRE_CONFIGURED_SECRETS=true`로 서비스를 띄웁니다. `JWT_SECRET`·`INTERNAL_AUTH_TOKEN`·`INTERNAL_RESERVATION_TOKEN`·`PORTONE_API_SECRET`·`PORTONE_WEBHOOK_SECRET` 중 그 서비스가 쓰는 값이 비어 있거나 `.env.example`의 기본값이면 해당 서비스가 환경 변수 이름만 출력하고 기동을 멈춥니다(값은 출력하지 않음).
+
 ### 관리자·부스 운영자 계정 부여
 
-ADMIN·STOREHOST는 부여 API나 시드 데이터가 없으므로, 일반 회원가입을 마친 뒤 `auth_db`의 `users` 테이블에서 `role` 컬럼을 직접 변경합니다(값은 `Role` enum 이름 그대로).
+ADMIN·STOREHOST는 부여 API가 없으므로, 일반 회원가입을 마친 뒤 `auth_db`의 `users` 테이블에서 `role` 컬럼을 직접 변경합니다(값은 `Role` enum 이름 그대로). 위 로컬 재현 구성에서는 시드 계정을 쓰면 됩니다.
 
 ```sql
 -- auth_db 에서 실행. username 컬럼은 가입한 이메일입니다.
@@ -551,8 +568,9 @@ cd backend && ./gradlew test
 cd frontend && npm run test
 ```
 
-- 백엔드: 62개 테스트 클래스, 457개 테스트(gateway 2개·18 / auth 10개·123 / festival 16개·114 / reservation 14개·74 / payment 20개·128). 테스트용 `application.yaml`은 H2를 쓰고, payment-service는 스케줄러와 데모 자동 입금을 끈 채 실행합니다.
-- 프론트엔드: 33개 테스트 파일, 137개 테스트 케이스(`it`/`test`).
+- 백엔드: 75개 테스트 클래스, 513개 테스트(gateway 3개·21 / auth 13개·129 / festival 19개·136 / reservation 17개·83 / payment 23개·144), 실패·오류·건너뜀 0. 테스트용 `application.yaml`은 H2를 쓰고, payment-service는 스케줄러와 데모 자동 입금을 끈 채 실행합니다.
+- 프론트엔드: 34개 테스트 파일, 163개 테스트, 실패 0.
+- 위 수치는 2026-09-29 새로 clone한 저장소에서 main(`412a51d`)에 PR #357·#359·#361·#363·#365·#367을 병합해 `./gradlew test --rerun`과 `npm run test`로 실행한 결과입니다. 병합 전 main은 백엔드 62개 클래스·479개, 프론트 34개 파일·162개입니다.
 - CI(`.github/workflows/ci.yml`)는 `main`·`deploy` 브랜치 push/PR마다 프론트 `npm run test` → `npm run lint` → `npm run build`와 백엔드 `./gradlew test`를 실행합니다.
 
 | 서비스 | 검증 영역 | 대표 테스트 클래스 |
@@ -680,28 +698,34 @@ cd frontend && npm run test
 | 서비스 · 도메인 | 담당 |
 | --- | --- |
 | Gateway (라우팅·JWT 검증·HELPER 제한) |최승환, 조민규 |
-| 회원·인증 (auth-service) |최승환 |
+| 회원·인증 (auth-service) |최승환, 조민규 |
 | 운영자 회원·주최자 관리 |최승환 |
 | 주최자 신청·페스티벌 등록·심사 (festival-service) |송시훈 |
-| 행사 취소 |송시훈 |
+| 행사 취소 |조민규, 최승환 |
 | 부스·대기열 |송시훈 |
-| AI 챗봇·등록 초안 |송시훈 |
+| AI 추천 챗봇 |조민규 |
+| AI 등록 초안·카카오맵 |송시훈 |
 | 예매·좌석·입장 (reservation-service) |최승환 |
 | 도우미 계정 |조민규 |
 | 결제·환불 (payment-service) |조민규 |
 | 정산 |조민규 |
-| 프론트엔드 |최승환 |
+| 프론트엔드 |최승환(가장 많은 화면), 조민규·송시훈(담당 기능 화면) |
 | CI/CD·배포 |조민규 |
+
+- 위 표는 2026-09-29 main의 커밋 작성자와 파일별 변경 줄 수를 기준으로 정리했습니다. 개발은 3명이 했고, 4명 중 1명은 초반에 팀에서 빠졌습니다.
 
 ## Documentation
 
 | 문서 | 위치 | 용도 |
 | --- | --- | --- |
-| 요구사항·설계·회의록 | [팀 Notion](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 요구사항, 설계 문서, 결정 이력 |
+| 요구사항·설계·회의록 | [팀 Notion](https://app.notion.com/p/5-5-3c973873401a80788cedccf3453d5810) | 요구사항, 설계 문서, 결정 이력 (최신본) |
+| 설계·테스트 문서 스냅샷 | [`docs/`](./docs) — API, ERD, 권한메트릭스, 서비스경계, 시퀀스, 아키텍처, 테스트전략, 테스트체크리스트, 실행·배포 가이드, 트러블슈팅, 스프린트리뷰, retrospective | Notion 문서의 저장소 사본. 각 파일 맨 위의 기준일 이후 변경은 Notion이 최신 |
+| 부하 테스트 | [`docs/loadtest-2026-09-27/`](./docs/loadtest-2026-09-27), [`docs/loadtest-2026-09-28/`](./docs/loadtest-2026-09-28) | k6 스크립트와 측정 기록 |
+| 발표 자료 | [`docs/presentation/FevalGo_final_presentation.pdf`](./docs/presentation/FevalGo_final_presentation.pdf) | 최종 발표 슬라이드 |
 | 수동 API 호출 예시 | [`backend/auth-service/src/test/java/org/example/authservice/auth/`](./backend/auth-service/src/test/java/org/example/authservice/auth) (`auth.http`, `emailverification.http`, `oauth.http`), [`user/user.http`](./backend/auth-service/src/test/java/org/example/authservice/user/user.http) | IntelliJ HTTP Client용 인증·회원 API 호출 예시 |
 | 환경 변수 예시 | [`.env.example`](./.env.example), [`frontend/.env.example`](./frontend/.env.example) | 필요한 키 목록 |
 | DB 초기화 | [`mysql-init/core-db/`](./mysql-init/core-db) | 스키마·서비스별 계정 생성 |
-| 컨테이너·프록시 구성 | [`docker-compose.yml`](./docker-compose.yml), [`docker-compose.small.yml`](./docker-compose.small.yml), [`nginx/nginx.conf`](./nginx/nginx.conf) | 실행·배포 구성 |
+| 컨테이너·프록시 구성 | [`docker-compose.yml`](./docker-compose.yml), [`docker-compose.small.yml`](./docker-compose.small.yml), [`nginx/nginx.conf`](./nginx/nginx.conf), `docker-compose.local.yml`·`nginx-local/`(PR #367) | 실행·배포 구성, 로컬 재현 |
 | CI/CD | [`.github/workflows/ci.yml`](./.github/workflows/ci.yml), [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) | 테스트·이미지 빌드·배포 |
 | 이슈·PR 템플릿 | [`.github/ISSUE_TEMPLATE/`](./.github/ISSUE_TEMPLATE), [`.github/PULL_REQUEST_TEMPLATE.md`](./.github/PULL_REQUEST_TEMPLATE.md) | 작업 단위·리뷰 양식 |
 
@@ -715,5 +739,6 @@ cd frontend && npm run test
 - **정산 지급 자동화**: 지급은 운영자가 송금 확인번호를 기록하는 수동 방식(`MARK_PAID`)입니다.
 - **부스 대기열 알림**: 현재 챗봇 위젯의 15초 폴링(`/api/booth-waitlists/me/active`)으로 차례를 확인합니다. 푸시·WebSocket 알림으로 바꿀 수 있습니다.
 - **스키마 마이그레이션 도구 도입**: 전 서비스가 `ddl-auto: update`로 스키마를 관리합니다.
-- **테스트 보강**: 운영자 회원 정지(`AdminUserService`), 페스티벌 공개 재시도(`FestivalPublishRetryScheduler`), 운영 현황·대시보드 요약(`FestivalOperationService`, `AdminSummaryService`) 전용 테스트가 없습니다.
+- **테스트 보강**: 운영자 회원 정지(`AdminUserService`), 운영 현황·대시보드 요약(`FestivalOperationService`, `AdminSummaryService`) 전용 테스트가 없고, 여러 서비스를 함께 띄우는 자동 E2E 테스트도 없습니다(페스티벌 공개 재시도는 PR #365에서 추가).
+- **트래픽 대기열**: Story 12(대기열)는 구현하지 않았습니다. 초과 판매는 재고 조건부 차감과 구매 한도 잠금으로 막고 있으며, 예매가 몰리는 순간의 대기 관리는 후속 과제입니다(부하 테스트 절의 다음 단계).
 

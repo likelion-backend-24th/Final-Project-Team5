@@ -2,6 +2,7 @@
 
 - Parent Story: [GitHub Story `#번호`·링크]
 - 관련 Task: [GitHub Task `#번호`·링크]
+- Closes #[이 PR로 끝나는 이슈 번호, 없으면 줄 삭제]
 - Sprint Goal에 기여하는 결과: [입력]
 
 ## 계약·데이터 영향

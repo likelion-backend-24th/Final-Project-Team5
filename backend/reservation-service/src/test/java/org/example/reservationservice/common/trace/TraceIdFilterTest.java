@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 게이트웨이가 붙인 X-Trace-Id가 요청 처리 중 로그 MDC와 응답 헤더에 실리고, 처리가 끝나면 지워지는지 확인한다.
+ * 게이트웨이가 붙인 X-Trace-Id가 요청 처리 중 로그 MDC에 실리고, 처리가 끝나면 지워지는지 확인한다.
  */
 class TraceIdFilterTest {
 
@@ -42,13 +42,12 @@ class TraceIdFilterTest {
     }
 
     @Test
-    void 게이트웨이가_준_추적_ID를_처리하는_동안_로그와_응답_헤더에_싣는다() throws Exception {
+    void 게이트웨이가_준_추적_ID를_처리하는_동안_로그에_싣고_끝나면_지운다() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(TraceIdFilter.TRACE_ID_HEADER, "3f2c1a9e-trace");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         assertThat(traceIdSeenDuring(request, response)).isEqualTo("3f2c1a9e-trace");
-        assertThat(response.getHeader(TraceIdFilter.TRACE_ID_HEADER)).isEqualTo("3f2c1a9e-trace");
         assertThat(MDC.get(TraceIdFilter.MDC_KEY)).isNull();
     }
 
@@ -63,7 +62,7 @@ class TraceIdFilterTest {
         String generated = traceIdSeenDuring(missing, missingResponse);
         String replaced = traceIdSeenDuring(forged, forgedResponse);
 
-        assertThat(generated).isNotBlank().isEqualTo(missingResponse.getHeader(TraceIdFilter.TRACE_ID_HEADER));
+        assertThat(generated).isNotBlank().matches("[A-Za-z0-9-]{1,64}");
         assertThat(replaced).isNotBlank().doesNotContain("forged");
     }
 

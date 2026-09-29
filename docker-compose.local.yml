@@ -1,0 +1,98 @@
+# 새로 clone한 PC에서 인증서·운영 이미지·사전 빌드 없이 전체 스택을 한 번에 띄우는 로컬 재현용 override.
+#
+#   cp .env.example .env
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#   → http://localhost:8088 (화면과 API가 같은 출처)
+#
+# - 백엔드 5개는 backend/Dockerfile.local이 이미지 안에서 bootJar까지 빌드한다(./gradlew 선행 불필요).
+# - nginx는 인증서 없는 HTTP 설정(nginx-local/default.conf)을 쓴다.
+# - 운영형 compose와 섞이지 않도록 프로젝트 이름·컨테이너 이름을 따로 쓰고, DB 볼륨도 새로 만든다.
+#   (DB 3307·게이트웨이 8080을 호스트에 열지 않아 이미 떠 있는 개발용 컨테이너와 포트가 겹치지 않는다.)
+# - .env.example의 기본 비밀값을 허용하고(REQUIRE_CONFIGURED_SECRETS=false),
+#   auth-service가 로컬 전용 시드 계정(운영자·부스 운영자·참가자, 비밀번호는 .env의 LOCAL_SEED_PASSWORD)을 만든다.
+# - 메일 인증 가입·소셜 로그인·PortOne 결제·Gemini·카카오맵은 .env에 실제 키를 넣었을 때만 동작한다.
+# - !reset·!override 태그는 Docker Compose 2.24 이상이 필요하다.
+name: fevalgo-local
+
+services:
+  core-db:
+    container_name: fevalgo-local-core-db
+    ports: !reset []
+
+  auth-service:
+    container_name: fevalgo-local-auth-service
+    image: fevalgo-local/auth-service
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.local
+      args:
+        SERVICE: auth-service
+    environment:
+      REQUIRE_CONFIGURED_SECRETS: "false"
+      LOCAL_SEED_ENABLED: "true"
+      FRONTEND_URL: http://localhost:8088
+
+  festival-service:
+    container_name: fevalgo-local-festival-service
+    image: fevalgo-local/festival-service
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.local
+      args:
+        SERVICE: festival-service
+    environment:
+      REQUIRE_CONFIGURED_SECRETS: "false"
+    volumes: !override
+      - ./backend/festival-service/savedimage:/app/savedimage
+
+  reservation-service:
+    container_name: fevalgo-local-reservation-service
+    image: fevalgo-local/reservation-service
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.local
+      args:
+        SERVICE: reservation-service
+    environment:
+      REQUIRE_CONFIGURED_SECRETS: "false"
+
+  payment-service:
+    container_name: fevalgo-local-payment-service
+    image: fevalgo-local/payment-service
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.local
+      args:
+        SERVICE: payment-service
+    environment:
+      REQUIRE_CONFIGURED_SECRETS: "false"
+      # PortOne 웹훅 검증기는 기동 때 비밀값을 base64로 읽어서 .env.example의 자리표시(CHANGE_ME_IN_ENV)로는 뜨지 않는다.
+      # localhost로는 PortOne 웹훅이 오지 않으므로, 로컬에서는 형식만 맞춘 값("local-only-webhook-secret")을 쓴다.
+      PORTONE_WEBHOOK_SECRET: whsec_bG9jYWwtb25seS13ZWJob29rLXNlY3JldA==
+
+  gateway:
+    container_name: fevalgo-local-gateway
+    image: fevalgo-local/gateway
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.local
+      args:
+        SERVICE: gateway
+    environment:
+      REQUIRE_CONFIGURED_SECRETS: "false"
+    ports: !reset []
+
+  frontend:
+    container_name: fevalgo-local-frontend
+    image: fevalgo-local/frontend
+    build:
+      args:
+        VITE_API_BASE_URL: http://localhost:8088
+
+  nginx:
+    container_name: fevalgo-local-nginx
+    ports: !override
+      - "8088:80"
+    volumes: !override
+      - ./nginx-local:/etc/nginx/conf.d:ro
+      - ./backend/festival-service/savedimage:/var/www/savedimage:ro

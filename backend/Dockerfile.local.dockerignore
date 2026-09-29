@@ -1,0 +1,8 @@
+# Dockerfile.local 전용 빌드 컨텍스트 제외 목록(운영 이미지는 서비스 폴더를 컨텍스트로 써서 이 파일을 읽지 않는다).
+**/build
+**/.gradle
+**/out
+**/.idea
+**/savedimage
+**/*.iml
+.env
